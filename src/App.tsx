@@ -1,11 +1,18 @@
-import { useState } from 'react'
+import Layout from './pages/layout'
+import PatientTable from './pages/PatientList'
 
 function App() {
-  const [count, setCount] = useState(0)
 
   return (
     <>
-      <h1 className='bg-green-400 text-black '>Tailwind CSS</h1>
+      {/* <Home/> */}
+      {/* <PatientTable/> */}
+      {/* <Navbar/> */}
+      <Layout>
+        <PatientTable />
+        {/* <AppointmentTable/> */}
+        {/* <DoctorTable/> */}
+      </Layout>
     </>
   )
 }
