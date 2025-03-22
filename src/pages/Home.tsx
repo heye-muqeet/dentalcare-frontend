@@ -1,11 +1,11 @@
-import bar_chart from "../../src/assets/icon/bar_chart.png";
-import calender_add from "../../src/assets/icon/calender_add.png";
-import vase from "../../src/assets/icons/vase.png";
-import users from "../../src/assets/icon/users.png";
-import document_chart from "../../src/assets/icons/document_chart.png";
-import user from "../../src/assets/icon/user.png";
-import setting from "../../src/assets/icon/setting.png";
-import logout from "../../src/assets/icon/logout.png";
+import { icons } from "../assets";
+import Icon from "../components/Icons";
+
+interface MenuItemProps {
+  icon: keyof typeof icons; // 'icon' will be a key from the 'icons' object
+  text: string;
+}
+
 
 function Home() {
   return (
@@ -18,33 +18,33 @@ function Home() {
 
       {/* Menu Items */}
       <div className="space-y-1">
-        <MenuItem icon={bar_chart} text="Dashboard" />
-        <MenuItem icon={calender_add} text="Doctor Appointment" />
-        <MenuItem icon={vase} text="Lab Appointment" />
-        <MenuItem icon={users} text="Patients List" />
+        <MenuItem icon="bar_chart" text="Dashboard" />
+        <MenuItem icon="calender_add" text="Doctor Appointment" />
+        <MenuItem icon="vase" text="Lab Appointment" />
+        <MenuItem icon="users" text="Patients List" />
 
         <div className="bg-gray-200 h-0.5 w-full my-2"></div>
 
-        <MenuItem icon={document_chart} text="Billing" />
-        <MenuItem icon={user} text="Account" />
+        <MenuItem icon="document_chart" text="Billing" />
+        <MenuItem icon="user" text="Account" />
 
         <div className="bg-gray-200 h-0.5 w-full my-2"></div>
 
-        <MenuItem icon={setting} text="Settings" />
-        <MenuItem icon={logout} text="Log Out" />
+        <MenuItem icon="settings" text="Settings" />
+        <MenuItem icon="logout" text="Log Out" />
       </div>
     </div>
   );
 }
 
 // Reusable Menu Item Component
-function MenuItem({ icon, text }) {
+function MenuItem({ icon, text }: MenuItemProps) {
   return (
     <div
       className="flex items-center space-x-3 p-3 rounded-lg cursor-pointer 
       text-gray-700 text-[13px] font-medium hover:bg-blue-100 transition-all duration-200"
     >
-      <img src={icon} className="w-4 h-4" />
+      <Icon name={icon} width="w-4" height="h-4" />
       <span>{text}</span>
     </div>
   );
