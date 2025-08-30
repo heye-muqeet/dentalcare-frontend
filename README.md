@@ -1,70 +1,111 @@
-# Getting Started with Create React App
+# Dental Practice Management System
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A comprehensive dental practice management system built with React, TypeScript, and Vite. Features include appointment scheduling, patient management, treatment tracking, and AI-powered dental X-ray analysis.
 
-## Available Scripts
+## 🚀 Features
 
-In the project directory, you can run:
+- **Patient Management**: Complete patient records with medical history
+- **Appointment Scheduling**: Advanced booking system with time slot management
+- **Treatment Tracking**: Detailed treatment records with medication management
+- **Services Management**: Configurable dental services and pricing
+- **Role-Based Access Control**: Owner, Receptionist, and Doctor roles
+- **AI-Powered X-ray Analysis**: Automated dental radiograph analysis using Google Gemini AI
+- **Report Management**: Upload and analyze medical reports with AI assistance
 
-### `npm start`
+## 🤖 AI-Powered Dental X-ray Analysis
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+This system includes advanced AI capabilities for analyzing dental X-rays using **Google Gemini AI**:
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### Features:
+- **Automatic X-ray Validation**: Detects if uploaded images are actually dental X-rays
+- **Comprehensive Analysis**: Provides detailed findings about dental structures, bone density, and abnormalities
+- **Condition Detection**: Identifies common dental conditions like caries, bone loss, impactions
+- **Clinical Recommendations**: Suggests follow-up actions and clinical correlations
+- **Confidence Scoring**: Provides confidence levels for analysis results
+- **Professional Medical Analysis**: Uses Google's advanced AI for high-quality medical image analysis
 
-### `npm test`
+### 🆓 Google Gemini API (FREE)
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- **Free Tier**: 60 requests per minute, 1500 requests per day
+- **Get API Key**: [Google AI Studio](https://makersuite.google.com/app/apikey)
+- **High-quality image analysis** with generous free limits
+- **Specifically optimized** for medical and dental imaging
 
-### `npm run build`
+### Setup:
+1. Get your free Google Gemini API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Create a `.env` file in the project root:
+   ```env
+   VITE_GEMINI_API_KEY=your_gemini_api_key_here
+   ```
+3. Restart your development server
+4. The system will automatically validate images and provide AI analysis
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Usage:
+1. Navigate to Appointment Details
+2. Click "Attach New Report"
+3. Upload a dental X-ray image
+4. Click "Analyze X-ray" for AI-powered analysis
+5. Review findings, detected conditions, and recommendations
+6. Use AI findings to populate the report or add manual notes
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### 🔒 Image Validation:
+The system automatically validates that uploaded images are actually dental X-rays and will reject:
+- Regular photos
+- Pictures of animals or people
+- Non-medical images
+- Other types of medical scans
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Only genuine dental radiographs will be analyzed!
 
-### `npm run eject`
+## 🛠️ Development
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Currently, two official plugins are available:
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Expanding the ESLint configuration
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
 
-## Learn More
+```js
+export default tseslint.config({
+  extends: [
+    // Remove ...tseslint.configs.recommended and replace with this
+    ...tseslint.configs.recommendedTypeChecked,
+    // Alternatively, use this for stricter rules
+    ...tseslint.configs.strictTypeChecked,
+    // Optionally, add this for stylistic rules
+    ...tseslint.configs.stylisticTypeChecked,
+  ],
+  languageOptions: {
+    // other options...
+    parserOptions: {
+      project: ['./tsconfig.node.json', './tsconfig.app.json'],
+      tsconfigRootDir: import.meta.dirname,
+    },
+  },
+})
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
 
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+export default tseslint.config({
+  plugins: {
+    // Add the react-x and react-dom plugins
+    'react-x': reactX,
+    'react-dom': reactDom,
+  },
+  rules: {
+    // other rules...
+    // Enable its recommended typescript rules
+    ...reactX.configs['recommended-typescript'].rules,
+    ...reactDom.configs.recommended.rules,
+  },
+})
+```
