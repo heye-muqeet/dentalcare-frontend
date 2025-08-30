@@ -1,9 +1,5 @@
 {
-<<<<<<< HEAD
-  "name": "dental-clinic",
-=======
   "name": "dentalcare-frontend",
->>>>>>> f838246f65dfb83cf91b3b75bed3392ca020fcac
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -14,32 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-<<<<<<< HEAD
-    "@reduxjs/toolkit": "^2.8.2",
-    "@tailwindcss/vite": "^4.1.6",
-    "axios": "^1.6.7",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-hot-toast": "^2.5.2",
-    "react-icons": "^5.5.0",
-    "react-redux": "^9.2.0",
-    "react-router-dom": "^7.6.0",
-    "react-select": "^5.10.1",
-    "tailwindcss": "^4.1.6"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.25.0",
-    "@types/react": "^19.1.2",
-    "@types/react-dom": "^19.1.2",
-    "@vitejs/plugin-react": "^4.4.1",
-    "eslint": "^9.25.0",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.19",
-    "globals": "^16.0.0",
-    "typescript": "~5.8.3",
-    "typescript-eslint": "^8.30.1",
-    "vite": "^6.3.5"
-=======
     "@tailwindcss/vite": "^4.0.15",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -58,6 +28,5 @@
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.24.1",
     "vite": "^6.2.0"
->>>>>>> f838246f65dfb83cf91b3b75bed3392ca020fcac
   }
 }
