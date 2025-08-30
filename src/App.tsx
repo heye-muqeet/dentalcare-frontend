@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { RouterProvider } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { store } from './lib/store/store';
@@ -32,3 +33,25 @@ function App() {
 }
 
 export default App;
+=======
+import Layout from './pages/layout'
+import PatientTable from './pages/PatientList'
+
+function App() {
+
+  return (
+    <>
+      {/* <Home/> */}
+      {/* <PatientTable/> */}
+      {/* <Navbar/> */}
+      <Layout>
+        <PatientTable />
+        {/* <AppointmentTable/> */}
+        {/* <DoctorTable/> */}
+      </Layout>
+    </>
+  )
+}
+
+export default App
+>>>>>>> f838246f65dfb83cf91b3b75bed3392ca020fcac

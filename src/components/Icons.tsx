@@ -13,4 +13,8 @@ const Icon: React.FC<IconProps> = ({ name, width = "w-6", height = "h-4", alt = 
     return <img src={icon} alt={alt} className={`${width} ${height} object-contain`} />;
 };
 
+<<<<<<< HEAD
 export default Icon;
+=======
+export default Icon;
+>>>>>>> f838246f65dfb83cf91b3b75bed3392ca020fcac
