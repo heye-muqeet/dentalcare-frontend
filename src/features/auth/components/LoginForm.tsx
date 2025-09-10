@@ -11,26 +11,39 @@ export function LoginForm() {
   
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { isLoading, error, isAuthenticated } = useAppSelector((state: RootState) => state.auth);
+  const { isLoading, error, isAuthenticated, user } = useAppSelector((state: RootState) => state.auth);
 
+  // Navigate to dashboard after successful login
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/dashboard');
+    console.log('LoginForm useEffect triggered:', { isAuthenticated, user: !!user });
+    if (isAuthenticated && user) {
+      console.log('Navigating to dashboard after successful login');
+      // Use setTimeout to avoid potential race conditions
+      setTimeout(() => {
+        navigate('/dashboard', { replace: true });
+      }, 100);
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     dispatch(clearError());
-    await dispatch(login({ email, password }));
+    console.log('Dispatching login action...');
+    const result = await dispatch(login({ email, password }));
+    console.log('Login action result:', result);
+    
+    // Navigate immediately if login was successful
+    if (result.type === 'auth/login/fulfilled') {
+      console.log('Login successful, navigating to dashboard...');
+      navigate('/dashboard', { replace: true });
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center px-4">
       <div className="absolute top-6 left-6">
         <div 
-          className="text-3xl font-bold text-[#0A0F56] cursor-pointer" 
-          onClick={() => navigate('/login')}
+          className="text-3xl font-bold text-[#0A0F56]"
         >
       
         </div>

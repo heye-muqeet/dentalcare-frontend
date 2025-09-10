@@ -14,7 +14,7 @@ interface AuthState {
 const initialState: AuthState = {
   user: null,
   isAuthenticated: false,
-  isLoading: true,
+  isLoading: false,
   error: null,
 };
 
@@ -23,8 +23,12 @@ export const login = createAsyncThunk(
   async (credentials: LoginCredentials, { rejectWithValue }) => {
     try {
       const response = await authService.login(credentials);
-      console.log(response);
-      return response.data;
+      console.log('Login response:', response);
+      console.log('Response.data:', response.data);
+      console.log('Response structure:', JSON.stringify(response, null, 2));
+      // Return the user data from response.data (since response is LoginResponse and data contains User)
+      // Check if response has user property and return that instead
+      return response.user || response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.error?.message || error.response?.data?.message || 'Login failed');
     }
@@ -98,7 +102,10 @@ const authSlice = createSlice({
       })
       // Get Profile
       .addCase(getProfile.pending, (state) => {
-        state.isLoading = true;
+        // Only set loading if we don't already have a user
+        if (!state.user) {
+          state.isLoading = true;
+        }
         state.error = null;
       })
       .addCase(getProfile.fulfilled, (state, action) => {

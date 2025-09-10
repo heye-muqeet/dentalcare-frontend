@@ -1,35 +1,111 @@
-import { useAppSelector } from '../../lib/hooks';
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAppSelector, useAppDispatch } from '../../lib/hooks';
+import { logoutUser } from '../../lib/store/slices/authSlice';
 import type { RootState } from '../../lib/store/store';
 
 export function Topbar() {
   const { user } = useAppSelector((state: RootState) => state.auth);
-  console.log('Redux user:', user);
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  
+  const [isClinicDropdownOpen, setIsClinicDropdownOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  
+  const clinicDropdownRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (clinicDropdownRef.current && !clinicDropdownRef.current.contains(event.target as Node)) {
+        setIsClinicDropdownOpen(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await dispatch(logoutUser()).unwrap();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Even if logout fails, redirect to login
+      navigate('/login');
+    }
+  };
 
   return (
     <nav className="bg-[#0A0F56] text-white px-6 py-0.75 flex items-center justify-between shadow-md">
       
     {/* Left: Clinic Info */}
-    <div className="flex items-center space-x-2 bg-[#1E2358] px-4 py-2 rounded-lg">
-      <img 
-        src="https://www.creativefabrica.com/wp-content/uploads/2019/05/Medical-healthy-clinic-logo-concept-by-DEEMKA-STUDIO-1-580x406.jpg" 
-        alt="Clinic Logo" 
-        className="w-8 h-8 rounded-full"
-      />
-      <div className="text-sm">
-        <p className="font-medium">{user?.organization?.name || 'Clinic Name'}</p>
-        <p className="text-gray-300">{user?.organization?.address || 'Clinic Address'}</p>
+    <div className="relative" ref={clinicDropdownRef}>
+      <div 
+        className="flex items-center space-x-2 bg-[#1E2358] px-4 py-2 rounded-lg cursor-pointer hover:bg-[#252A66] transition-colors"
+        onClick={() => setIsClinicDropdownOpen(!isClinicDropdownOpen)}
+      >
+        <img 
+          src="https://www.creativefabrica.com/wp-content/uploads/2019/05/Medical-healthy-clinic-logo-concept-by-DEEMKA-STUDIO-1-580x406.jpg" 
+          alt="Clinic Logo" 
+          className="w-8 h-8 rounded-full"
+        />
+        <div className="text-sm">
+          <p className="font-medium">{user?.organization?.name || 'Loading...'}</p>
+          <p className="text-gray-300">{user?.organization?.address || 'Clinic Address'}</p>
+        </div>
+        <button className={`text-gray-300 ml-2 transition-transform ${isClinicDropdownOpen ? 'rotate-180' : ''}`}>
+          ▼
+        </button>
       </div>
-      <button className="text-gray-300 ml-2">▼</button>
+
+      {/* Clinic Dropdown Menu */}
+      {isClinicDropdownOpen && (
+        <div className="absolute top-full left-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+          <div className="p-4">
+            <div className="flex items-center space-x-3 mb-3">
+              <img 
+                src="https://www.creativefabrica.com/wp-content/uploads/2019/05/Medical-healthy-clinic-logo-concept-by-DEEMKA-STUDIO-1-580x406.jpg" 
+                alt="Clinic Logo" 
+                className="w-12 h-12 rounded-full"
+              />
+              <div>
+                <h3 className="font-semibold text-gray-900">{user?.organization?.name || 'Clinic Name'}</h3>
+                <p className="text-sm text-gray-600">{user?.organization?.address || 'Clinic Address'}</p>
+              </div>
+            </div>
+            <div className="border-t pt-3">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-500">Status</p>
+                  <p className="font-medium text-green-600">Active</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Your Role</p>
+                  <p className="font-medium text-gray-900 capitalize">{user?.role || 'N/A'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
 
     {/* Right: Icons & Profile */}
     <div className="flex items-center space-x-4">
       
-      {/* Chat & Notification Icons */}
-      {/* <button className="bg-[#1E2358] p-2 rounded-md">
+      {/* Chat & Notification Icons - Commented out for now */}
+      {/* <button className="bg-[#1E2358] p-2 rounded-md hover:bg-[#252A66] transition-colors">
         💬
       </button>
-      <button className="bg-[#1E2358] p-2 rounded-md">
+      <button className="bg-[#1E2358] p-2 rounded-md hover:bg-[#252A66] transition-colors">
         🔔
       </button> */}
 
@@ -49,8 +125,54 @@ export function Topbar() {
         </div>
       </div>
 
-      {/* More Options */}
-      <button className="bg-[#1E2358] p-2 rounded-md">⋯</button>
+      {/* More Options - Three Dots Menu */}
+      <div className="relative" ref={userMenuRef}>
+        <button 
+          className="bg-[#1E2358] p-2 rounded-md hover:bg-[#252A66] transition-colors"
+          onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+        >
+          ⋯
+        </button>
+
+        {/* User Menu Dropdown */}
+        {isUserMenuOpen && (
+          <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+            <div className="py-1">
+              <button
+                onClick={() => {
+                  setIsUserMenuOpen(false);
+                  navigate('/profile');
+                }}
+                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <span className="mr-3">👤</span>
+                Profile Settings
+              </button>
+              <button
+                onClick={() => {
+                  setIsUserMenuOpen(false);
+                  navigate('/settings');
+                }}
+                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <span className="mr-3">⚙️</span>
+                Settings
+              </button>
+              <div className="border-t border-gray-100 my-1"></div>
+              <button
+                onClick={() => {
+                  setIsUserMenuOpen(false);
+                  handleLogout();
+                }}
+                className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <span className="mr-3">🚪</span>
+                Logout
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
     </div>
   </nav>

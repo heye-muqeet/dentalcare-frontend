@@ -1,3 +1,34 @@
+# Dental Practice Management System (Frontend)
+
+React + TypeScript + Vite SPA for the Dental Care platform. Implements role-based routing, Redux Toolkit state, Axios API layer with credentials, and optional AI-powered analysis.
+
+## Quick Start
+```bash
+npm install
+npm run dev
+# http://localhost:5173
+```
+
+## Environment
+Create `.env`:
+```env
+VITE_API_BASE_URL=http://localhost:1337
+# Optional:
+VITE_GEMINI_API_KEY=your_gemini_api_key
+```
+
+## Scripts
+- dev: Run dev server
+- build: Type-check + build
+- preview: Preview production build
+- lint: ESLint
+
+## Documentation
+- Detailed frontend docs: `./DOCUMENTATION.md`
+- Full project docs: `../DOCUMENTATION.md`
+
+---
+
 # Dental Practice Management System
 
 A comprehensive dental practice management system built with React, TypeScript, and Vite. Features include appointment scheduling, patient management, treatment tracking, and AI-powered dental X-ray analysis.

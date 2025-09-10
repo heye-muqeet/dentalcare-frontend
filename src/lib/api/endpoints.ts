@@ -1,5 +1,5 @@
-const BASE_URL = 'https://dental-backend-htv7.onrender.com';
-// const BASE_URL = 'http://localhost:1337';
+// const BASE_URL = 'https://dental-backend-htv7.onrender.com';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:1337';
 
 export const API_ENDPOINTS = {
   // Auth endpoints

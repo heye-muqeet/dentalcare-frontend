@@ -15,9 +15,19 @@ export function RoleBasedRoute({
   requiredRoles, 
   redirectPath 
 }: RoleBasedRouteProps) {
-  const user = useSelector((state: RootState) => state.auth.user);
+  const { user, isLoading, isAuthenticated } = useSelector((state: RootState) => state.auth);
 
-  if (!user) {
+  // Show loading spinner while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#0A0F56]"></div>
+      </div>
+    );
+  }
+
+  // Only redirect to login if we're sure the user is not authenticated
+  if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
 
