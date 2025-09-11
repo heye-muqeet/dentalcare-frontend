@@ -4,6 +4,7 @@ import { EditDoctorModal } from './EditDoctorModal';
 import type { User } from '../../lib/api/services/users';
 import InitialAvatar from '../Common/InitialAvatar';
 import { getInitials } from '../../lib/utils/stringUtils';
+import { calculateAge } from '../../lib/utils/dateUtils';
 
 interface DoctorCardProps {
   doctor: User;
@@ -55,8 +56,8 @@ export function DoctorCard({ doctor, onEdit, isUpdating, userRole }: DoctorCardP
               <div className="text-xs text-gray-500 mt-1 capitalize">
                 {doctor.gender || 'Not specified'} • 
                 {doctor.dateOfBirth ? 
-                  new Date(doctor.dateOfBirth).toLocaleDateString() : 
-                  'DOB not specified'} • 
+                  `${calculateAge(doctor.dateOfBirth)} years (${new Date(doctor.dateOfBirth).toLocaleDateString()})` : 
+                  'Age not specified'} • 
                 {doctor.experience || 0} years experience
               </div>
             </div>
