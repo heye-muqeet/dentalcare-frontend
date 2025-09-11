@@ -41,22 +41,22 @@ export default function DoctorAppointment() {
       // Refresh the doctors list
       dispatch(fetchDoctors());
     } catch (error: any) {
-      console.error('Error in handleAddDoctor:', error);
+      console.error('Error in handleAddDoctor, raw error:', error);
       
-      // Check for specific error cases
-      if (typeof error === 'string') {
-        if (error.includes('401') || error.includes('unauthorized') || error.includes('Unauthorized')) {
-          toast.error('You do not have permission to add doctors. Only clinic owners can add doctors.');
-        } else if (error.includes('Email already in use with this role in this organization')) {
-          toast.error('This email is already registered as a doctor in this organization. Please use a different email.');
-        } else if (error.includes('Email already in use') || error.includes('duplicate') || error.includes('already in use')) {
-          toast.error('This email is already registered. Please use a different email.');
-        } else {
-          toast.error(error);
-        }
+      // The error should come as a string from our redux thunk
+      const errorMessage = typeof error === 'string' ? error : 'Failed to add doctor. Please try again.';
+      console.log('Error message to process:', errorMessage);
+      
+      // Process common error patterns with exact matching
+      if (errorMessage === 'Email already in use with this role in this organization') {
+        toast.error('This email is already registered as a doctor in this organization. Please use a different email.');
+      } else if (errorMessage.startsWith('Email already in use')) {
+        toast.error('This email is already registered. Please use a different email.');
+      } else if (errorMessage.includes('401') || errorMessage.includes('unauthorized') || errorMessage.includes('Unauthorized')) {
+        toast.error('You do not have permission to add doctors. Only clinic owners can add doctors.');
       } else {
-        // Show a more user-friendly error message
-        toast.error('Failed to add doctor. Please try again.');
+        // Default case - show the actual error message
+        toast.error(errorMessage);
       }
     }
   };

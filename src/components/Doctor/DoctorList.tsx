@@ -51,7 +51,7 @@ export function DoctorList() {
 
   return (
     <div>
-      {Array.isArray(doctors) && doctors.map((doctor: User) => (
+      {Array.isArray(doctors) && doctors.filter(doctor => doctor && doctor.id).map((doctor: User) => (
         <DoctorCard
           key={doctor.id}
           doctor={doctor}

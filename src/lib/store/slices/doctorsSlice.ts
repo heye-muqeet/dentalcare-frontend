@@ -45,11 +45,24 @@ export const createDoctor = createAsyncThunk(
         ...doctorData,
         role: 'doctor',
       });
-      // Based on the Postman collection structure: response.data.user contains the created user
-      return response.data?.data?.user;
+      // Log the full response to debug the structure
+      console.log('Create doctor response:', response);
+      // Extract the user based on observed structure
+      const newDoctor = response?.data || response;
+      console.log('Extracted doctor data:', newDoctor);
+      
+      // Return user data or null if not found
+      return newDoctor;
     } catch (error: any) {
-      console.log('Error creating doctor:', error.response?.data?.message || error.message);
-      return rejectWithValue(error.response?.data?.message || error.message || 'Failed to create doctor');
+      // Log detailed error information
+      console.log('Error creating doctor, full error:', error);
+      console.log('Error response data:', error.response?.data);
+      console.log('Error message from backend:', error.response?.data?.message);
+      
+      // Return the most specific error message available
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to create doctor';
+      console.log('Final error message being sent to component:', errorMessage);
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -92,7 +105,12 @@ const doctorsSlice = createSlice({
       })
       .addCase(createDoctor.fulfilled, (state, action) => {
         state.isCreating = false;
-        state.doctors.push(action.payload);
+        // Only push to doctors array if we have a valid doctor with an ID
+        if (action.payload && action.payload.id) {
+          state.doctors.push(action.payload);
+        } else {
+          console.warn('Received invalid doctor data:', action.payload);
+        }
       })
       .addCase(createDoctor.rejected, (state, action) => {
         state.isCreating = false;
@@ -116,4 +134,4 @@ const doctorsSlice = createSlice({
   },
 });
 
-export default doctorsSlice.reducer; 
+export default doctorsSlice.reducer;
