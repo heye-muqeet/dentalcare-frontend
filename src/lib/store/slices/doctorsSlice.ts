@@ -28,9 +28,11 @@ export const fetchDoctors = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await userService.getDoctors();
-      return response.data || []; // assuming response has data property containing doctor array
+      // Based on the Postman collection structure: response.data.users would contain the doctors array
+      return response.data?.users || [];
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error?.message || error.response?.data?.message || 'Failed to fetch doctors');
+      console.log('Error fetching doctors:', error.response?.data?.message || error.message);
+      return rejectWithValue(error.response?.data?.message || error.message || 'Failed to fetch doctors');
     }
   }
 );
@@ -43,10 +45,11 @@ export const createDoctor = createAsyncThunk(
         ...doctorData,
         role: 'doctor',
       });
-      return response.data;
+      // Based on the Postman collection structure: response.data.user contains the created user
+      return response.data?.data?.user;
     } catch (error: any) {
-      console.log(error.response.data.error.message);
-      return rejectWithValue(error.response?.data?.error?.message || error.response?.data?.message || 'Failed to create doctor');
+      console.log('Error creating doctor:', error.response?.data?.message || error.message);
+      return rejectWithValue(error.response?.data?.message || error.message || 'Failed to create doctor');
     }
   }
 );
@@ -56,9 +59,11 @@ export const updateDoctor = createAsyncThunk(
   async ({ id, doctorData }: { id: string; doctorData: Partial<DoctorFormData> }, { rejectWithValue }) => {
     try {
       const response = await userService.updateUser(id, doctorData);
-      return response.data;
+      // Based on Postman collection structure
+      return response.data?.data || response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error?.message || error.response?.data?.message || 'Failed to update doctor');
+      console.log('Error updating doctor:', error.response?.data?.message || error.message);
+      return rejectWithValue(error.response?.data?.message || error.message || 'Failed to update doctor');
     }
   }
 );

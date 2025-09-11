@@ -41,17 +41,17 @@ export function DoctorList() {
     );
   }
 
-  if (doctors.length === 0) {
+  if (doctors?.length === 0) {
     return (
       <div className="text-gray-500 p-4 bg-gray-50 rounded-md">
-        No doctors found.
+        No doctors found. Add a new doctor by clicking the "Add Doctor" button.
       </div>
     );
   }
 
   return (
     <div>
-      {doctors.map((doctor: User) => (
+      {Array.isArray(doctors) && doctors.map((doctor: User) => (
         <DoctorCard
           key={doctor.id}
           doctor={doctor}

@@ -55,6 +55,8 @@ export const userService = {
 
   getDoctors: async () => {
     const response = await api.get(API_ENDPOINTS.USERS.DOCTORS);
+    // According to the Postman collection, response should include a success property
+    // and the actual data is within data property
     return response.data;
   },
 

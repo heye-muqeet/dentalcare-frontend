@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DoctorList } from '../components/Doctor/DoctorList';
 // import { DoctorPagination } from '../components/Doctor/DoctorPagination';
 import { AddDoctorModal } from '../components/Doctor/AddDoctorModal';
 import type { DoctorFormData } from '../components/Doctor/AddDoctorModal';
 import { FaPlus } from 'react-icons/fa';
 import { useAppDispatch, useAppSelector } from '../lib/hooks';
-import { createDoctor } from '../lib/store/slices/doctorsSlice';
+import { createDoctor, fetchDoctors } from '../lib/store/slices/doctorsSlice';
 import { toast } from 'react-hot-toast';
 import type { RootState } from '../lib/store/store';
 
@@ -18,6 +18,11 @@ export default function DoctorAppointment() {
   
   // Check user role
   const isOwner = user?.role === 'owner';
+  
+  // Fetch doctors when component mounts
+  useEffect(() => {
+    dispatch(fetchDoctors());
+  }, [dispatch]);
 
   const handleAddDoctor = async (doctorData: DoctorFormData) => {
     // Check if user is owner before proceeding
@@ -32,17 +37,26 @@ export default function DoctorAppointment() {
       console.log('Doctor creation successful:', result);
       toast.success('Doctor added successfully');
       setIsModalOpen(false);
+      
+      // Refresh the doctors list
+      dispatch(fetchDoctors());
     } catch (error: any) {
       console.error('Error in handleAddDoctor:', error);
       
       // Check for specific error cases
-      if (error.includes('401') || error.includes('unauthorized') || error.includes('Unauthorized')) {
-        toast.error('You do not have permission to add doctors. Only clinic owners can add doctors.');
-      } else if (error.includes('Email already in use') || error.includes('duplicate')) {
-        toast.error('This email is already registered. Please use a different email.');
+      if (typeof error === 'string') {
+        if (error.includes('401') || error.includes('unauthorized') || error.includes('Unauthorized')) {
+          toast.error('You do not have permission to add doctors. Only clinic owners can add doctors.');
+        } else if (error.includes('Email already in use with this role in this organization')) {
+          toast.error('This email is already registered as a doctor in this organization. Please use a different email.');
+        } else if (error.includes('Email already in use') || error.includes('duplicate') || error.includes('already in use')) {
+          toast.error('This email is already registered. Please use a different email.');
+        } else {
+          toast.error(error);
+        }
       } else {
         // Show a more user-friendly error message
-        toast.error(typeof error === 'string' ? error : 'Failed to add doctor. Please try again.');
+        toast.error('Failed to add doctor. Please try again.');
       }
     }
   };
