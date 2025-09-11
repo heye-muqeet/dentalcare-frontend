@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { generateRandomPassword } from '../../lib/utils/passwordUtils';
+import { FiRefreshCw } from 'react-icons/fi';
 
 interface AddDoctorModalProps {
   isOpen: boolean;
@@ -32,6 +34,25 @@ export function AddDoctorModal({ isOpen, onClose, onSubmit, isSubmitting }: AddD
     password: '',
   });
 
+  // Generate a random password when the modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const randomPassword = generateRandomPassword(10);
+      setFormData(current => ({
+        ...current,
+        password: randomPassword
+      }));
+    }
+  }, [isOpen]);
+
+  const handleGenerateNewPassword = () => {
+    const randomPassword = generateRandomPassword(10);
+    setFormData(current => ({
+      ...current,
+      password: randomPassword
+    }));
+  };
+  
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit(formData);
@@ -41,7 +62,7 @@ export function AddDoctorModal({ isOpen, onClose, onSubmit, isSubmitting }: AddD
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-white/10 backdrop-blur-md">
-      <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg border border-gray-100 relative animate-fadeIn">
+      <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg border border-gray-100 relative animate-fadeIn max-h-[90vh] overflow-y-auto custom-scrollbar">
         <div className="flex justify-between items-center mb-2">
           <h2 className="text-2xl font-bold text-gray-900">Add New Doctor</h2>
           <button
@@ -160,17 +181,34 @@ export function AddDoctorModal({ isOpen, onClose, onSubmit, isSubmitting }: AddD
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0A0F56] bg-gray-50"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              disabled={isSubmitting}
-              minLength={6}
-              placeholder="Minimum 6 characters"
-            />
-            <p className="text-xs text-gray-500 mt-1">Password must be at least 6 characters long</p>
+            <div className="relative">
+              <input
+                type="text"
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0A0F56] bg-gray-50 pr-14"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                disabled={isSubmitting}
+                minLength={6}
+                placeholder="Auto-generated password"
+              />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleGenerateNewPassword();
+                }}
+                disabled={isSubmitting}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[#0A0F56] hover:text-blue-700 p-1 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                title="Generate new password"
+              >
+                <FiRefreshCw size={18} />
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1 flex justify-between items-center">
+              <span>Auto-generated secure password</span>
+              <span className="font-medium">Length: {formData.password.length} chars</span>
+            </p>
           </div>
           <div className="flex justify-end space-x-3 pt-2">
             <button
