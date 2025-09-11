@@ -66,8 +66,15 @@ export const userService = {
   },
 
   updateUser: async (id: string, data: Partial<CreateUserData>) => {
-    const response = await api.put(API_ENDPOINTS.USERS.BY_ID(id), data);
-    return response.data;
+    console.log(`API: Updating user ${id} with data:`, data);
+    try {
+      const response = await api.put(API_ENDPOINTS.USERS.BY_ID(id), data);
+      console.log('API: Update user response:', response);
+      return response.data;
+    } catch (error) {
+      console.error('API: Error updating user:', error);
+      throw error;
+    }
   },
 
   deleteUser: async (id: string) => {

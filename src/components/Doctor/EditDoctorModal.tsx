@@ -24,24 +24,96 @@ export function EditDoctorModal({ isOpen, onClose, onSubmit, isSubmitting, docto
   });
 
   useEffect(() => {
+    console.log('EditDoctorModal: doctor data received:', doctor);
     if (doctor) {
-      setFormData({
+      // Format dateOfBirth properly if it exists
+      console.log('DOB Debug - Raw doctor object:', JSON.stringify(doctor));
+      console.log('DOB Debug - dateOfBirth value:', doctor.dateOfBirth);
+      console.log('DOB Debug - dateOfBirth type:', typeof doctor.dateOfBirth);
+      
+      let formattedDateOfBirth = '';
+      
+      // Special handling for dateOfBirth
+      if (doctor.dateOfBirth) {
+        try {
+          console.log('DOB Debug - Attempting to parse date');
+          
+          // Handle various date formats
+          let date;
+          if (typeof doctor.dateOfBirth === 'string') {
+            // Try to extract date portion if it's an ISO string
+            if (doctor.dateOfBirth.includes('T')) {
+              formattedDateOfBirth = doctor.dateOfBirth.split('T')[0];
+              console.log('DOB Debug - Split ISO string to:', formattedDateOfBirth);
+            } else {
+              // Try to parse as date and reformat
+              date = new Date(doctor.dateOfBirth);
+              
+              // Check if valid date
+              if (!isNaN(date.getTime())) {
+                formattedDateOfBirth = date.toISOString().split('T')[0];
+                console.log('DOB Debug - Parsed and reformatted to:', formattedDateOfBirth);
+              } else {
+                console.log('DOB Debug - Invalid date after parsing');
+                formattedDateOfBirth = '';
+              }
+            }
+          } else {
+            // Try to handle it as a date object by using string methods
+            try {
+              const dateObj = new Date(doctor.dateOfBirth as any);
+              if (!isNaN(dateObj.getTime())) {
+                formattedDateOfBirth = dateObj.toISOString().split('T')[0];
+              }
+            } catch (e) {
+              console.error('Failed to process as Date object:', e);
+            }
+            console.log('DOB Debug - Date object converted to:', formattedDateOfBirth);
+          }
+        } catch (e) {
+          console.error('DOB Debug - Error formatting date:', e);
+          formattedDateOfBirth = '';
+        }
+      } else {
+        console.log('DOB Debug - No dateOfBirth provided');
+      }
+      
+      console.log('DOB Debug - Final formatted value:', formattedDateOfBirth);
+      
+      const newFormData = {
         email: doctor.email || '',
         name: doctor.name || '',
         gender: doctor.gender || '',
-        dateOfBirth: doctor.dateOfBirth || '',
-        experience: doctor.experience || 0,
+        dateOfBirth: formattedDateOfBirth,
+        experience: typeof doctor.experience === 'number' ? doctor.experience : 0,
         specialization: doctor.specialization || '',
         licenseNumber: doctor.licenseNumber || '',
         phone: doctor.phone || '',
         password: '',
-      });
+      };
+      console.log('EditDoctorModal: setting form data to:', newFormData);
+      setFormData(newFormData);
     }
   }, [doctor]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(doctor.id, formData);
+    console.log('Preparing to submit doctor update with:', formData);
+    
+    // Create a new object without password if it's empty
+    const { password, ...submissionDataWithoutPassword } = formData;
+    let submissionData = password ? formData : submissionDataWithoutPassword;
+    
+    // Ensure dateOfBirth is properly formatted
+    if (submissionData.dateOfBirth) {
+      // Already in YYYY-MM-DD format from the input
+      console.log('Submitting dateOfBirth:', submissionData.dateOfBirth);
+    } else {
+      console.log('No dateOfBirth to submit');
+    }
+    
+    console.log('Final submission data:', submissionData);
+    onSubmit(doctor.id, submissionData);
   };
 
   if (!isOpen) return null;
@@ -112,15 +184,29 @@ export function EditDoctorModal({ isOpen, onClose, onSubmit, isSubmitting, docto
           <div className="flex gap-4">
             <div className="flex-1">
               <label className="block text-sm font-semibold text-gray-700 mb-1">Date of Birth</label>
-              <input
-                type="date"
-                required
-                max={new Date().toISOString().split('T')[0]}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0A0F56] bg-gray-50"
-                value={formData.dateOfBirth}
-                onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                disabled={isSubmitting}
-              />
+              <div className="relative">
+                <input
+                  type="date"
+                  required
+                  max={new Date().toISOString().split('T')[0]}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0A0F56] bg-gray-50"
+                  value={formData.dateOfBirth}
+                  onChange={(e) => {
+                    console.log('DOB Debug - Input change event with value:', e.target.value);
+                    setFormData({ ...formData, dateOfBirth: e.target.value });
+                  }}
+                  onFocus={(e) => console.log('DOB Debug - Input focused with value:', e.target.value)}
+                  disabled={isSubmitting}
+                />
+                {!formData.dateOfBirth && (
+                  <div className="absolute top-2 left-0 w-full px-4 text-sm text-red-500">
+                    Please select a date
+                  </div>
+                )}
+                <div className="mt-1 text-xs text-gray-500">
+                  {formData.dateOfBirth ? `Selected: ${formData.dateOfBirth}` : ''}
+                </div>
+              </div>
             </div>
             <div className="flex-1">
               <label className="block text-sm font-semibold text-gray-700 mb-1">Experience (years)</label>

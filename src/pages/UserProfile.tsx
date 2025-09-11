@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useAppSelector, useAppDispatch } from '../lib/hooks';
 import type { RootState } from '../lib/store/store';
 import { FiUser, FiMail, FiPhone, FiCalendar, FiBriefcase, FiEdit2, FiCamera, FiLock, FiShield, FiUpload, FiX, FiLoader } from 'react-icons/fi';
+import { calculateAge } from '../lib/utils/dateUtils';
 import InitialAvatar from '../components/Common/InitialAvatar';
 import { getInitials } from '../lib/utils/stringUtils';
 import { updateProfile, changePassword, type UpdateProfileData } from '../lib/store/slices/profileSlice';
@@ -23,7 +24,7 @@ const EditProfileModal = ({ isOpen, onClose, user, onSave, isUpdating }: {
     name: user?.name || '',
     phone: user?.phone || '',
     gender: user?.gender || '',
-    age: user?.age || '',
+    dateOfBirth: user?.dateOfBirth || '',
     specialization: user?.specialization || '',
     experience: user?.experience || '',
     education: user?.education || '',
@@ -32,10 +33,10 @@ const EditProfileModal = ({ isOpen, onClose, user, onSave, isUpdating }: {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Convert age to number if it's a string
+    // Process form data
     const processedData = {
       ...formData,
-      age: formData.age ? Number(formData.age) : undefined,
+      // Keep dateOfBirth as string in ISO format
       experience: formData.experience ? Number(formData.experience) : undefined,
     };
     onSave(processedData);
@@ -93,12 +94,12 @@ const EditProfileModal = ({ isOpen, onClose, user, onSave, isUpdating }: {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Age</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Date of Birth</label>
             <input
-              type="number"
-              min="0"
-              value={formData.age}
-              onChange={(e) => setFormData({ ...formData, age: e.target.value })}
+              type="date"
+              max={new Date().toISOString().split('T')[0]}
+              value={formData.dateOfBirth}
+              onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0A0F56] bg-gray-50"
             />
           </div>
@@ -736,7 +737,13 @@ const UserProfile = () => {
                 <InfoItem icon={<FiPhone />} label="Phone Number" value={user.phone || 'Not provided'} />
                 {/* <InfoItem icon={<FiCalendar />} label="Date of Birth" value={user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString() : 'Not provided'} /> */}
                 <InfoItem icon={<FiUser />} label="Gender" value={user.gender || 'Not specified'} />
-                <InfoItem icon={<FiCalendar />} label="Age" value={user.age ? `${user.age} years` : 'Not specified'} />
+                <InfoItem 
+                  icon={<FiCalendar />} 
+                  label="Date of Birth" 
+                  value={user.dateOfBirth ? 
+                    `${calculateAge(user.dateOfBirth)} years (${new Date(user.dateOfBirth).toLocaleDateString()})` : 
+                    'Not specified'} 
+                />
                 {/* <InfoItem icon={<FiMapPin />} label="Location" value={user.address || 'Not provided'} /> */}
               </div>
             </div>

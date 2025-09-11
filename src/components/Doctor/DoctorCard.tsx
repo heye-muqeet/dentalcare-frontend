@@ -20,6 +20,8 @@ export function DoctorCard({ doctor, onEdit, isUpdating, userRole }: DoctorCardP
   const isReceptionist = userRole === 'receptionist';
 
   const handleEdit = (id: string, doctorData: any) => {
+    console.log('DoctorCard: Opening edit modal for doctor:', doctor);
+    console.log('DoctorCard: Will submit with doctor data:', doctorData);
     onEdit(id, doctorData, () => setIsEditModalOpen(false));
   };
 
@@ -69,7 +71,12 @@ export function DoctorCard({ doctor, onEdit, isUpdating, userRole }: DoctorCardP
                 View Appointments
               </button>
               <button 
-                onClick={() => !isReceptionist && setIsEditModalOpen(true)}
+                onClick={() => {
+                  if (!isReceptionist) {
+                    console.log('DoctorCard: Edit button clicked for doctor:', doctor);
+                    setIsEditModalOpen(true);
+                  }
+                }}
                 disabled={isReceptionist}
                 className={`border px-4 py-1 rounded text-sm font-medium transition ${
                   isReceptionist 

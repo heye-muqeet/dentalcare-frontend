@@ -21,12 +21,20 @@ export function DoctorList() {
   }, [doctors]);
 
   const handleEditDoctor = async (id: string, doctorData: any, onSuccess: () => void) => {
+    console.log('DoctorList: Handling edit doctor with ID:', id);
+    console.log('DoctorList: Edit data:', doctorData);
+    
     try {
-      await dispatch(updateDoctor({ id, doctorData })).unwrap();
+      const result = await dispatch(updateDoctor({ id, doctorData })).unwrap();
+      console.log('DoctorList: Update result:', result);
       toast.success('Doctor updated successfully');
       onSuccess();
+      
+      // Refresh doctors list to show updates
+      dispatch(fetchDoctors());
     } catch (error: any) {
-      toast.error(error);
+      console.error('DoctorList: Error updating doctor:', error);
+      toast.error(typeof error === 'string' ? error : 'Failed to update doctor');
     }
   };
 

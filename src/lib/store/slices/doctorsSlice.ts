@@ -104,11 +104,27 @@ export const updateDoctor = createAsyncThunk(
   'doctors/updateDoctor',
   async ({ id, doctorData }: { id: string; doctorData: Partial<DoctorFormData> }, { rejectWithValue }) => {
     try {
+      console.log('Updating doctor with ID:', id);
+      console.log('Update data:', doctorData);
+      
       const response = await userService.updateUser(id, doctorData);
-      // Based on Postman collection structure
-      return response.data?.data || response.data;
+      console.log('Update response:', response);
+      
+      // Extract the doctor data from the response
+      // The response might be the doctor object directly, or nested in data property
+      const updatedDoctor = response.data || response;
+      console.log('Extracted updated doctor:', updatedDoctor);
+      
+      // Handle MongoDB _id vs id issue
+      const doctorWithId = {
+        ...updatedDoctor,
+        id: id // Ensure we always have the original ID
+      };
+      
+      return doctorWithId;
     } catch (error: any) {
-      console.log('Error updating doctor:', error.response?.data?.message || error.message);
+      console.log('Error updating doctor:', error);
+      console.log('Error details:', error.response?.data);
       return rejectWithValue(error.response?.data?.message || error.message || 'Failed to update doctor');
     }
   }
@@ -155,9 +171,25 @@ const doctorsSlice = createSlice({
       })
       .addCase(updateDoctor.fulfilled, (state, action) => {
         state.isUpdating = false;
-        const index = state.doctors.findIndex(doctor => doctor.id === action.payload.id);
+        console.log('Reducer: Update doctor fulfilled with payload:', action.payload);
+        
+        // Find doctor by id
+        const index = state.doctors.findIndex(doctor => {
+          // Check both id properties
+          const doctorId = doctor.id || (doctor as any)._id;
+          const payloadId = action.payload.id || (action.payload as any)._id;
+          
+          return doctorId === payloadId;
+        });
+        
         if (index !== -1) {
-          state.doctors[index] = action.payload;
+          console.log('Reducer: Found doctor to update at index:', index);
+          state.doctors[index] = {
+            ...state.doctors[index],
+            ...action.payload
+          };
+        } else {
+          console.log('Reducer: Could not find doctor to update in state');
         }
       })
       .addCase(updateDoctor.rejected, (state, action) => {
