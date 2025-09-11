@@ -22,9 +22,14 @@ export const fetchPatients = createAsyncThunk(
   'patients/fetchPatients',
   async (_, { rejectWithValue }) => {
     try {
+      console.log('fetchPatients: Fetching patients from API');
       const response = await patientService.getPatients();
-      return response.data;
+      console.log('fetchPatients: Raw API response:', response);
+      
+      // Return the full response to let the reducer handle different structures
+      return response;
     } catch (error: any) {
+      console.error('fetchPatients: Error fetching patients:', error);
       return rejectWithValue(error.response?.data?.error?.message || error.response?.data?.message || 'Failed to fetch patients');
     }
   }
@@ -67,7 +72,30 @@ const patientsSlice = createSlice({
       })
       .addCase(fetchPatients.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.patients = action.payload;
+        
+        // Handle different response structures
+        let patientsData = [];
+        const response = action.payload;
+        
+        if (response) {
+          if (Array.isArray(response)) {
+            patientsData = response;
+          } else if (response.items) {
+            patientsData = response.items;
+          } else if (response.data?.items) {
+            patientsData = response.data.items;
+          } else if (response.data) {
+            patientsData = Array.isArray(response.data) ? response.data : [];
+          }
+        }
+        
+        // Ensure each patient has an id property (MongoDB uses _id)
+        state.patients = patientsData.map((patient: any) => {
+          if (!patient.id && patient._id) {
+            return { ...patient, id: patient._id };
+          }
+          return patient;
+        });
       })
       .addCase(fetchPatients.rejected, (state, action) => {
         state.isLoading = false;
@@ -80,7 +108,24 @@ const patientsSlice = createSlice({
       })
       .addCase(createPatient.fulfilled, (state, action) => {
         state.isCreating = false;
-        state.patients.push(action.payload);
+        
+        // Handle different response structures
+        const newPatient = action.payload;
+        
+        // Ensure patients array exists
+        if (!state.patients) {
+          state.patients = [];
+        }
+        
+        // Add the new patient to the array
+        if (newPatient) {
+          // Ensure the patient has an id (might be _id from MongoDB)
+          const patientWithId = newPatient._id && !newPatient.id 
+            ? { ...newPatient, id: newPatient._id } 
+            : newPatient;
+            
+          state.patients.push(patientWithId);
+        }
       })
       .addCase(createPatient.rejected, (state, action) => {
         state.isCreating = false;
@@ -93,9 +138,28 @@ const patientsSlice = createSlice({
       })
       .addCase(updatePatient.fulfilled, (state, action) => {
         state.isUpdating = false;
-        const index = state.patients.findIndex(p => p.id === action.payload.id);
-        if (index !== -1) {
-          state.patients[index] = action.payload;
+        
+        // Handle different response structures and ID formats
+        const updatedPatient = action.payload;
+        
+        if (updatedPatient) {
+          // Ensure the patient has an id (might be _id from MongoDB)
+          const patientId = updatedPatient.id || updatedPatient._id;
+          
+          // Find the patient by either id or _id
+          const index = state.patients.findIndex(p => {
+            const currentId = p.id || (p as any)._id;
+            return currentId === patientId;
+          });
+          
+          if (index !== -1) {
+            // Preserve the id field if it exists in the current state
+            const currentId = state.patients[index].id;
+            state.patients[index] = {
+              ...updatedPatient,
+              id: currentId || patientId
+            };
+          }
         }
       })
       .addCase(updatePatient.rejected, (state, action) => {

@@ -96,8 +96,14 @@ export interface CreatePatientData {
 
 export const patientService = {
   getPatients: async () => {
-    const response = await api.get(API_ENDPOINTS.PATIENTS.BASE);
-    return response.data;
+    try {
+      const response = await api.get(API_ENDPOINTS.PATIENTS.BASE);
+      console.log('Get patients API response:', response);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching patients:', error);
+      throw error;
+    }
   },
 
   getPatient: async (id: string) => {
@@ -111,12 +117,26 @@ export const patientService = {
   },
 
   createPatient: async (data: CreatePatientData) => {
-    const response = await api.post(API_ENDPOINTS.PATIENTS.BASE, data);
-    return response.data;
+    try {
+      console.log('Creating patient with data:', data);
+      const response = await api.post(API_ENDPOINTS.PATIENTS.BASE, data);
+      console.log('Create patient API response:', response);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating patient:', error);
+      throw error;
+    }
   },
 
   updatePatient: async (id: string, data: Partial<CreatePatientData>) => {
-    const response = await api.put(API_ENDPOINTS.PATIENTS.BY_ID(id), data);
-    return response.data;
+    try {
+      console.log(`Updating patient ${id} with data:`, data);
+      const response = await api.put(API_ENDPOINTS.PATIENTS.BY_ID(id), data);
+      console.log('Update patient API response:', response);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating patient:', error);
+      throw error;
+    }
   }
 }; 

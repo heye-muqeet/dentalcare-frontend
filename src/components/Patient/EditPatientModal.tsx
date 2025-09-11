@@ -61,7 +61,7 @@ export const EditPatientModal: React.FC<EditPatientModalProps> = ({
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-white/10 backdrop-blur-md">
-      <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg border border-gray-100 relative animate-fadeIn">
+      <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg border border-gray-100 relative animate-fadeIn max-h-[90vh] overflow-y-auto custom-scrollbar">
         <div className="flex justify-between items-center mb-2">
           <h2 className="text-2xl font-bold text-gray-900">Edit Patient</h2>
           <button 
