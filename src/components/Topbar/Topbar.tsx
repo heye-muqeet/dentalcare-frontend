@@ -15,6 +15,10 @@ export function Topbar() {
   const clinicDropdownRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
+  // Prefer organization details; fallback to location if organization address/name missing
+  const clinicName = user?.organization?.name || (user as any)?.location?.name || 'Clinic Name';
+  const clinicAddress = user?.organization?.address || (user as any)?.location?.address || 'Clinic Address';
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -58,8 +62,8 @@ export function Topbar() {
           className="w-8 h-8 rounded-full"
         />
         <div className="text-sm">
-          <p className="font-medium">{user?.organization?.name || 'Loading...'}</p>
-          <p className="text-gray-300">{user?.organization?.address || 'Clinic Address'}</p>
+          <p className="font-medium">{clinicName}</p>
+          <p className="text-gray-300">{clinicAddress}</p>
         </div>
         <button className={`text-gray-300 ml-2 transition-transform ${isClinicDropdownOpen ? 'rotate-180' : ''}`}>
           ▼
@@ -77,8 +81,8 @@ export function Topbar() {
                 className="w-12 h-12 rounded-full"
               />
               <div>
-                <h3 className="font-semibold text-gray-900">{user?.organization?.name || 'Clinic Name'}</h3>
-                <p className="text-sm text-gray-600">{user?.organization?.address || 'Clinic Address'}</p>
+                <h3 className="font-semibold text-gray-900">{clinicName}</h3>
+                <p className="text-sm text-gray-600">{clinicAddress}</p>
               </div>
             </div>
             <div className="border-t pt-3">

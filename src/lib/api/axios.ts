@@ -10,7 +10,11 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    // You can add any request modifications here
+    // Add token from localStorage as a fallback authentication mechanism
+    const token = localStorage.getItem('auth_token');
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
   (error) => {

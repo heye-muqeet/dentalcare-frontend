@@ -19,6 +19,8 @@ export interface LoginResponse {
   status: string;
   message: string;
   data: User;
+  user?: User;
+  token?: string;
 }
 
 export const authService = {

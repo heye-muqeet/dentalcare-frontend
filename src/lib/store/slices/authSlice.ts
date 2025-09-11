@@ -14,7 +14,8 @@ interface AuthState {
 const initialState: AuthState = {
   user: null,
   isAuthenticated: false,
-  isLoading: false,
+  // Start in loading state so ProtectedRoute waits for getProfile on refresh
+  isLoading: true,
   error: null,
 };
 
@@ -24,10 +25,13 @@ export const login = createAsyncThunk(
     try {
       const response = await authService.login(credentials);
       console.log('Login response:', response);
-      console.log('Response.data:', response.data);
-      console.log('Response structure:', JSON.stringify(response, null, 2));
-      // Return the user data from response.data (since response is LoginResponse and data contains User)
-      // Check if response has user property and return that instead
+      
+      // Store token in localStorage as a backup authentication mechanism
+      if (response.token) {
+        localStorage.setItem('auth_token', response.token);
+      }
+      
+      // Return the user data from response
       return response.user || response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.error?.message || error.response?.data?.message || 'Login failed');
@@ -39,10 +43,37 @@ export const getProfile = createAsyncThunk(
   'auth/getProfile',
   async (_, { rejectWithValue }) => {
     try {
+      console.log('Attempting to get profile...');
       const response = await authService.getProfile();
-      return response.data;
+      console.log('Profile response:', response);
+      
+      // Store the token in localStorage as a backup authentication mechanism
+      if (response.token) {
+        localStorage.setItem('auth_token', response.token);
+      }
+      
+      return response.data || response;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error?.message || error.response?.data?.message || 'Failed to get profile');
+      console.error('Profile fetch error:', error);
+      // Don't reject immediately if we have a token in localStorage
+      const storedToken = localStorage.getItem('auth_token');
+      if (storedToken) {
+        console.log('Found stored token, attempting to recover session...');
+        try {
+          // Try to get the user data using the stored token
+          const userData = await authService.getCurrentUser();
+          return userData;
+        } catch (secondError) {
+          console.error('Failed to recover session:', secondError);
+          localStorage.removeItem('auth_token');
+          return rejectWithValue('Session expired. Please login again.');
+        }
+      }
+      return rejectWithValue(
+        error.response?.data?.error?.message || 
+        error.response?.data?.message || 
+        'Failed to get profile'
+      );
     }
   }
 );
@@ -54,15 +85,16 @@ export const logoutUser = createAsyncThunk(
       await authService.logout();
       
       // Clear any localStorage/sessionStorage data
-      localStorage.clear();
-      sessionStorage.clear();
+      localStorage.removeItem('auth_token');
+      // Only remove auth-related items, not everything
+      // localStorage.clear();
+      // sessionStorage.clear();
       
     } catch (error: any) {
       console.error('Backend logout API call failed:', error);
       
-      // Even if the API call fails, clear local storage and proceed with logout
-      localStorage.clear();
-      sessionStorage.clear();
+      // Even if the API call fails, clear auth token and proceed with logout
+      localStorage.removeItem('auth_token');
       
       // Don't reject the promise - we still want to clear the Redux state
       // return rejectWithValue(error.response?.data?.message || 'Logout API call failed');

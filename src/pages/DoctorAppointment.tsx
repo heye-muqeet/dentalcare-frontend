@@ -16,17 +16,34 @@ export default function DoctorAppointment() {
   const { isCreating } = useAppSelector((state: RootState) => state.doctors);
   const user = useAppSelector((state: RootState) => state.auth.user);
   
-  // Check if user is receptionist
-  const isReceptionist = user?.role === 'receptionist';
+  // Check user role
+  const isOwner = user?.role === 'owner';
 
   const handleAddDoctor = async (doctorData: DoctorFormData) => {
+    // Check if user is owner before proceeding
+    if (!isOwner) {
+      toast.error("Only clinic owners can add doctors");
+      return;
+    }
+    
     try {
-      await dispatch(createDoctor(doctorData)).unwrap();
+      console.log('Submitting doctor data:', doctorData);
+      const result = await dispatch(createDoctor(doctorData)).unwrap();
+      console.log('Doctor creation successful:', result);
       toast.success('Doctor added successfully');
       setIsModalOpen(false);
     } catch (error: any) {
-      // The API returns { status: 'error', error: { code: string, message: string } }
-      toast.error(error);
+      console.error('Error in handleAddDoctor:', error);
+      
+      // Check for specific error cases
+      if (error.includes('401') || error.includes('unauthorized') || error.includes('Unauthorized')) {
+        toast.error('You do not have permission to add doctors. Only clinic owners can add doctors.');
+      } else if (error.includes('Email already in use') || error.includes('duplicate')) {
+        toast.error('This email is already registered. Please use a different email.');
+      } else {
+        // Show a more user-friendly error message
+        toast.error(typeof error === 'string' ? error : 'Failed to add doctor. Please try again.');
+      }
     }
   };
 
@@ -36,14 +53,20 @@ export default function DoctorAppointment() {
       <h1 className="text-2xl sm:text-3xl font-bold text-[#0A0F56]">Doctors</h1>
        
         <button 
-          onClick={() => !isReceptionist && setIsModalOpen(true)}
-          disabled={isCreating || isReceptionist}
+          onClick={() => {
+            if (!isOwner) {
+              toast.error("Only clinic owners can add doctors");
+              return;
+            }
+            setIsModalOpen(true);
+          }}
+          disabled={isCreating || !isOwner}
           className={`px-5 py-2.5 rounded-xl text-sm font-medium flex items-center transition-all duration-300 shadow-lg transform ${
-            isReceptionist 
+            !isOwner 
               ? 'bg-gray-400 text-gray-600 cursor-not-allowed opacity-50' 
               : 'bg-gradient-to-r from-[#0A0F56] to-[#232a7c] text-white hover:from-[#232a7c] hover:to-[#0A0F56] hover:shadow-xl hover:-translate-y-0.5'
           }`}
-          title={isReceptionist ? 'Receptionists cannot add doctors' : 'Add a new doctor'}
+          title={!isOwner ? "Only clinic owners can add doctors" : "Add a new doctor"}
         >
           <FaPlus className="mr-2 text-base" />
           Add Doctor
