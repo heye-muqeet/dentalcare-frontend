@@ -53,7 +53,11 @@ export function DoctorCard({ doctor, onEdit, isUpdating, userRole }: DoctorCardP
                 {doctor.education || 'Professional dental care provider'}
               </div>
               <div className="text-xs text-gray-500 mt-1 capitalize">
-                {doctor.gender || 'Not specified'} • {doctor.age || 0} years • {doctor.experience || 0} years experience
+                {doctor.gender || 'Not specified'} • 
+                {doctor.dateOfBirth ? 
+                  new Date(doctor.dateOfBirth).toLocaleDateString() : 
+                  'DOB not specified'} • 
+                {doctor.experience || 0} years experience
               </div>
             </div>
             <div className="flex flex-col space-y-2">

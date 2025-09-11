@@ -8,7 +8,7 @@ export interface User {
   phone: string;
   role: 'owner' | 'receptionist' | 'doctor';
   gender?: string;
-  age?: number;
+  dateOfBirth?: string;
   profileImage?: string;
   specialization?: string;
   licenseNumber?: string;
@@ -31,7 +31,7 @@ export interface CreateUserData {
   phone: string;
   role: 'owner' | 'receptionist' | 'doctor';
   gender?: string;
-  age?: number;
+  dateOfBirth?: string;
   profileImage?: string;
   specialization?: string;
   licenseNumber?: string;

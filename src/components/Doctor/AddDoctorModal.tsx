@@ -11,7 +11,7 @@ export interface DoctorFormData {
   email: string;
   name: string;
   gender: string;
-  age: number;
+  dateOfBirth: string;
   experience: number;
   specialization: string;
   licenseNumber: string;
@@ -24,7 +24,7 @@ export function AddDoctorModal({ isOpen, onClose, onSubmit, isSubmitting }: AddD
     email: '',
     name: '',
     gender: '',
-    age: 0,
+    dateOfBirth: '',
     experience: 0,
     specialization: '',
     licenseNumber: '',
@@ -104,14 +104,14 @@ export function AddDoctorModal({ isOpen, onClose, onSubmit, isSubmitting }: AddD
           </div>
           <div className="flex gap-4">
             <div className="flex-1">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Age</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Date of Birth</label>
               <input
-                type="number"
+                type="date"
                 required
-                min="0"
+                max={new Date().toISOString().split('T')[0]}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0A0F56] bg-gray-50"
-                value={formData.age}
-                onChange={(e) => setFormData({ ...formData, age: parseInt(e.target.value) })}
+                value={formData.dateOfBirth}
+                onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
                 disabled={isSubmitting}
               />
             </div>
