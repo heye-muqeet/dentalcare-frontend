@@ -28,8 +28,41 @@ export const fetchDoctors = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await userService.getDoctors();
-      // Based on the Postman collection structure: response.data.users would contain the doctors array
-      return response.data?.users || [];
+      console.log("Doctors API response:", response);
+      console.log("Raw response type:", typeof response);
+      console.log("Response has items property:", Boolean(response?.items));
+      
+      // EMERGENCY FIX: Log the entire response
+      const responseStr = JSON.stringify(response, null, 2);
+      console.log("Full serialized response:", responseStr);
+      
+      // Check different possible response structures
+      let doctorsData = [];
+      
+      // Forced extraction approach for debugging
+      if (response && typeof response === 'object') {
+        if (Array.isArray(response)) {
+          doctorsData = response;
+          console.log("Response is an array, using directly");
+        } else if (response.items) {
+          doctorsData = response.items;
+          console.log("Found items directly in response:", doctorsData);
+        } else if (response.data?.items) {
+          doctorsData = response.data.items;
+          console.log("Found items in response.data:", doctorsData);
+        }
+      }
+      
+      // Force convert any doctors that don't have proper ID
+      doctorsData = doctorsData.map((doctor: any) => {
+        if (!doctor.id && doctor._id) {
+          return { ...doctor, id: doctor._id };
+        }
+        return doctor;
+      });
+      
+      console.log("Final processed doctors data:", doctorsData);
+      return doctorsData;
     } catch (error: any) {
       console.log('Error fetching doctors:', error.response?.data?.message || error.message);
       return rejectWithValue(error.response?.data?.message || error.message || 'Failed to fetch doctors');
