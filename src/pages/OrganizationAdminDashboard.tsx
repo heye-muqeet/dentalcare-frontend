@@ -7,12 +7,9 @@ import {
   FiUsers, 
   FiHome, 
   FiActivity, 
-  FiShield,
-  FiTrendingUp,
   FiCalendar,
   FiDollarSign,
   FiUserCheck,
-  FiUserX,
   FiClock,
   FiAlertCircle
 } from 'react-icons/fi';

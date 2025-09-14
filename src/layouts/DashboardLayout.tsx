@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { User } from '../lib/api/services/auth';
-import { RoleBasedSidebar } from '../components/Sidebar/RoleBasedSidebar';
-import { RoleBasedTopbar } from '../components/Topbar/RoleBasedTopbar';
+import { CompactSidebar } from '../components/Sidebar/CompactSidebar';
+import { DynamicTopbar } from '../components/Topbar/DynamicTopbar';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -16,13 +16,11 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      <RoleBasedTopbar />
+      <DynamicTopbar />
       <div className="flex flex-1 overflow-hidden bg-gray-50">
-        <div className="w-[290px] h-full">
-          <RoleBasedSidebar />
-        </div>
+        <CompactSidebar />
         <div className="flex-1">
-          <main className="h-[calc(100vh-52px)] overflow-auto">
+          <main className="h-[calc(100vh-60px)] overflow-auto">
             {children}
           </main>
         </div>

@@ -12,8 +12,7 @@ import {
   FiUserCheck,
   FiAlertCircle,
   FiPlus,
-  FiEye,
-  FiEdit
+  FiEye
 } from 'react-icons/fi';
 
 interface DoctorStats {

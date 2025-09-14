@@ -8,7 +8,7 @@ import type { UserRole } from '../../lib/utils/rolePermissions';
 import type { RootState } from '../../lib/store/store';
 
 interface MenuItemProps {
-  icon: keyof typeof icons;
+  icon: string;
   text: string;
   onClick: () => void;
 }
@@ -224,7 +224,6 @@ function DoctorSidebar() {
   };
 
   const branchName = user?.branch?.name || 'Branch';
-  const organizationName = user?.organization?.name || 'Organization';
 
   return (
     <aside className="w-74 min-h-screen h-screen flex justify-center">
@@ -288,7 +287,6 @@ function ReceptionistSidebar() {
   };
 
   const branchName = user?.branch?.name || 'Branch';
-  const organizationName = user?.organization?.name || 'Organization';
 
   return (
     <aside className="w-74 min-h-screen h-screen flex justify-center">
@@ -352,7 +350,6 @@ function PatientSidebar() {
   };
 
   const branchName = user?.branch?.name || 'Branch';
-  const organizationName = user?.organization?.name || 'Organization';
 
   return (
     <aside className="w-74 min-h-screen h-screen flex justify-center">
@@ -400,7 +397,7 @@ function MenuItem({ icon, text, onClick }: MenuItemProps) {
       onClick={onClick}
       className="w-full flex items-center gap-3 px-3 py-2 text-white hover:bg-white/20 rounded-lg transition-colors text-left"
     >
-      <Icon name={icon} className="w-5 h-5" />
+      <Icon name={icon as keyof typeof icons} width="w-5" height="h-5" />
       <span className="text-sm font-medium">{text}</span>
     </button>
   );

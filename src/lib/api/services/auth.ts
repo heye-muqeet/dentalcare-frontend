@@ -3,6 +3,7 @@ import { API_ENDPOINTS } from '../endpoints';
 // Define User type locally since users service might not be available
 export interface User {
   _id: string;
+  id?: string; // Alternative ID field
   email: string;
   firstName: string;
   lastName: string;
@@ -11,6 +12,10 @@ export interface User {
   organizationId?: string;
   branchId?: string;
   organization?: {
+    name: string;
+    address: string;
+  };
+  branch?: {
     name: string;
     address: string;
   };

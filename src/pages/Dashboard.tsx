@@ -2,8 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../lib/hooks';
 import type { RootState } from '../lib/store/store';
 import { useState, useEffect } from 'react';
-import SuperAdminDashboard from './SuperAdminDashboard';
-import OrganizationAdminDashboard from './OrganizationAdminDashboard';
+import CompactSuperAdminDashboard from './CompactSuperAdminDashboard';
+import CompactOrganizationAdminDashboard from './CompactOrganizationAdminDashboard';
 import BranchAdminDashboard from './BranchAdminDashboard';
 import DoctorDashboard from './DoctorDashboard';
 import { 
@@ -27,11 +27,11 @@ export default function Dashboard() {
   
   // Show role-specific dashboard based on user role
   if (user?.role === 'super_admin') {
-    return <SuperAdminDashboard />;
+    return <CompactSuperAdminDashboard />;
   }
   
   if (user?.role === 'organization_admin') {
-    return <OrganizationAdminDashboard />;
+    return <CompactOrganizationAdminDashboard />;
   }
   
   if (user?.role === 'branch_admin') {

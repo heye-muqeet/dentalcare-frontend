@@ -4,14 +4,10 @@ import { useAppSelector } from '../lib/hooks';
 import type { RootState } from '../lib/store/store';
 import { 
   FiUsers, 
-  FiHome, 
   FiActivity, 
-  FiShield,
-  FiTrendingUp,
   FiCalendar,
   FiDollarSign,
   FiUserCheck,
-  FiUserX,
   FiClock,
   FiAlertCircle,
   FiClipboard,

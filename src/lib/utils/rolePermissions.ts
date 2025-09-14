@@ -134,14 +134,32 @@ export const routePermissions: RoutePermission[] = [
     path: '/invoice',
     label: 'Invoice',
     icon: 'document_chart',
-    allowedRoles: ['super_admin', 'organization_admin', 'branch_admin', 'receptionist'],
+    allowedRoles: ['organization_admin', 'branch_admin', 'receptionist'],
     divider: true
   },
   {
     path: '/expense',
     label: 'Expense',
     icon: 'document_chart',
-    allowedRoles: ['super_admin', 'organization_admin', 'branch_admin', 'receptionist']
+    allowedRoles: ['organization_admin', 'branch_admin', 'receptionist']
+  },
+  {
+    path: '/system-users',
+    label: 'System Users',
+    icon: 'users',
+    allowedRoles: ['super_admin']
+  },
+  {
+    path: '/system-logs',
+    label: 'System Logs',
+    icon: 'document_chart',
+    allowedRoles: ['super_admin']
+  },
+  {
+    path: '/system-health',
+    label: 'System Health',
+    icon: 'shield',
+    allowedRoles: ['super_admin']
   },
   {
     path: '/account',
