@@ -104,5 +104,8 @@ export const API_ENDPOINTS = {
   // Dashboard endpoints
   DASHBOARD: {
     BASE: `${BASE_URL}/dashboard`,
+    STATS: `${BASE_URL}/dashboard/stats`,
+    SYSTEM_STATS: `${BASE_URL}/dashboard/system-stats`,
+    HEALTH: `${BASE_URL}/dashboard/health`,
   },
 } as const;
