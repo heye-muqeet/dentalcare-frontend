@@ -107,5 +107,6 @@ export const API_ENDPOINTS = {
     STATS: `${BASE_URL}/dashboard/stats`,
     SYSTEM_STATS: `${BASE_URL}/dashboard/system-stats`,
     HEALTH: `${BASE_URL}/dashboard/health`,
+    SYSTEM_USERS: `${BASE_URL}/dashboard/system-users`,
   },
 } as const;

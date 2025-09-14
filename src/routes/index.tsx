@@ -5,6 +5,8 @@ import { RoleBasedRoute } from '../components/Auth/RoleBasedRoute';
 import { DashboardLayout } from '../layouts/DashboardLayout';
 import Dashboard from '../pages/Dashboard';
 import Organizations from '../pages/Organizations';
+import SystemUsers from '../pages/SystemUsers';
+import SystemLogs from '../pages/SystemLogs';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../lib/store/store';
 
@@ -230,12 +232,7 @@ export const router = createBrowserRouter([
       <ProtectedRoute>
         <RoleBasedRoute requiredRoles={['super_admin']}>
           <DashboardWrapper>
-            <div className="p-6">
-              <h1 className="text-3xl font-bold text-gray-900 mb-6">System Users</h1>
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <p className="text-gray-600">System users management page coming soon...</p>
-              </div>
-            </div>
+            <SystemUsers />
           </DashboardWrapper>
         </RoleBasedRoute>
       </ProtectedRoute>
@@ -247,12 +244,7 @@ export const router = createBrowserRouter([
       <ProtectedRoute>
         <RoleBasedRoute requiredRoles={['super_admin']}>
           <DashboardWrapper>
-            <div className="p-6">
-              <h1 className="text-3xl font-bold text-gray-900 mb-6">System Logs</h1>
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <p className="text-gray-600">System logs and audit trail page coming soon...</p>
-              </div>
-            </div>
+            <SystemLogs />
           </DashboardWrapper>
         </RoleBasedRoute>
       </ProtectedRoute>

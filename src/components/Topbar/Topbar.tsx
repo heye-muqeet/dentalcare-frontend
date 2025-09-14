@@ -15,9 +15,23 @@ export function Topbar() {
   const clinicDropdownRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // Prefer organization details; fallback to location if organization address/name missing
-  const clinicName = user?.organization?.name || (user as any)?.location?.name || 'MI Dental Clinic';
-  const clinicAddress = user?.organization?.address || (user as any)?.location?.address || '123 Main St, City';
+  // Get clinic/system name based on user role
+  const getClinicName = () => {
+    if (user?.role === 'super_admin') {
+      return 'Dental Care Management System';
+    }
+    return user?.organization?.name || (user as any)?.location?.name || 'Dental Clinic';
+  };
+
+  const getClinicAddress = () => {
+    if (user?.role === 'super_admin') {
+      return 'System Administration';
+    }
+    return user?.organization?.address || (user as any)?.location?.address || '123 Main St, City';
+  };
+
+  const clinicName = getClinicName();
+  const clinicAddress = getClinicAddress();
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -70,16 +84,22 @@ export function Topbar() {
         </button>
       </div>
 
-      {/* Clinic Dropdown Menu */}
+      {/* Clinic/System Dropdown Menu */}
       {isClinicDropdownOpen && (
         <div className="absolute top-full left-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
           <div className="p-4">
             <div className="flex items-center space-x-3 mb-3">
-              <img 
-                src="https://www.creativefabrica.com/wp-content/uploads/2019/05/Medical-healthy-clinic-logo-concept-by-DEEMKA-STUDIO-1-580x406.jpg" 
-                alt="Clinic Logo" 
-                className="w-12 h-12 rounded-full"
-              />
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                {user?.role === 'super_admin' ? (
+                  <span className="text-white font-bold text-lg">⚡</span>
+                ) : (
+                  <img 
+                    src="https://www.creativefabrica.com/wp-content/uploads/2019/05/Medical-healthy-clinic-logo-concept-by-DEEMKA-STUDIO-1-580x406.jpg" 
+                    alt="Clinic Logo" 
+                    className="w-12 h-12 rounded-full"
+                  />
+                )}
+              </div>
               <div>
                 <h3 className="font-semibold text-gray-900">{clinicName}</h3>
                 <p className="text-sm text-gray-600">{clinicAddress}</p>
@@ -93,8 +113,20 @@ export function Topbar() {
                 </div>
                 <div>
                   <p className="text-gray-500">Your Role</p>
-                  <p className="font-medium text-gray-900 capitalize">{user?.role || 'N/A'}</p>
+                  <p className="font-medium text-blue-600">{user?.role?.replace('_', ' ').toUpperCase()}</p>
                 </div>
+                {user?.role === 'super_admin' && (
+                  <>
+                    <div>
+                      <p className="text-gray-500">System Access</p>
+                      <p className="font-medium text-purple-600">Full Control</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Scope</p>
+                      <p className="font-medium text-orange-600">All Organizations</p>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

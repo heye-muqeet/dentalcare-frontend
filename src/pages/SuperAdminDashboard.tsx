@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../lib/hooks';
 import type { RootState } from '../lib/store/store';
+import { systemService } from '../lib/api/services/system';
+import { organizationService } from '../lib/api/services/organizations';
 import { 
   FiUsers, 
   FiHome, 
@@ -50,10 +52,10 @@ interface Organization {
 
 interface RecentActivity {
   id: string;
-  type: 'user_created' | 'organization_created' | 'branch_created' | 'login' | 'error';
+  type: 'user_created' | 'organization_created' | 'branch_created' | 'login' | 'error' | 'system';
   message: string;
   timestamp: string;
-  severity: 'info' | 'warning' | 'error';
+  severity: 'info' | 'warning' | 'error' | 'critical';
 }
 
 export default function SuperAdminDashboard() {
@@ -78,87 +80,54 @@ export default function SuperAdminDashboard() {
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Mock data for demonstration - in real app, this would come from API
+  // Load system data from API
   useEffect(() => {
     const loadSystemData = async () => {
       setIsLoading(true);
       
-      // Simulate API calls
-      setTimeout(() => {
+      try {
+        // Load system statistics
+        const stats = await systemService.getSystemStats();
+        setSystemStats(stats);
+
+        // Load organizations
+        const orgs = await organizationService.getOrganizations();
+        setOrganizations(orgs);
+
+        // Load recent activity (system logs)
+        const activityData = await systemService.getSystemLogs({ limit: 5 });
+        const activities = activityData.logs.map((log: any) => ({
+          id: log._id,
+          type: log.activityType || 'system',
+          message: log.message || log.description,
+          timestamp: log.timestamp || log.createdAt,
+          severity: (log.level === 'ERROR' ? 'error' : 
+                   log.level === 'WARNING' ? 'warning' : 'info') as 'info' | 'warning' | 'error' | 'critical'
+        }));
+        setRecentActivity(activities);
+
+      } catch (error) {
+        console.error('Failed to load system data:', error);
+        
+        // Fallback to mock data if API fails
         setSystemStats({
-          totalOrganizations: 12,
-          totalBranches: 45,
-          totalUsers: 1247,
-          totalDoctors: 156,
-          totalReceptionists: 89,
-          totalPatients: 1002,
-          activeUsers: 1189,
+          totalOrganizations: 0,
+          totalBranches: 0,
+          totalUsers: 0,
+          totalDoctors: 0,
+          totalReceptionists: 0,
+          totalPatients: 0,
+          activeUsers: 0,
           systemUptime: '99.9%',
-          totalRevenue: 2450000,
-          monthlyGrowth: 12.5
+          totalRevenue: 0,
+          monthlyGrowth: 0,
         });
 
-        setOrganizations([
-          {
-            _id: '1',
-            name: 'Dental Care Center',
-            description: 'Premium dental care services',
-            address: '123 Main St',
-            city: 'New York',
-            state: 'NY',
-            country: 'USA',
-            phone: '1234567890',
-            email: 'info@dentalcare.com',
-            website: 'https://dentalcare.com',
-            isActive: true,
-            createdAt: '2024-01-15',
-            branchCount: 5,
-            userCount: 234
-          },
-          {
-            _id: '2',
-            name: 'Smile Bright Clinic',
-            description: 'Family dental practice',
-            address: '456 Oak Ave',
-            city: 'Los Angeles',
-            state: 'CA',
-            country: 'USA',
-            phone: '9876543210',
-            email: 'contact@smilebright.com',
-            website: 'https://smilebright.com',
-            isActive: true,
-            createdAt: '2024-02-20',
-            branchCount: 3,
-            userCount: 156
-          }
-        ]);
-
-        setRecentActivity([
-          {
-            id: '1',
-            type: 'user_created',
-            message: 'New doctor registered: Dr. Sarah Johnson',
-            timestamp: '2024-09-14T10:30:00Z',
-            severity: 'info'
-          },
-          {
-            id: '2',
-            type: 'organization_created',
-            message: 'New organization created: Bright Smiles Clinic',
-            timestamp: '2024-09-14T09:15:00Z',
-            severity: 'info'
-          },
-          {
-            id: '3',
-            type: 'error',
-            message: 'API rate limit exceeded for organization: Dental Care Center',
-            timestamp: '2024-09-14T08:45:00Z',
-            severity: 'warning'
-          }
-        ]);
-
+        setOrganizations([]);
+        setRecentActivity([]);
+      } finally {
         setIsLoading(false);
-      }, 1500);
+      }
     };
 
     loadSystemData();

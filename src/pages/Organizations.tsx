@@ -14,7 +14,7 @@ import {
   FiGlobe,
   FiCalendar
 } from 'react-icons/fi';
-import { type Organization } from '../lib/api/services/organizations';
+import { organizationService, type Organization } from '../lib/api/services/organizations';
 
 export default function Organizations() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -29,73 +29,12 @@ export default function Organizations() {
   const loadOrganizations = async () => {
     try {
       setIsLoading(true);
-      // In a real app, this would call the API
-      // const data = await organizationService.getOrganizations();
-      
-      // Mock data for demonstration
-      const mockData: Organization[] = [
-        {
-          _id: '1',
-          name: 'Dental Care Center',
-          description: 'Premium dental care services',
-          address: '123 Main St',
-          city: 'New York',
-          state: 'NY',
-          country: 'USA',
-          postalCode: '10001',
-          phone: '1234567890',
-          email: 'info@dentalcare.com',
-          website: 'https://dentalcare.com',
-          tags: ['premium', 'cosmetic', 'orthodontics'],
-          isActive: true,
-          createdAt: '2024-01-15T00:00:00Z',
-          updatedAt: '2024-09-14T00:00:00Z',
-          branchCount: 5,
-          userCount: 234
-        },
-        {
-          _id: '2',
-          name: 'Smile Bright Clinic',
-          description: 'Family dental practice',
-          address: '456 Oak Ave',
-          city: 'Los Angeles',
-          state: 'CA',
-          country: 'USA',
-          postalCode: '90210',
-          phone: '9876543210',
-          email: 'contact@smilebright.com',
-          website: 'https://smilebright.com',
-          tags: ['family', 'general', 'pediatric'],
-          isActive: true,
-          createdAt: '2024-02-20T00:00:00Z',
-          updatedAt: '2024-09-14T00:00:00Z',
-          branchCount: 3,
-          userCount: 156
-        },
-        {
-          _id: '3',
-          name: 'City Dental Group',
-          description: 'Multi-specialty dental practice',
-          address: '789 Pine St',
-          city: 'Chicago',
-          state: 'IL',
-          country: 'USA',
-          postalCode: '60601',
-          phone: '5551234567',
-          email: 'info@citydental.com',
-          website: 'https://citydental.com',
-          tags: ['multi-specialty', 'implant', 'periodontics'],
-          isActive: false,
-          createdAt: '2024-03-10T00:00:00Z',
-          updatedAt: '2024-09-14T00:00:00Z',
-          branchCount: 2,
-          userCount: 89
-        }
-      ];
-      
-      setOrganizations(mockData);
+      const data = await organizationService.getOrganizations();
+      setOrganizations(data);
     } catch (error) {
       console.error('Failed to load organizations:', error);
+      // Set empty array on error
+      setOrganizations([]);
     } finally {
       setIsLoading(false);
     }
@@ -116,17 +55,18 @@ export default function Organizations() {
   const handleDeleteOrganization = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this organization? This action cannot be undone.')) {
       try {
-        // await organizationService.deleteOrganization(id);
+        await organizationService.deleteOrganization(id);
         setOrganizations(orgs => orgs.filter(org => org._id !== id));
       } catch (error) {
         console.error('Failed to delete organization:', error);
+        alert('Failed to delete organization. Please try again.');
       }
     }
   };
 
   const handleToggleStatus = async (id: string, currentStatus: boolean) => {
     try {
-      // await organizationService.updateOrganization(id, { isActive: !currentStatus });
+      await organizationService.updateOrganization(id, { isActive: !currentStatus });
       setOrganizations(orgs => 
         orgs.map(org => 
           org._id === id ? { ...org, isActive: !currentStatus } : org
@@ -134,6 +74,7 @@ export default function Organizations() {
       );
     } catch (error) {
       console.error('Failed to update organization status:', error);
+      alert('Failed to update organization status. Please try again.');
     }
   };
 

@@ -3,6 +3,9 @@ import { useAppSelector } from '../lib/hooks';
 import type { RootState } from '../lib/store/store';
 import { useState, useEffect } from 'react';
 import SuperAdminDashboard from './SuperAdminDashboard';
+import OrganizationAdminDashboard from './OrganizationAdminDashboard';
+import BranchAdminDashboard from './BranchAdminDashboard';
+import DoctorDashboard from './DoctorDashboard';
 import { 
   FiCalendar, 
   FiUsers, 
@@ -22,9 +25,21 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const user = useAppSelector((state: RootState) => state.auth.user);
   
-  // Show Super Admin dashboard if user is super admin
+  // Show role-specific dashboard based on user role
   if (user?.role === 'super_admin') {
     return <SuperAdminDashboard />;
+  }
+  
+  if (user?.role === 'organization_admin') {
+    return <OrganizationAdminDashboard />;
+  }
+  
+  if (user?.role === 'branch_admin') {
+    return <BranchAdminDashboard />;
+  }
+  
+  if (user?.role === 'doctor') {
+    return <DoctorDashboard />;
   }
   
   // Dashboard state
