@@ -1,38 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../lib/hooks';
 import type { RootState } from '../lib/store/store';
-import { organizationService, type Organization, type CreateOrganizationData, type OrganizationStats } from '../lib/api/services/organizations';
-import { CreateOrganizationModal } from '../components/Modals';
+import { organizationService, type Organization, type CreateOrganizationData } from '../lib/api/services/organizations';
+import { 
+  CreateOrganizationModal, 
+  EditOrganizationModal, 
+  ViewOrganizationModal, 
+  UpdateOrganizationModal 
+} from '../components/Modals';
 import { 
   FiPlus, 
   FiEdit, 
   FiTrash2, 
   FiEye, 
-  FiUsers, 
   FiHome, 
   FiMail, 
   FiPhone, 
   FiGlobe, 
   FiMapPin, 
-  FiCalendar,
-  FiShield,
-  FiUserPlus,
-  FiSearch,
-  FiX,
-  FiActivity
+  FiSearch
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
-interface OrganizationAdmin {
-  _id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  isActive: boolean;
-  createdAt: string;
-}
 
 export default function OrganizationManagement() {
   const navigate = useNavigate();
@@ -44,36 +34,9 @@ export default function OrganizationManagement() {
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [showAdminModal, setShowAdminModal] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [admins, setAdmins] = useState<OrganizationAdmin[]>([]);
-  const [orgStats, setOrgStats] = useState<OrganizationStats | null>(null);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
-
-  // Form states
-  const [formData, setFormData] = useState<CreateOrganizationData>({
-    name: '',
-    description: '',
-    address: '',
-    city: '',
-    state: '',
-    country: '',
-    postalCode: '',
-    phone: '',
-    email: '',
-    website: '',
-    tags: [],
-    isActive: true
-  });
-
-  const [adminFormData, setAdminFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    password: '',
-    phone: ''
-  });
 
   useEffect(() => {
     if (user?.role !== 'super_admin') {
@@ -98,12 +61,8 @@ export default function OrganizationManagement() {
 
   const loadOrganizationDetails = async (orgId: string) => {
     try {
-      const [adminsData, statsData] = await Promise.all([
-        organizationService.getOrganizationAdmins(orgId),
-        organizationService.getOrganizationStats(orgId)
-      ]);
-      setAdmins(adminsData);
-      setOrgStats(statsData);
+      // Load organization details if needed
+      console.log('Loading details for organization:', orgId);
     } catch (error) {
       console.error('Failed to load organization details:', error);
       toast.error('Failed to load organization details');
@@ -112,33 +71,27 @@ export default function OrganizationManagement() {
 
   const handleCreateOrganization = async (data: CreateOrganizationData) => {
     try {
-      setIsCreating(true);
       await organizationService.createOrganization(data);
       toast.success('Organization created successfully');
       setShowCreateModal(false);
-      resetForm();
       loadOrganizations();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to create organization');
       throw error; // Re-throw to let the modal handle it
-    } finally {
-      setIsCreating(false);
     }
   };
 
-  const handleUpdateOrganization = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingOrg) return;
-    
+  const handleUpdateOrganization = async (id: string, data: any) => {
     try {
-      await organizationService.updateOrganization(editingOrg._id, formData);
+      await organizationService.updateOrganization(id, data);
       toast.success('Organization updated successfully');
       setShowEditModal(false);
+      setShowUpdateModal(false);
       setEditingOrg(null);
-      resetForm();
       loadOrganizations();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to update organization');
+      throw error;
     }
   };
 
@@ -156,72 +109,33 @@ export default function OrganizationManagement() {
     }
   };
 
-  const handleCreateAdmin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedOrg) return;
 
+  const openEditModal = async (org: Organization) => {
     try {
-      await organizationService.createOrganizationAdmin(selectedOrg._id, adminFormData);
-      toast.success('Organization admin created successfully');
-      setShowAdminModal(false);
-      resetAdminForm();
-      loadOrganizationDetails(selectedOrg._id);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to create organization admin');
+      // Fetch organization with admin details
+      const orgWithAdmin = await organizationService.getOrganizationWithAdmin(org._id);
+      setEditingOrg(orgWithAdmin);
+    } catch (error) {
+      console.error('Failed to fetch organization details:', error);
+      // Fallback to the organization data passed as prop
+      setEditingOrg(org);
     }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      description: '',
-      address: '',
-      city: '',
-      state: '',
-      country: '',
-      postalCode: '',
-      phone: '',
-      email: '',
-      website: '',
-      tags: [],
-      isActive: true
-    });
-  };
-
-  const resetAdminForm = () => {
-    setAdminFormData({
-      firstName: '',
-      lastName: '',
-      email: '',
-      password: '',
-      phone: ''
-    });
-  };
-
-  const openEditModal = (org: Organization) => {
-    setEditingOrg(org);
-    setFormData({
-      name: org.name,
-      description: org.description,
-      address: org.address,
-      city: org.city,
-      state: org.state,
-      country: org.country,
-      postalCode: org.postalCode,
-      phone: org.phone,
-      email: org.email,
-      website: org.website,
-      tags: org.tags,
-      isActive: org.isActive
-    });
     setShowEditModal(true);
   };
 
-  const openDetailsModal = async (org: Organization) => {
-    setSelectedOrg(org);
-    setShowDetailsModal(true);
-    await loadOrganizationDetails(org._id);
+  const openViewModal = async (org: Organization) => {
+    try {
+      // Fetch organization with admin details
+      const orgWithAdmin = await organizationService.getOrganizationWithAdmin(org._id);
+      setSelectedOrg(orgWithAdmin);
+    } catch (error) {
+      console.error('Failed to fetch organization details:', error);
+      // Fallback to the organization data passed as prop
+      setSelectedOrg(org);
+    }
+    setShowViewModal(true);
   };
+
 
   const filteredOrganizations = organizations.filter(org => {
     const matchesSearch = org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -345,7 +259,7 @@ export default function OrganizationManagement() {
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => openDetailsModal(org)}
+                  onClick={() => openViewModal(org)}
                   className="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 flex items-center justify-center gap-2"
                 >
                   <FiEye className="w-4 h-4" />
@@ -383,379 +297,39 @@ export default function OrganizationManagement() {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSubmit={handleCreateOrganization}
-        loading={isCreating}
       />
 
       {/* Edit Organization Modal */}
-      {showEditModal && editingOrg && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b">
-              <h2 className="text-xl font-semibold">Edit Organization</h2>
-            </div>
-            <form onSubmit={handleUpdateOrganization} className="p-6 space-y-4">
-              {/* Same form fields as create modal */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                  <input
-                    type="email"
-                    required
-                    value={formData.email}
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
-                  <input
-                    type="tel"
-                    required
-                    value={formData.phone}
-                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
-                  <input
-                    type="url"
-                    value={formData.website}
-                    onChange={(e) => setFormData({...formData, website: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.address}
-                    onChange={(e) => setFormData({...formData, address: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.city}
-                    onChange={(e) => setFormData({...formData, city: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">State *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.state}
-                    onChange={(e) => setFormData({...formData, state: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Country *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.country}
-                    onChange={(e) => setFormData({...formData, country: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.postalCode}
-                    onChange={(e) => setFormData({...formData, postalCode: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formData.isActive}
-                      onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm font-medium text-gray-700">Active Organization</span>
-                  </label>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-                >
-                  Update Organization
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <EditOrganizationModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onSubmit={handleUpdateOrganization}
+        organization={editingOrg}
+      />
 
-      {/* Organization Details Modal */}
-      {showDetailsModal && selectedOrg && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">{selectedOrg.name}</h2>
-                <button
-                  onClick={() => setShowDetailsModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <FiX className="w-6 h-6" />
-                </button>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Organization Info */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Organization Information</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <FiMail className="w-5 h-5 text-gray-400" />
-                      <span className="text-gray-600">{selectedOrg.email}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <FiPhone className="w-5 h-5 text-gray-400" />
-                      <span className="text-gray-600">{selectedOrg.phone}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <FiMapPin className="w-5 h-5 text-gray-400" />
-                      <span className="text-gray-600">{selectedOrg.address}, {selectedOrg.city}, {selectedOrg.state} {selectedOrg.postalCode}</span>
-                    </div>
-                    {selectedOrg.website && (
-                      <div className="flex items-center gap-3">
-                        <FiGlobe className="w-5 h-5 text-gray-400" />
-                        <a href={selectedOrg.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                          {selectedOrg.website}
-                        </a>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-3">
-                      <FiCalendar className="w-5 h-5 text-gray-400" />
-                      <span className="text-gray-600">Created: {new Date(selectedOrg.createdAt).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        selectedOrg.isActive 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {selectedOrg.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+      {/* View Organization Modal */}
+      <ViewOrganizationModal
+        isOpen={showViewModal}
+        onClose={() => setShowViewModal(false)}
+        organization={selectedOrg}
+        onEdit={(org) => {
+          setEditingOrg(org as Organization);
+          setShowViewModal(false);
+          setShowEditModal(true);
+        }}
+        onDelete={(org) => handleDeleteOrganization(org._id)}
+      />
 
-                {/* Statistics */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Statistics</h3>
-                  {orgStats ? (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-blue-50 p-4 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <FiHome className="w-5 h-5 text-blue-600" />
-                          <span className="text-sm font-medium text-gray-600">Branches</span>
-                        </div>
-                        <p className="text-2xl font-bold text-blue-600">{orgStats.totalBranches}</p>
-                      </div>
-                      <div className="bg-green-50 p-4 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <FiUsers className="w-5 h-5 text-green-600" />
-                          <span className="text-sm font-medium text-gray-600">Users</span>
-                        </div>
-                        <p className="text-2xl font-bold text-green-600">{orgStats.totalUsers}</p>
-                      </div>
-                      <div className="bg-purple-50 p-4 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <FiShield className="w-5 h-5 text-purple-600" />
-                          <span className="text-sm font-medium text-gray-600">Doctors</span>
-                        </div>
-                        <p className="text-2xl font-bold text-purple-600">{orgStats.totalDoctors}</p>
-                      </div>
-                      <div className="bg-orange-50 p-4 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <FiActivity className="w-5 h-5 text-orange-600" />
-                          <span className="text-sm font-medium text-gray-600">Active Users</span>
-                        </div>
-                        <p className="text-2xl font-bold text-orange-600">{orgStats.activeUsers}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Organization Admins */}
-              <div className="mt-8">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">Organization Admins</h3>
-                  <button
-                    onClick={() => setShowAdminModal(true)}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                  >
-                    <FiUserPlus className="w-4 h-4" />
-                    Add Admin
-                  </button>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  {admins.length > 0 ? (
-                    <div className="space-y-3">
-                      {admins.map((admin) => (
-                        <div key={admin._id} className="flex items-center justify-between bg-white p-3 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <FiShield className="w-4 h-4 text-blue-600" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900">{admin.firstName} {admin.lastName}</p>
-                              <p className="text-sm text-gray-500">{admin.email}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              admin.isActive 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-red-100 text-red-800'
-                            }`}>
-                              {admin.isActive ? 'Active' : 'Inactive'}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {new Date(admin.createdAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <FiShield className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500">No organization admins found</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Create Admin Modal */}
-      {showAdminModal && selectedOrg && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full">
-            <div className="p-6 border-b">
-              <h2 className="text-xl font-semibold">Create Organization Admin</h2>
-              <p className="text-sm text-gray-600 mt-1">Add a new admin for {selectedOrg.name}</p>
-            </div>
-            <form onSubmit={handleCreateAdmin} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={adminFormData.firstName}
-                  onChange={(e) => setAdminFormData({...adminFormData, firstName: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={adminFormData.lastName}
-                  onChange={(e) => setAdminFormData({...adminFormData, lastName: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                <input
-                  type="email"
-                  required
-                  value={adminFormData.email}
-                  onChange={(e) => setAdminFormData({...adminFormData, email: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
-                <input
-                  type="password"
-                  required
-                  value={adminFormData.password}
-                  onChange={(e) => setAdminFormData({...adminFormData, password: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                <input
-                  type="tel"
-                  value={adminFormData.phone}
-                  onChange={(e) => setAdminFormData({...adminFormData, phone: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div className="flex items-center gap-4 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAdminModal(false)}
-                  className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-                >
-                  Create Admin
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Update Organization Modal */}
+      <UpdateOrganizationModal
+        isOpen={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
+        onSubmit={handleUpdateOrganization}
+        organization={editingOrg}
+        fields={['name', 'email', 'phone', 'website', 'isActive']}
+        title="Quick Update"
+        description="Update organization contact information and status"
+      />
     </div>
   );
 }

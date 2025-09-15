@@ -15,6 +15,16 @@ export interface Organization {
   website: string;
   tags: string[];
   isActive: boolean;
+  organizationAdminId?: string;
+  organizationAdmin?: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    address?: string;
+    dateOfBirth?: string;
+  };
   createdAt: string;
   updatedAt: string;
   branchCount: number;
@@ -65,6 +75,17 @@ export const organizationService = {
       return response.data;
     } catch (error) {
       console.error('Failed to fetch organization:', error);
+      throw error;
+    }
+  },
+
+  // Get organization with admin details
+  getOrganizationWithAdmin: async (id: string): Promise<Organization> => {
+    try {
+      const response = await api.get(`${API_ENDPOINTS.ORGANIZATIONS.BY_ID(id)}?populate=organizationAdmin`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch organization with admin:', error);
       throw error;
     }
   },
