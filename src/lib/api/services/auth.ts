@@ -89,6 +89,33 @@ export interface RefreshTokenResponse {
   };
 }
 
+export interface CreateOrganizationAdminData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  phone: string;
+  address?: string;
+  dateOfBirth?: string;
+}
+
+export interface OrganizationAdmin {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  organizationId: string;
+  createdBy: string;
+  isActive: boolean;
+  role: string;
+  profileImage?: string;
+  address?: string;
+  dateOfBirth?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const authService = {
   login: async (credentials: LoginCredentials): Promise<LoginResponse> => {
     const response = await api.post<LoginResponse>(API_ENDPOINTS.AUTH.LOGIN, credentials);
