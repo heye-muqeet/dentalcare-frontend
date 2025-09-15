@@ -81,6 +81,8 @@ export interface RefreshTokenResponse {
   data: {
     accessToken: string;
     refreshToken: string;
+    expiresIn: number;
+    tokenType: string;
   };
 }
 

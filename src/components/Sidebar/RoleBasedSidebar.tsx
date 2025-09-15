@@ -6,6 +6,7 @@ import { logoutUser } from '../../lib/store/slices/authSlice';
 import { getFilteredRoutes, hasRouteAccess } from '../../lib/utils/rolePermissions';
 import type { UserRole } from '../../lib/utils/rolePermissions';
 import type { RootState } from '../../lib/store/store';
+import SessionStatus from '../SessionStatus';
 
 interface MenuItemProps {
   icon: string;
@@ -60,6 +61,10 @@ function SuperAdminSidebar() {
               onClick={() => handleNavigation(route.path)}
             />
           ))}
+        </div>
+        
+        <div className="absolute bottom-16 left-4 right-4">
+          <SessionStatus className="mb-2" />
         </div>
         
         <div className="absolute bottom-4 left-4 right-4">

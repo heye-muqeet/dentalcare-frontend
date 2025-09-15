@@ -4,7 +4,7 @@ import { ProtectedRoute } from '../features/auth/components/ProtectedRoute';
 import { RoleBasedRoute } from '../components/Auth/RoleBasedRoute';
 import { DashboardLayout } from '../layouts/DashboardLayout';
 import Dashboard from '../pages/Dashboard';
-import Organizations from '../pages/Organizations';
+import OrganizationManagement from '../pages/OrganizationManagement';
 import SystemUsers from '../pages/SystemUsers';
 import SystemLogs from '../pages/SystemLogs';
 import { useSelector } from 'react-redux';
@@ -220,7 +220,7 @@ export const router = createBrowserRouter([
       <ProtectedRoute>
         <RoleBasedRoute requiredRoles={['super_admin']}>
           <DashboardWrapper>
-            <Organizations />
+            <OrganizationManagement />
           </DashboardWrapper>
         </RoleBasedRoute>
       </ProtectedRoute>

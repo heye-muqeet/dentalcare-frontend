@@ -4,6 +4,7 @@ import { useAppDispatch, useAppSelector } from '../../../lib/hooks';
 import { login, clearError } from '../../../lib/store/slices/authSlice';
 import type { RootState } from '../../../lib/store/store';
 import { ROLE_DISPLAY_NAMES } from '../../../lib/constants/roles';
+import { LoadingButton } from '../../../components/Loader';
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
@@ -31,7 +32,27 @@ export function LoginForm() {
     e.preventDefault();
     dispatch(clearError());
     console.log('Dispatching login action...');
-    const result = await dispatch(login({ email, password, role }));
+    
+    // Get device information
+    const deviceName = navigator.userAgent.includes('Mobile') 
+      ? 'Mobile Device' 
+      : navigator.userAgent.includes('Tablet')
+      ? 'Tablet'
+      : navigator.platform.includes('Mac')
+      ? 'Mac Computer'
+      : navigator.platform.includes('Win')
+      ? 'Windows Computer'
+      : navigator.platform.includes('Linux')
+      ? 'Linux Computer'
+      : 'Unknown Device';
+    
+    const result = await dispatch(login({ 
+      email, 
+      password, 
+      role, 
+      isRememberMe: rememberMe,
+      deviceName 
+    }));
     console.log('Login action result:', result);
     
     // Navigate immediately if login was successful
@@ -210,23 +231,17 @@ export function LoginForm() {
                   </div>
                   
                   {/* Submit Button */}
-                  <button
+                  <LoadingButton
                     type="submit"
-                    disabled={isLoading}
-                    className="w-full bg-gradient-to-r from-[#0A0F56] to-[#3f51b5] text-white py-3 px-4 rounded-xl font-semibold hover:from-[#1a237e] hover:to-[#5c6bc0] focus:outline-none focus:ring-2 focus:ring-[#0A0F56] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02]"
+                    loading={isLoading}
+                    loadingText="Signing in..."
+                    variant="primary"
+                    size="lg"
+                    fullWidth
+                    className="w-full bg-gradient-to-r from-[#0A0F56] to-[#3f51b5] text-white py-3 px-4 rounded-xl font-semibold hover:from-[#1a237e] hover:to-[#5c6bc0] focus:outline-none focus:ring-2 focus:ring-[#0A0F56] focus:ring-offset-2 transition-all duration-200 transform hover:scale-[1.02]"
                   >
-                    {isLoading ? (
-                      <div className="flex items-center justify-center">
-                        <svg className="animate-spin h-5 w-5 text-white mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Signing in...
-                      </div>
-                    ) : (
-                      'Sign In'
-                    )}
-                  </button>
+                    Sign In
+                  </LoadingButton>
                   
                   {/* Sign Up Link */}
                   <div className="text-center">
