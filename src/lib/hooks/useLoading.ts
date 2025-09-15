@@ -27,7 +27,7 @@ export const useLoading = (options: UseLoadingOptions = {}) => {
     progress: undefined,
   });
 
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<number | null>(null);
 
   const setLoading = useCallback((isLoading: boolean, error: string | null = null, progress?: number) => {
     setLoadingState({

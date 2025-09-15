@@ -54,7 +54,7 @@ const PulseLoader: React.FC<{ size: LoaderSize; color: LoaderColor }> = ({ size,
   <div className={`animate-pulse rounded-full ${sizeClasses[size]} ${colorClasses[color]} bg-current`}></div>
 );
 
-const BarsLoader: React.FC<{ size: LoaderSize; color: LoaderColor }> = ({ size, color }) => (
+const BarsLoader: React.FC<{ size: LoaderSize; color: LoaderColor }> = ({ color }) => (
   <div className="flex space-x-1 items-end">
     {[0, 1, 2, 3].map((i) => (
       <div

@@ -1,8 +1,8 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
 import { authService } from '../../api/services/auth';
 import type { LoginCredentials } from '../../api/services/auth';
 import type { User } from '../../api/services/auth';
-import sessionManager, { SessionData } from '../../services/sessionManager';
+import sessionManager, { type SessionData } from '../../services/sessionManager';
 // import { updateProfile } from './profileSlice';
 
 interface AuthState {
@@ -38,8 +38,8 @@ export const login = createAsyncThunk(
           response.refresh_token,
           response.expires_in || 900, // Default 15 minutes
           {
-            deviceId: sessionManager.getSession()?.deviceId,
-            deviceName: credentials.deviceName || sessionManager.getSession()?.deviceName,
+            deviceId: sessionManager.getSession()?.deviceId || '',
+            deviceName: credentials.deviceName || sessionManager.getSession()?.deviceName || '',
             isRememberMe: credentials.isRememberMe || false,
           }
         );

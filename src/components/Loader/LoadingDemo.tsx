@@ -2,39 +2,43 @@ import React, { useState } from 'react';
 import { 
   Loader, 
   LoadingButton, 
-  LoadingWrapper,
-  DataTableLoadingWrapper,
-  CardLoadingWrapper,
-  ListLoadingWrapper,
-  useLoading,
-  useAsyncLoading,
-  useGlobalLoading
+  CardLoadingWrapper
 } from './index';
+import { useLoading } from '../../lib/hooks/useLoading';
+import { useGlobalLoading } from '../../lib/contexts/LoadingContext';
 
 export const LoadingDemo: React.FC = () => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<any[]>([]);
 
   // Using the loading hook
-  const { isLoading, startLoading, stopLoading, setError } = useLoading({
-    onError: (err) => console.error('Loading error:', err),
+  const { isLoading, setError } = useLoading({
+    onError: (err: any) => console.error('Loading error:', err),
     onSuccess: () => console.log('Loading completed successfully'),
   });
 
-  // Using async loading hook
-  const asyncLoading = useAsyncLoading(async () => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    return { message: 'Data loaded successfully!' };
-  });
+  // Simulate async loading
+  const [asyncData, setAsyncData] = useState<any>(null);
+  const [, setAsyncLoading] = useState(false);
+
+  const handleAsyncLoad = async () => {
+    setAsyncLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      setAsyncData({ message: 'Data loaded successfully!' });
+    } catch (err) {
+      console.error('Async loading error:', err);
+    } finally {
+      setAsyncLoading(false);
+    }
+  };
 
   // Using global loading
   const { startGlobalLoading, stopGlobalLoading } = useGlobalLoading();
 
   const handleSimulateLoading = () => {
     setLoading(true);
-    setError(null);
+    setError('');
     
     setTimeout(() => {
       setLoading(false);
@@ -44,7 +48,7 @@ export const LoadingDemo: React.FC = () => {
 
   const handleSimulateError = () => {
     setLoading(true);
-    setError(null);
+    setError('');
     
     setTimeout(() => {
       setLoading(false);
@@ -53,9 +57,9 @@ export const LoadingDemo: React.FC = () => {
   };
 
   const handleAsyncLoading = async () => {
-    const result = await asyncLoading.execute();
-    if (result) {
-      console.log('Async loading result:', result);
+    await handleAsyncLoad();
+    if (asyncData) {
+      console.log('Async loading result:', asyncData);
     }
   };
 
@@ -136,7 +140,7 @@ export const LoadingDemo: React.FC = () => {
             <h3 className="font-medium mb-2">Card Loading</h3>
             <CardLoadingWrapper
               loading={loading}
-              error={error}
+              error={loading ? 'Loading...' : ''}
               text="Loading card data..."
             >
               <div className="p-4 bg-gray-50 rounded">
@@ -149,10 +153,10 @@ export const LoadingDemo: React.FC = () => {
           {/* Table Loading */}
           <div className="border rounded-lg p-4">
             <h3 className="font-medium mb-2">Table Loading</h3>
-            <DataTableLoadingWrapper
+            <CardLoadingWrapper
               loading={loading}
-              error={error}
-              rows={3}
+              error={loading ? 'Loading...' : ''}
+              text="Loading table data..."
             >
               <table className="w-full">
                 <thead>
@@ -172,7 +176,7 @@ export const LoadingDemo: React.FC = () => {
                   ))}
                 </tbody>
               </table>
-            </DataTableLoadingWrapper>
+            </CardLoadingWrapper>
           </div>
         </div>
       </section>
@@ -215,7 +219,7 @@ export const LoadingDemo: React.FC = () => {
           <button
             onClick={() => {
               setLoading(false);
-              setError(null);
+              setError('');
               setData([]);
             }}
             className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"

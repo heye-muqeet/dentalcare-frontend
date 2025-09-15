@@ -33,6 +33,8 @@ export interface LoginCredentials {
   email: string;
   password: string;
   role?: string;
+  isRememberMe?: boolean;
+  deviceName?: string;
 }
 
 export interface RegisterData extends LoginCredentials {
@@ -67,6 +69,7 @@ export interface LoginResponse {
   access_token?: string;
   token?: string;
   refresh_token?: string;
+  expires_in?: number;
   role?: string;
   organizationId?: string;
   branchId?: string;

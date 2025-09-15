@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
+import type { AppDispatch } from '../lib/store/store';
 import { initializeAuth } from '../lib/store/slices/authSlice';
 import { useSessionManager } from '../lib/hooks/useSessionManager';
 import SessionTimeoutWarning from './SessionTimeoutWarning';
@@ -9,7 +10,7 @@ interface SessionInitializerProps {
 }
 
 export const SessionInitializer: React.FC<SessionInitializerProps> = ({ children }) => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const { isAuthenticated } = useSessionManager();
 
   useEffect(() => {

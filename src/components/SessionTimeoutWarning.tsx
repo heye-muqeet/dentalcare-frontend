@@ -12,7 +12,7 @@ export const SessionTimeoutWarning: React.FC<SessionTimeoutWarningProps> = ({
   onLogout,
   warningThreshold = 5, // 5 minutes default
 }) => {
-  const { sessionData, isSessionExpiring, refreshToken, logout } = useSessionManager();
+  const { sessionData, refreshToken, logout } = useSessionManager();
   const [showWarning, setShowWarning] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [isExtending, setIsExtending] = useState(false);

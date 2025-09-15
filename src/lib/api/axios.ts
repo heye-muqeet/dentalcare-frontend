@@ -1,4 +1,4 @@
-import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios from 'axios';
 import sessionManager from '../services/sessionManager';
 
 const api = axios.create({

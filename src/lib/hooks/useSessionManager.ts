@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from '../store';
+import type { RootState, AppDispatch } from '../store/store';
 import { 
   setSessionData, 
   setSessionExpiring, 
@@ -11,7 +11,7 @@ import {
 import sessionManager from '../services/sessionManager';
 
 export const useSessionManager = () => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const { sessionData, isSessionExpiring, isAuthenticated } = useSelector(
     (state: RootState) => state.auth
   );

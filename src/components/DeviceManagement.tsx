@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useSessionManager } from '../lib/hooks/useSessionManager';
-import { authService } from '../lib/api/services/auth';
 
 interface DeviceInfo {
   deviceId: string;
