@@ -17,14 +17,18 @@ interface Organization {
   website: string;
   tags: string[];
   isActive: boolean;
-  organizationAdminId?: string;
-  organizationAdmin?: {
+  organizationAdminIds?: string[];
+  organizationAdmins?: {
     _id: string;
     firstName: string;
     lastName: string;
     email: string;
     phone: string;
-  };
+    address?: string;
+    dateOfBirth?: string;
+    isActive: boolean;
+    createdAt: string;
+  }[];
   createdAt: string;
   updatedAt: string;
 }
@@ -54,8 +58,11 @@ const ViewOrganizationModal: React.FC<ViewOrganizationModalProps> = ({
       
       setLoading(true);
       try {
-        const orgWithAdmin = await organizationService.getOrganizationWithAdmin(organization._id);
-        setOrganizationData(orgWithAdmin);
+        // Fetch organization with its associated admins
+        const orgWithAdmins = await organizationService.getOrganizationWithAdmin(organization._id);
+        console.log('Organization with admins fetched in ViewOrganizationModal:', orgWithAdmins);
+        console.log('Organization admins:', orgWithAdmins.organizationAdmins);
+        setOrganizationData(orgWithAdmins);
       } catch (error) {
         console.error('Failed to fetch organization details:', error);
         // Fallback to the organization data passed as prop
@@ -302,53 +309,89 @@ const ViewOrganizationModal: React.FC<ViewOrganizationModalProps> = ({
             </div>
           )}
 
-          {/* Organization Admin */}
+          {/* Organization Admins */}
           <div className="space-y-6">
             <div className="flex items-center space-x-2">
               <div className="w-1 h-8 bg-gradient-to-b from-green-500 to-teal-500 rounded-full"></div>
               <h3 className="text-xl font-semibold text-gray-800 flex items-center space-x-2">
                 <User className="w-5 h-5 text-green-600" />
-                <span>Organization Admin</span>
+                <span>Organization Admins ({displayData.organizationAdmins?.length || 0})</span>
               </h3>
             </div>
 
-            {displayData.organizationAdmin ? (
-              <div className="p-4 bg-gradient-to-r from-green-50 to-teal-50 rounded-xl border border-green-200">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-500">Admin Name</label>
-                    <div className="p-3 bg-white rounded-xl border">
-                      <p className="text-gray-900 font-medium">
-                        {displayData.organizationAdmin.firstName} {displayData.organizationAdmin.lastName}
-                      </p>
+            {displayData.organizationAdmins && displayData.organizationAdmins.length > 0 ? (
+              <div className="space-y-4">
+                {displayData.organizationAdmins.map((admin, index) => (
+                  <div key={admin._id} className="p-4 bg-gradient-to-r from-green-50 to-teal-50 rounded-xl border border-green-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                          <User className="w-4 h-4 text-green-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900">
+                            {admin.firstName} {admin.lastName}
+                          </h4>
+                          <p className="text-sm text-gray-500">Admin #{index + 1}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          admin.isActive 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {admin.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-500">Email</label>
+                        <div className="p-2 bg-white rounded-lg border flex items-center space-x-2">
+                          <Mail className="w-4 h-4 text-gray-400" />
+                          <p className="text-gray-900 text-sm">{admin.email}</p>
+                        </div>
+                      </div>
 
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-500">Email</label>
-                    <div className="p-3 bg-white rounded-xl border flex items-center space-x-2">
-                      <Mail className="w-4 h-4 text-gray-400" />
-                      <p className="text-gray-900">{displayData.organizationAdmin.email}</p>
-                    </div>
-                  </div>
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-500">Phone</label>
+                        <div className="p-2 bg-white rounded-lg border flex items-center space-x-2">
+                          <Phone className="w-4 h-4 text-gray-400" />
+                          <p className="text-gray-900 text-sm">{admin.phone}</p>
+                        </div>
+                      </div>
 
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-500">Phone</label>
-                    <div className="p-3 bg-white rounded-xl border flex items-center space-x-2">
-                      <Phone className="w-4 h-4 text-gray-400" />
-                      <p className="text-gray-900">{displayData.organizationAdmin.phone}</p>
+                      {admin.address && (
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-500">Address</label>
+                          <div className="p-2 bg-white rounded-lg border">
+                            <p className="text-gray-900 text-sm">{admin.address}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-500">Created</label>
+                        <div className="p-2 bg-white rounded-lg border">
+                          <p className="text-gray-900 text-sm">
+                            {new Date(admin.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ))}
               </div>
             ) : (
               <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
                 <div className="flex items-center space-x-2">
                   <XCircle className="w-5 h-5 text-yellow-600" />
-                  <span className="text-yellow-800 font-medium">No organization admin assigned</span>
+                  <span className="text-yellow-800 font-medium">No organization admins assigned</span>
                 </div>
                 <p className="text-yellow-700 text-sm mt-1">
-                  This organization is inactive because no admin has been assigned.
+                  This organization has no admins assigned. Add admins to manage this organization.
                 </p>
               </div>
             )}

@@ -15,8 +15,8 @@ export interface Organization {
   website: string;
   tags: string[];
   isActive: boolean;
-  organizationAdminId?: string;
-  organizationAdmin?: {
+  organizationAdminIds?: string[];
+  organizationAdmins?: {
     _id: string;
     firstName: string;
     lastName: string;
@@ -24,7 +24,9 @@ export interface Organization {
     phone: string;
     address?: string;
     dateOfBirth?: string;
-  };
+    isActive: boolean;
+    createdAt: string;
+  }[];
   createdAt: string;
   updatedAt: string;
   branchCount: number;
@@ -82,8 +84,27 @@ export const organizationService = {
   // Get organization with admin details
   getOrganizationWithAdmin: async (id: string): Promise<Organization> => {
     try {
-      const response = await api.get(`${API_ENDPOINTS.ORGANIZATIONS.BY_ID(id)}?populate=organizationAdmin`);
-      return response.data;
+      console.log('Fetching organization with ID:', id);
+      
+      // First get the organization
+      const orgResponse = await api.get(API_ENDPOINTS.ORGANIZATIONS.BY_ID(id));
+      const organization = orgResponse.data;
+      console.log('Organization data:', organization);
+      
+      // Then get the organization admins
+      const adminsResponse = await api.get(API_ENDPOINTS.ORGANIZATIONS.ADMINS(id));
+      const admins = adminsResponse.data || [];
+      console.log('Organization admins data:', admins);
+      
+      // Combine the data
+      const result = {
+        ...organization,
+        organizationAdmins: admins,
+        organizationAdminIds: admins.map((admin: any) => admin._id)
+      };
+      
+      console.log('Combined organization data:', result);
+      return result;
     } catch (error) {
       console.error('Failed to fetch organization with admin:', error);
       throw error;
@@ -141,6 +162,55 @@ export const organizationService = {
     } catch (error) {
       console.error('Failed to create organization admin:', error);
       throw error;
+    }
+  },
+
+  // Assign existing admin to organization
+  assignAdminToOrganization: async (organizationId: string, adminId: string) => {
+    try {
+      const response = await api.post(`${API_ENDPOINTS.ORGANIZATIONS.ADMINS(organizationId)}/assign`, { adminId });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to assign admin to organization:', error);
+      throw error;
+    }
+  },
+
+  // Remove admin from organization
+  removeAdminFromOrganization: async (organizationId: string, adminId: string) => {
+    try {
+      const response = await api.delete(`${API_ENDPOINTS.ORGANIZATIONS.ADMINS(organizationId)}/${adminId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to remove admin from organization:', error);
+      throw error;
+    }
+  },
+
+  // Update admin status in organization
+  updateAdminStatus: async (organizationId: string, adminId: string, isActive: boolean) => {
+    try {
+      const response = await api.patch(`${API_ENDPOINTS.ORGANIZATIONS.ADMINS(organizationId)}/${adminId}/status`, { isActive });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to update admin status:', error);
+      throw error;
+    }
+  },
+
+  // Get available admins (not assigned to any organization)
+  getAvailableAdmins: async () => {
+    try {
+      console.log('Fetching available admins...');
+      // For now, we'll get all users with organization_admin role
+      // The backend should filter out those already assigned to organizations
+      const response = await api.get(`${API_ENDPOINTS.USERS.BASE}?role=organization_admin&available=true`);
+      const admins = response.data || [];
+      console.log('Available admins data:', admins);
+      return admins;
+    } catch (error) {
+      console.error('Failed to fetch available admins:', error);
+      return [];
     }
   },
 

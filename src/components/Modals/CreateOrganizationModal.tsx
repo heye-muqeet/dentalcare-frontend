@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Building2, MapPin, Phone, Mail, Globe, Tag, Plus, User, AlertCircle, CheckCircle, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { LoadingButton } from '../Loader';
-import { systemService } from '../../lib/api/services/system';
 import { organizationService } from '../../lib/api/services/organizations';
 import { authService } from '../../lib/api/services/auth';
 import type { SystemUser } from '../../lib/api/services/system';
@@ -26,7 +25,7 @@ interface CreateOrganizationData {
   website: string;
   tags: string[];
   isActive: boolean;
-  organizationAdminId?: string;
+  selectedAdminIds?: string[];
   createNewAdmin?: boolean;
   adminData?: {
     firstName: string;
@@ -62,7 +61,7 @@ export const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = (
     website: '',
     tags: [],
     isActive: false, // Default to false - requires admin
-    organizationAdminId: '',
+    selectedAdminIds: [],
     createNewAdmin: false,
     adminData: {
       firstName: '',
@@ -112,12 +111,8 @@ export const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = (
       
       setLoadingAdmins(true);
       try {
-        const response = await systemService.getSystemUsers({
-          role: 'organization_admin',
-          isActive: true,
-          limit: 100
-        });
-        setAvailableAdmins(response.users);
+        const admins = await organizationService.getAvailableAdmins();
+        setAvailableAdmins(admins);
       } catch (error) {
         console.error('Failed to fetch available admins:', error);
         setAvailableAdmins([]);
@@ -193,8 +188,8 @@ export const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = (
         if (!formData.adminData?.phone?.trim()) {
           newErrors.adminPhone = 'Admin phone number is required';
         }
-      } else if (!formData.organizationAdminId) {
-        newErrors.organizationAdminId = 'Organization admin is required for active organizations';
+      } else if (!formData.selectedAdminIds || formData.selectedAdminIds.length === 0) {
+        newErrors.selectedAdminIds = 'At least one organization admin is required for active organizations';
       }
     }
 
@@ -276,7 +271,7 @@ export const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = (
       website: '',
       tags: [],
       isActive: false,
-      organizationAdminId: '',
+      selectedAdminIds: [],
       createNewAdmin: false,
       adminData: {
         firstName: '',
@@ -715,13 +710,21 @@ export const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = (
                            </div>
                          ) : availableAdmins.length > 0 ? (
                            <div className="space-y-2">
-                             <select
-                               value={formData.organizationAdminId || ''}
-                               onChange={(e) => handleInputChange('organizationAdminId', e.target.value)}
-                               className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 ${
-                                 errors.organizationAdminId ? 'border-red-300 bg-red-50' : 'border-gray-300 hover:border-indigo-400'
-                               }`}
-                             >
+                        <select
+                          value={formData.selectedAdminIds?.[0] || ''}
+                          onChange={(e) => {
+                            const adminId = e.target.value;
+                            if (adminId) {
+                              setFormData(prev => ({
+                                ...prev,
+                                selectedAdminIds: [adminId]
+                              }));
+                            }
+                          }}
+                          className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 ${
+                            errors.selectedAdminIds ? 'border-red-300 bg-red-50' : 'border-gray-300 hover:border-indigo-400'
+                          }`}
+                        >
                                <option value="">Select an organization admin</option>
                                {availableAdmins.map((admin) => (
                                  <option key={admin._id} value={admin._id}>
@@ -729,8 +732,8 @@ export const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = (
                                  </option>
                                ))}
                              </select>
-                             {errors.organizationAdminId && (
-                               <p className="text-red-500 text-sm mt-1">{errors.organizationAdminId}</p>
+                             {errors.selectedAdminIds && (
+                               <p className="text-red-500 text-sm mt-1">{errors.selectedAdminIds}</p>
                              )}
                            </div>
                          ) : (

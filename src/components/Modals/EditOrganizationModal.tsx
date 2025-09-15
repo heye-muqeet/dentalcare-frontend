@@ -20,7 +20,18 @@ interface Organization {
   website: string;
   tags: string[];
   isActive: boolean;
-  organizationAdminId?: string;
+  organizationAdminIds?: string[];
+  organizationAdmins?: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    address?: string;
+    dateOfBirth?: string;
+    isActive: boolean;
+    createdAt: string;
+  }[];
   createdAt: string;
   updatedAt: string;
 }
@@ -45,7 +56,7 @@ interface EditOrganizationData {
   website: string;
   tags: string[];
   isActive: boolean;
-  organizationAdminId: string;
+  selectedAdminIds: string[];
   createNewAdmin: boolean;
   adminData: {
     firstName: string;
@@ -77,7 +88,7 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
     website: '',
     tags: [],
     isActive: false,
-    organizationAdminId: '',
+    selectedAdminIds: [],
     createNewAdmin: false,
     adminData: {
       firstName: '',
@@ -92,6 +103,7 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
 
   const [errors, setErrors] = useState<Partial<EditOrganizationData>>({});
   const [availableAdmins, setAvailableAdmins] = useState<SystemUser[]>([]);
+  const [existingAdmins, setExistingAdmins] = useState<SystemUser[]>([]);
   const [loadingAdmins, setLoadingAdmins] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -99,6 +111,10 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
   // Initialize form data when organization changes
   useEffect(() => {
     if (organization) {
+      console.log('Organization data received in EditOrganizationModal:', organization);
+      console.log('Organization admins:', organization.organizationAdmins);
+      console.log('Organization admin IDs:', organization.organizationAdminIds);
+      
       setFormData({
         name: organization.name || '',
         description: organization.description || '',
@@ -112,18 +128,27 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
         website: organization.website || '',
         tags: organization.tags || [],
         isActive: organization.isActive || false,
-        organizationAdminId: organization.organizationAdminId || '',
+        selectedAdminIds: organization.organizationAdminIds || [],
         createNewAdmin: false,
         adminData: {
-          firstName: organization.organizationAdmin?.firstName || '',
-          lastName: organization.organizationAdmin?.lastName || '',
-          email: organization.organizationAdmin?.email || '',
+          firstName: '',
+          lastName: '',
+          email: '',
           password: '',
-          phone: organization.organizationAdmin?.phone || '',
-          address: organization.organizationAdmin?.address || '',
-          dateOfBirth: organization.organizationAdmin?.dateOfBirth || '',
+          phone: '',
+          address: '',
+          dateOfBirth: '',
         },
       });
+
+      // Set existing admins from organization data
+      if (organization.organizationAdmins && organization.organizationAdmins.length > 0) {
+        console.log('Setting existing admins:', organization.organizationAdmins);
+        setExistingAdmins(organization.organizationAdmins);
+      } else {
+        console.log('No organization admins found, setting empty array');
+        setExistingAdmins([]);
+      }
     }
   }, [organization]);
 
@@ -150,14 +175,10 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
   const fetchAvailableAdmins = async () => {
     setLoadingAdmins(true);
     try {
-      const response = await systemService.getSystemUsers({
-        role: 'organization_admin',
-        isActive: true,
-        limit: 100
-      });
-      setAvailableAdmins(response.users || []);
+      const admins = await organizationService.getAvailableAdmins();
+      setAvailableAdmins(admins);
     } catch (error) {
-      console.error('Failed to fetch admins:', error);
+      console.error('Failed to fetch available admins:', error);
       setAvailableAdmins([]);
     } finally {
       setLoadingAdmins(false);
@@ -183,6 +204,69 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
     }));
   };
 
+  const handleAdminDataChange = (field: keyof EditOrganizationData['adminData'], value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      adminData: {
+        ...prev.adminData,
+        [field]: value
+      }
+    }));
+    // Clear admin data errors
+    if (errors.adminData?.[field]) {
+      setErrors(prev => ({
+        ...prev,
+        adminData: {
+          ...prev.adminData,
+          [field]: undefined
+        }
+      }));
+    }
+  };
+
+  const handleAdminSelection = (adminId: string, isSelected: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      selectedAdminIds: isSelected
+        ? [...prev.selectedAdminIds, adminId]
+        : prev.selectedAdminIds.filter(id => id !== adminId)
+    }));
+  };
+
+  const handleRemoveAdmin = (adminId: string) => {
+    // Only remove from selected admin IDs (new admins being added)
+    // Do not remove from existing admins as they are read-only
+    setFormData(prev => ({
+      ...prev,
+      selectedAdminIds: prev.selectedAdminIds.filter(id => id !== adminId)
+    }));
+  };
+
+  const handleToggleAdminStatus = (adminId: string) => {
+    // Toggle the status of an existing admin
+    setExistingAdmins(prev => 
+      prev.map(admin => 
+        admin._id === adminId 
+          ? { ...admin, isActive: !admin.isActive }
+          : admin
+      )
+    );
+  };
+
+  const handleActivateAllAdmins = () => {
+    // Activate all existing admins
+    setExistingAdmins(prev => 
+      prev.map(admin => ({ ...admin, isActive: true }))
+    );
+  };
+
+  const handleDeactivateAllAdmins = () => {
+    // Deactivate all existing admins
+    setExistingAdmins(prev => 
+      prev.map(admin => ({ ...admin, isActive: false }))
+    );
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     
@@ -195,6 +279,16 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
           [fieldName]: value
         }
       }));
+      // Clear admin data errors
+      if (errors.adminData?.[fieldName]) {
+        setErrors(prev => ({
+          ...prev,
+          adminData: {
+            ...prev.adminData,
+            [fieldName]: undefined
+          }
+        }));
+      }
     } else if (name === 'tags') {
       const tagsArray = value.split(',').map(tag => tag.trim()).filter(tag => tag);
       setFormData(prev => ({ ...prev, [name]: tagsArray }));
@@ -245,8 +339,10 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
       }
       if (!formData.adminData.phone.trim()) newErrors.adminData = { ...newErrors.adminData, phone: 'Phone number is required' };
     } else if (formData.isActive && !formData.createNewAdmin) {
-      if (!formData.organizationAdminId) {
-        newErrors.organizationAdminId = 'Please select an organization admin';
+      // Check if there are any admins (existing + selected new ones)
+      const totalAdmins = existingAdmins.length + formData.selectedAdminIds.length;
+      if (totalAdmins === 0) {
+        newErrors.selectedAdminIds = 'Organization must have at least one admin to be active';
       }
     }
 
@@ -305,6 +401,10 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
         await organizationService.updateOrganization(organization._id, { isActive: true });
       } else {
         // Regular organization update
+        // Combine existing admin IDs with new selected admin IDs
+        const existingAdminIds = existingAdmins.map(admin => admin._id);
+        const allAdminIds = [...existingAdminIds, ...formData.selectedAdminIds];
+        
         const organizationData = {
           name: formData.name,
           description: formData.description,
@@ -318,10 +418,23 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
           website: formData.website,
           tags: formData.tags,
           isActive: formData.isActive,
-          organizationAdminId: formData.organizationAdminId,
+          organizationAdminIds: allAdminIds,
         };
 
-        await onSubmit(organization._id, organizationData);
+         // Handle admin assignments - only assign new admins
+         if (formData.isActive && formData.selectedAdminIds.length > 0) {
+           // Assign selected new admins to organization
+           for (const adminId of formData.selectedAdminIds) {
+             await organizationService.assignAdminToOrganization(organization._id, adminId);
+           }
+         }
+
+         // Update admin statuses for existing admins
+         for (const admin of existingAdmins) {
+           await organizationService.updateAdminStatus(organization._id, admin._id, admin.isActive);
+         }
+
+         await onSubmit(organization._id, organizationData);
       }
       
       handleClose();
@@ -346,7 +459,7 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
       website: '',
       tags: [],
       isActive: false,
-      organizationAdminId: '',
+      selectedAdminIds: [],
       createNewAdmin: false,
       adminData: {
         firstName: '',
@@ -358,6 +471,7 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
         dateOfBirth: '',
       },
     });
+    setExistingAdmins([]);
     setErrors({});
     setShowPassword(false);
     onClose();
@@ -694,40 +808,169 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
                     </label>
                   </div>
 
-                  {/* Existing Admin Selection */}
+                  {/* Admin Management */}
                   {!formData.createNewAdmin && (
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Select Organization Admin <span className="text-red-500">*</span>
-                      </label>
-                      {loadingAdmins ? (
-                        <div className="flex items-center justify-center p-4">
-                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
-                          <span className="ml-2 text-sm text-gray-600">Loading admins...</span>
-                        </div>
-                      ) : availableAdmins.length > 0 ? (
-                        <select
-                          name="organizationAdminId"
-                          value={formData.organizationAdminId}
-                          onChange={handleInputChange}
-                          className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ${
-                            errors.organizationAdminId ? 'border-red-300 bg-red-50' : 'border-gray-300 hover:border-indigo-300'
-                          }`}
-                        >
-                          <option value="">Select an admin</option>
-                          {availableAdmins.map((admin) => (
-                            <option key={admin._id} value={admin._id}>
-                              {admin.firstName} {admin.lastName} ({admin.email})
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <div className="flex items-center space-x-2 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-                          <AlertCircle className="w-5 h-5 text-yellow-600" />
-                          <span className="text-sm text-yellow-800">No available organization admins found</span>
+                    <div className="space-y-6">
+                      {/* Current Organization Admins */}
+                      {existingAdmins.length > 0 && (
+                        <div className="space-y-3">
+                           <div className="space-y-3">
+                             <div className="flex items-center justify-between">
+                               <h4 className="text-sm font-medium text-gray-700 flex items-center space-x-2">
+                                 <User className="w-4 h-4 text-indigo-600" />
+                                 <span>Current Organization Admins ({existingAdmins.length})</span>
+                               </h4>
+                               {existingAdmins.length > 1 && (
+                                 <div className="flex items-center space-x-2">
+                                   <button
+                                     type="button"
+                                     onClick={handleActivateAllAdmins}
+                                     className="flex items-center space-x-1 px-3 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 rounded-lg text-xs font-medium transition-colors"
+                                   >
+                                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                     <span>Activate All</span>
+                                   </button>
+                                   <button
+                                     type="button"
+                                     onClick={handleDeactivateAllAdmins}
+                                     className="flex items-center space-x-1 px-3 py-1.5 bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200 rounded-lg text-xs font-medium transition-colors"
+                                   >
+                                     <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                                     <span>Deactivate All</span>
+                                   </button>
+                                 </div>
+                               )}
+                             </div>
+                             
+                             {/* Status Summary */}
+                             <div className="flex items-center space-x-4 text-xs text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
+                               <div className="flex items-center space-x-1">
+                                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                 <span>{existingAdmins.filter(a => a.isActive).length} Active</span>
+                               </div>
+                               <div className="flex items-center space-x-1">
+                                 <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                                 <span>{existingAdmins.filter(a => !a.isActive).length} Inactive</span>
+                               </div>
+                             </div>
+                           </div>
+                          <div className="space-y-2">
+                            {existingAdmins.map((admin) => (
+                              <div key={admin._id} className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors">
+                                <div className="flex items-center space-x-3">
+                                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                                    admin.isActive ? 'bg-green-100' : 'bg-gray-100'
+                                  }`}>
+                                    <User className={`w-5 h-5 ${admin.isActive ? 'text-green-600' : 'text-gray-400'}`} />
+                                  </div>
+                                  <div>
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {admin.firstName} {admin.lastName}
+                                    </div>
+                                    <div className="text-xs text-gray-500">{admin.email}</div>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-center space-x-3">
+                                  <div className="flex items-center space-x-2">
+                                    <span className={`text-xs font-medium ${
+                                      admin.isActive ? 'text-green-600' : 'text-gray-500'
+                                    }`}>
+                                      {admin.isActive ? 'Active' : 'Inactive'}
+                                    </span>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={admin.isActive}
+                                        onChange={() => handleToggleAdminStatus(admin._id)}
+                                        className="sr-only peer"
+                                      />
+                                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                                    </label>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
-                      {errors.organizationAdminId && <p className="text-red-500 text-sm">{errors.organizationAdminId}</p>}
+
+                      {/* Add More Admins */}
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-medium text-gray-700 flex items-center space-x-2">
+                          <Plus className="w-4 h-4 text-green-600" />
+                          <span>Add More Admins</span>
+                        </h4>
+                        
+                        {loadingAdmins ? (
+                          <div className="flex items-center justify-center p-4">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+                            <span className="ml-2 text-sm text-gray-600">Loading available admins...</span>
+                          </div>
+                        ) : availableAdmins.length > 0 ? (
+                          <div className="max-h-40 overflow-y-auto space-y-2 border border-gray-200 rounded-lg p-2">
+                            {availableAdmins
+                              .filter(admin => !formData.selectedAdminIds.includes(admin._id))
+                              .map((admin) => (
+                                <div key={admin._id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg">
+                                  <input
+                                    type="checkbox"
+                                    id={`admin-${admin._id}`}
+                                    checked={formData.selectedAdminIds.includes(admin._id)}
+                                    onChange={(e) => handleAdminSelection(admin._id, e.target.checked)}
+                                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                  />
+                                  <label htmlFor={`admin-${admin._id}`} className="flex-1 cursor-pointer">
+                                    <div className="flex items-center space-x-2">
+                                      <User className="w-4 h-4 text-gray-400" />
+                                      <span className="text-sm font-medium text-gray-900">
+                                        {admin.firstName} {admin.lastName}
+                                      </span>
+                                      <span className="text-xs text-gray-500">({admin.email})</span>
+                                    </div>
+                                  </label>
+                                </div>
+                              ))}
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+                            <AlertCircle className="w-5 h-5 text-yellow-600" />
+                            <span className="text-sm text-yellow-800">No available admins to add</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Selected New Admins */}
+                      {formData.selectedAdminIds.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium text-gray-700">Selected New Admins:</h4>
+                          <div className="space-y-2">
+                            {formData.selectedAdminIds.map(adminId => {
+                              const admin = availableAdmins.find(a => a._id === adminId);
+                              return admin ? (
+                                <div key={adminId} className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                                  <div className="flex items-center space-x-3">
+                                    <User className="w-4 h-4 text-green-600" />
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {admin.firstName} {admin.lastName}
+                                    </span>
+                                    <span className="text-xs text-gray-500">({admin.email})</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveAdmin(adminId)}
+                                    className="text-red-500 hover:text-red-700 p-1"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              ) : null;
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {errors.selectedAdminIds && <p className="text-red-500 text-sm">{errors.selectedAdminIds}</p>}
                     </div>
                   )}
 
@@ -747,9 +990,8 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
                           </label>
                           <input
                             type="text"
-                            name="adminData.firstName"
                             value={formData.adminData.firstName}
-                            onChange={handleInputChange}
+                            onChange={(e) => handleAdminDataChange('firstName', e.target.value)}
                             className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ${
                               errors.adminData?.firstName ? 'border-red-300 bg-red-50' : 'border-gray-300 hover:border-indigo-300'
                             }`}
@@ -765,9 +1007,8 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
                           </label>
                           <input
                             type="text"
-                            name="adminData.lastName"
                             value={formData.adminData.lastName}
-                            onChange={handleInputChange}
+                            onChange={(e) => handleAdminDataChange('lastName', e.target.value)}
                             className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ${
                               errors.adminData?.lastName ? 'border-red-300 bg-red-50' : 'border-gray-300 hover:border-indigo-300'
                             }`}
@@ -783,9 +1024,8 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
                           </label>
                           <input
                             type="email"
-                            name="adminData.email"
                             value={formData.adminData.email}
-                            onChange={handleInputChange}
+                            onChange={(e) => handleAdminDataChange('email', e.target.value)}
                             className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ${
                               errors.adminData?.email ? 'border-red-300 bg-red-50' : 'border-gray-300 hover:border-indigo-300'
                             }`}
@@ -801,9 +1041,8 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
                           </label>
                           <input
                             type="tel"
-                            name="adminData.phone"
                             value={formData.adminData.phone}
-                            onChange={handleInputChange}
+                            onChange={(e) => handleAdminDataChange('phone', e.target.value)}
                             className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ${
                               errors.adminData?.phone ? 'border-red-300 bg-red-50' : 'border-gray-300 hover:border-indigo-300'
                             }`}
@@ -820,9 +1059,8 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
                           <div className="relative">
                             <input
                               type={showPassword ? 'text' : 'password'}
-                              name="adminData.password"
                               value={formData.adminData.password}
-                              onChange={handleInputChange}
+                              onChange={(e) => handleAdminDataChange('password', e.target.value)}
                               className={`w-full px-4 py-3 pr-20 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ${
                                 errors.adminData?.password ? 'border-red-300 bg-red-50' : 'border-gray-300 hover:border-indigo-300'
                               }`}
@@ -856,9 +1094,8 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
                           <label className="block text-sm font-medium text-gray-700">Address</label>
                           <input
                             type="text"
-                            name="adminData.address"
                             value={formData.adminData.address}
-                            onChange={handleInputChange}
+                            onChange={(e) => handleAdminDataChange('address', e.target.value)}
                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 hover:border-indigo-300"
                             placeholder="Enter address"
                           />
@@ -869,9 +1106,8 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
                           <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
                           <input
                             type="date"
-                            name="adminData.dateOfBirth"
                             value={formData.adminData.dateOfBirth}
-                            onChange={handleInputChange}
+                            onChange={(e) => handleAdminDataChange('dateOfBirth', e.target.value)}
                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 hover:border-indigo-300"
                           />
                         </div>
