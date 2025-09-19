@@ -66,6 +66,8 @@ export default function Account() {
     );
   }
 
+  // Ensure safe rendering of user data
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       {/* Header */}
@@ -127,7 +129,7 @@ export default function Account() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 ) : (
-                  <p className="text-gray-900 py-2">{user.firstName}</p>
+                  <p className="text-gray-900 py-2">{String(user.firstName || '')}</p>
                 )}
               </div>
 
@@ -144,7 +146,7 @@ export default function Account() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 ) : (
-                  <p className="text-gray-900 py-2">{user.lastName}</p>
+                  <p className="text-gray-900 py-2">{String(user.lastName || '')}</p>
                 )}
               </div>
 
@@ -161,7 +163,7 @@ export default function Account() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 ) : (
-                  <p className="text-gray-900 py-2">{user.email}</p>
+                  <p className="text-gray-900 py-2">{String(user.email || '')}</p>
                 )}
               </div>
 
@@ -170,7 +172,9 @@ export default function Account() {
                   <FiUser className="w-4 h-4 inline mr-1" />
                   Role
                 </label>
-                <p className="text-gray-900 py-2 capitalize">{user.role?.replace('_', ' ')}</p>
+                <p className="text-gray-900 py-2 capitalize">
+                  {typeof user.role === 'string' ? user.role.replace('_', ' ') : 'User'}
+                </p>
               </div>
 
               <div>
@@ -195,7 +199,7 @@ export default function Account() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Role</span>
                 <span className="text-sm font-medium text-gray-900 capitalize">
-                  {user.role?.replace('_', ' ')}
+                  {typeof user.role === 'string' ? user.role.replace('_', ' ') : 'User'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -204,19 +208,37 @@ export default function Account() {
                   {user.isActive ? 'Active' : 'Inactive'}
                 </span>
               </div>
-              {user.organizationId && (
+              {(user.organization || user.organizationId) && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Organization</span>
                   <span className="text-sm font-medium text-gray-900">
-                    {user.organizationId}
+                    {(() => {
+                      // Safe rendering of organization info
+                      if (user.organization && typeof user.organization === 'object' && user.organization.name) {
+                        return user.organization.name;
+                      }
+                      if (typeof user.organizationId === 'string') {
+                        return user.organizationId;
+                      }
+                      return 'Organization';
+                    })()}
                   </span>
                 </div>
               )}
-              {user.branchId && (
+              {(user.branch || user.branchId) && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Branch</span>
                   <span className="text-sm font-medium text-gray-900">
-                    {user.branchId}
+                    {(() => {
+                      // Safe rendering of branch info
+                      if (user.branch && typeof user.branch === 'object' && user.branch.name) {
+                        return user.branch.name;
+                      }
+                      if (typeof user.branchId === 'string') {
+                        return user.branchId;
+                      }
+                      return 'Branch';
+                    })()}
                   </span>
                 </div>
               )}

@@ -33,6 +33,7 @@ export const getAccessibleRoutes = (userRole: UserRole): string[] => {
     ],
     organization_admin: [
       '/dashboard',
+      '/branches',
       '/doctors',
       '/patients',
       '/appointments',
@@ -102,6 +103,13 @@ export const routePermissions: RoutePermission[] = [
     label: 'Dashboard',
     icon: 'dashboard',
     allowedRoles: ['super_admin', 'organization_admin', 'branch_admin', 'doctor', 'receptionist', 'patient']
+  },
+  // Branch Management
+  {
+    path: '/branches',
+    label: 'Branches',
+    icon: 'building',
+    allowedRoles: ['organization_admin']
   },
   // Clinical Management
   {
