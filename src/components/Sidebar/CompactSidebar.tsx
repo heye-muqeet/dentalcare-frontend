@@ -82,6 +82,7 @@ function SuperAdminCompactSidebar() {
             icon={route.icon}
             text={route.label}
             onClick={() => handleNavigation(route.path)}
+            isActive={location.pathname === route.path}
           />
         ))}
       </div>
@@ -147,6 +148,7 @@ function OrganizationAdminCompactSidebar() {
             icon={route.icon}
             text={route.label}
             onClick={() => handleNavigation(route.path)}
+            isActive={location.pathname === route.path}
           />
         ))}
       </div>
@@ -212,6 +214,7 @@ function BranchAdminCompactSidebar() {
             icon={route.icon}
             text={route.label}
             onClick={() => handleNavigation(route.path)}
+            isActive={location.pathname === route.path}
           />
         ))}
       </div>
@@ -277,6 +280,7 @@ function DoctorCompactSidebar() {
             icon={route.icon}
             text={route.label}
             onClick={() => handleNavigation(route.path)}
+            isActive={location.pathname === route.path}
           />
         ))}
       </div>
@@ -342,6 +346,7 @@ function ReceptionistCompactSidebar() {
             icon={route.icon}
             text={route.label}
             onClick={() => handleNavigation(route.path)}
+            isActive={location.pathname === route.path}
           />
         ))}
       </div>
@@ -407,6 +412,7 @@ function PatientCompactSidebar() {
             icon={route.icon}
             text={route.label}
             onClick={() => handleNavigation(route.path)}
+            isActive={location.pathname === route.path}
           />
         ))}
       </div>
