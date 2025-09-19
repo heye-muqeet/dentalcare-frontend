@@ -7,6 +7,7 @@ import Dashboard from '../pages/Dashboard';
 import OrganizationManagement from '../pages/OrganizationManagement';
 import SystemUsers from '../pages/SystemUsers';
 import SystemLogs from '../pages/SystemLogs';
+import Account from '../pages/Account';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../lib/store/store';
 
@@ -89,12 +90,7 @@ const Expenses = () => (
   </div>
 );
 
-const Profile = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
-    <p className="text-gray-600">Manage your account settings</p>
-  </div>
-);
+// Profile component replaced with Account component
 
 export const router = createBrowserRouter([
   {
@@ -207,7 +203,7 @@ export const router = createBrowserRouter([
       <ProtectedRoute>
         <RoleBasedRoute requiredRoles={['super_admin', 'organization_admin', 'branch_admin', 'doctor', 'receptionist', 'patient']}>
           <DashboardWrapper>
-            <Profile />
+            <Account />
           </DashboardWrapper>
         </RoleBasedRoute>
       </ProtectedRoute>

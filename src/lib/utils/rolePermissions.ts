@@ -29,7 +29,7 @@ export const getAccessibleRoutes = (userRole: UserRole): string[] => {
       '/analytics',
       '/system-settings',
       '/security',
-      '/account'
+      '/profile'
     ],
     organization_admin: [
       '/dashboard',
@@ -40,7 +40,7 @@ export const getAccessibleRoutes = (userRole: UserRole): string[] => {
       '/treatments',
       '/invoices',
       '/expenses',
-      '/account',
+      '/profile',
     ],
     branch_admin: [
       '/dashboard',
@@ -51,14 +51,14 @@ export const getAccessibleRoutes = (userRole: UserRole): string[] => {
       '/treatments',
       '/invoices',
       '/expenses',
-      '/account',
+      '/profile',
     ],
     doctor: [
       '/dashboard',
       '/patients',
       '/appointments',
       '/treatments',
-      '/account',
+      '/profile',
     ],
     receptionist: [
       '/dashboard',
@@ -67,13 +67,13 @@ export const getAccessibleRoutes = (userRole: UserRole): string[] => {
       '/services',
       '/invoices',
       '/expenses',
-      '/account',
+      '/profile',
     ],
     patient: [
       '/dashboard',
       '/appointments',
       '/treatments',
-      '/account',
+      '/profile',
     ],
   };
 
@@ -144,7 +144,7 @@ export const routePermissions: RoutePermission[] = [
   },
   // User Management
   {
-    path: '/account',
+    path: '/profile',
     label: 'Account',
     icon: 'user',
     allowedRoles: ['super_admin', 'organization_admin', 'branch_admin', 'doctor', 'receptionist', 'patient'],
@@ -188,14 +188,6 @@ export const routePermissions: RoutePermission[] = [
     icon: 'security',
     allowedRoles: ['super_admin']
   },
-  {
-    path: '/logout',
-    label: 'Log Out',
-    icon: 'logout',
-    allowedRoles: ['super_admin', 'organization_admin', 'branch_admin', 'doctor', 'receptionist', 'patient'],
-    divider: true,
-    isLogout: true
-  }
 ];
 
 export const hasRouteAccess = (userRole: UserRole, routePath: string): boolean => {
