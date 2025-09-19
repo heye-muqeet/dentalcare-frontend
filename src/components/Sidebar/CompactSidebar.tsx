@@ -1,11 +1,10 @@
-import { icons } from "../../assets";
-import Icon from "../Icons";
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../lib/hooks';
 import { logoutUser } from '../../lib/store/slices/authSlice';
 import { getFilteredRoutes, hasRouteAccess } from '../../lib/utils/rolePermissions';
 import type { UserRole } from '../../lib/utils/rolePermissions';
 import type { RootState } from '../../lib/store/store';
+import SidebarIcon from '../Icons/SidebarIcon';
 
 interface MenuItemProps {
   icon: string;
@@ -25,7 +24,7 @@ function CompactMenuItem({ icon, text, onClick, isActive = false }: MenuItemProp
           : 'text-white/80 hover:bg-white/10 hover:text-white'
       }`}
     >
-      <Icon name={icon as keyof typeof icons} width="w-4" height="h-4" />
+      <SidebarIcon name={icon} className="w-4 h-4 text-white" />
       <span className="truncate">{text}</span>
     </button>
   );

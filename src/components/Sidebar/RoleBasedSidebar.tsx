@@ -1,6 +1,5 @@
-import { icons } from "../../assets";
-import Icon from "../Icons";
-import { useNavigate } from 'react-router-dom';
+import SidebarIcon from '../Icons/SidebarIcon';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../lib/hooks';
 import { logoutUser } from '../../lib/store/slices/authSlice';
 import { getFilteredRoutes, hasRouteAccess } from '../../lib/utils/rolePermissions';
@@ -12,6 +11,7 @@ interface MenuItemProps {
   icon: string;
   text: string;
   onClick: () => void;
+  isActive?: boolean;
 }
 
 // Super Admin Sidebar
@@ -412,7 +412,7 @@ function MenuItem({ icon, text, onClick }: MenuItemProps) {
       onClick={onClick}
       className="w-full flex items-center gap-3 px-3 py-2 text-white hover:bg-white/20 rounded-lg transition-colors text-left"
     >
-      <Icon name={icon as keyof typeof icons} width="w-5" height="h-5" />
+      <SidebarIcon name={icon} className="w-5 h-5 text-white" />
       <span className="text-sm font-medium">{text}</span>
     </button>
   );

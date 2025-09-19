@@ -1,20 +1,21 @@
-import { icons } from "../../assets";
-import Icon from "../Icons";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../lib/hooks';
 import { logoutUser } from '../../lib/store/slices/authSlice';
 import { getFilteredRoutes, hasRouteAccess } from '../../lib/utils/rolePermissions';
 import type { UserRole } from '../../lib/utils/rolePermissions';
 import type { RootState } from '../../lib/store/store';
+import SidebarIcon from '../Icons/SidebarIcon';
 
 interface MenuItemProps {
-  icon: keyof typeof icons;
+  icon: string;
   text: string;
   onClick: () => void;
+  isActive?: boolean;
 }
 
 export function Sidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state: RootState) => state.auth.user);
 
@@ -68,9 +69,10 @@ export function Sidebar() {
             elements.push(
               <MenuItem
                 key={route.label}
-                icon={route.icon as keyof typeof icons}
+                icon={route.icon}
                 text={route.label}
                 onClick={() => handleNavigation(route.path, route.isLogout)}
+                isActive={location.pathname === route.path}
               />
             );
             
@@ -82,13 +84,20 @@ export function Sidebar() {
   );
 }
 
-function MenuItem({ icon, text, onClick }: MenuItemProps) {
+function MenuItem({ icon, text, onClick, isActive = false }: MenuItemProps) {
   return (
     <div
-      className="flex items-center space-x-3 p-3 rounded-lg cursor-pointer text-gray-700 text-[15px] font-medium hover:bg-blue-50 transition-all duration-200"
+      className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer text-[15px] font-medium transition-all duration-200 ${
+        isActive 
+          ? 'bg-blue-600 text-white shadow-md' 
+          : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'
+      }`}
       onClick={onClick}
     >
-      <Icon name={icon} width="w-5" height="h-5" />
+      <SidebarIcon 
+        name={icon} 
+        className={`w-5 h-5 ${isActive ? 'text-white' : 'text-gray-600'}`} 
+      />
       <span>{text}</span>
     </div>
   );

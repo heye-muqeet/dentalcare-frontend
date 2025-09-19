@@ -19,21 +19,18 @@ export const getRedirectPath = (userRole: UserRole, _currentPath: string): strin
 };
 
 export const getAccessibleRoutes = (userRole: UserRole): string[] => {
-  const allRoutes = [
-    '/dashboard',
-    '/doctors',
-    '/patients',
-    '/appointments',
-    '/services',
-    '/treatments',
-    '/invoices',
-    '/expenses',
-    '/profile',
-  ];
-
   // Define which routes each role can access
   const roleRoutes: Record<UserRole, string[]> = {
-    super_admin: allRoutes,
+    super_admin: [
+      '/dashboard',
+      '/organizations',
+      '/system-users', 
+      '/system-logs',
+      '/analytics',
+      '/system-settings',
+      '/security',
+      '/account'
+    ],
     organization_admin: [
       '/dashboard',
       '/doctors',
@@ -43,7 +40,7 @@ export const getAccessibleRoutes = (userRole: UserRole): string[] => {
       '/treatments',
       '/invoices',
       '/expenses',
-      '/profile',
+      '/account',
     ],
     branch_admin: [
       '/dashboard',
@@ -54,14 +51,14 @@ export const getAccessibleRoutes = (userRole: UserRole): string[] => {
       '/treatments',
       '/invoices',
       '/expenses',
-      '/profile',
+      '/account',
     ],
     doctor: [
       '/dashboard',
       '/patients',
       '/appointments',
       '/treatments',
-      '/profile',
+      '/account',
     ],
     receptionist: [
       '/dashboard',
@@ -70,13 +67,13 @@ export const getAccessibleRoutes = (userRole: UserRole): string[] => {
       '/services',
       '/invoices',
       '/expenses',
-      '/profile',
+      '/account',
     ],
     patient: [
       '/dashboard',
       '/appointments',
       '/treatments',
-      '/profile',
+      '/account',
     ],
   };
 
@@ -103,21 +100,10 @@ export const routePermissions: RoutePermission[] = [
   {
     path: '/dashboard',
     label: 'Dashboard',
-    icon: 'bar_chart',
+    icon: 'dashboard',
     allowedRoles: ['super_admin', 'organization_admin', 'branch_admin', 'doctor', 'receptionist', 'patient']
   },
-  {
-    path: '/doctors',
-    label: 'Doctors',
-    icon: 'calender_add',
-    allowedRoles: ['organization_admin', 'branch_admin', 'receptionist']
-  },
-  {
-    path: '/appointments',
-    label: 'Appointments',
-    icon: 'vase',
-    allowedRoles: ['organization_admin', 'branch_admin', 'doctor', 'receptionist', 'patient']
-  },
+  // Clinical Management
   {
     path: '/patients',
     label: 'Patients',
@@ -125,72 +111,69 @@ export const routePermissions: RoutePermission[] = [
     allowedRoles: ['organization_admin', 'branch_admin', 'doctor', 'receptionist']
   },
   {
-    path: '/services',
-    label: 'Services',
-    icon: 'document_chart',
+    path: '/doctors',
+    label: 'Doctors',
+    icon: 'stethoscope',
     allowedRoles: ['organization_admin', 'branch_admin', 'receptionist']
   },
   {
-    path: '/invoice',
-    label: 'Invoice',
-    icon: 'document_chart',
+    path: '/appointments',
+    label: 'Appointments',
+    icon: 'calendar',
+    allowedRoles: ['organization_admin', 'branch_admin', 'doctor', 'receptionist', 'patient']
+  },
+  {
+    path: '/services',
+    label: 'Services',
+    icon: 'treatments',
+    allowedRoles: ['organization_admin', 'branch_admin', 'receptionist']
+  },
+  // Financial Management
+  {
+    path: '/invoices',
+    label: 'Invoices',
+    icon: 'billing',
     allowedRoles: ['organization_admin', 'branch_admin', 'receptionist'],
     divider: true
   },
   {
-    path: '/expense',
-    label: 'Expense',
-    icon: 'document_chart',
+    path: '/expenses',
+    label: 'Expenses',
+    icon: 'expenses',
     allowedRoles: ['organization_admin', 'branch_admin', 'receptionist']
   },
-  {
-    path: '/system-users',
-    label: 'System Users',
-    icon: 'users',
-    allowedRoles: ['super_admin']
-  },
-  {
-    path: '/system-logs',
-    label: 'System Logs',
-    icon: 'document_chart',
-    allowedRoles: ['super_admin']
-  },
-  {
-    path: '/system-health',
-    label: 'System Health',
-    icon: 'shield',
-    allowedRoles: ['super_admin']
-  },
+  // User Management
   {
     path: '/account',
     label: 'Account',
     icon: 'user',
-    allowedRoles: ['super_admin', 'organization_admin', 'branch_admin', 'doctor', 'receptionist', 'patient']
+    allowedRoles: ['super_admin', 'organization_admin', 'branch_admin', 'doctor', 'receptionist', 'patient'],
+    divider: true
   },
   // Super Admin specific routes
   {
     path: '/organizations',
     label: 'Organizations',
-    icon: 'building',
+    icon: 'organizations',
     allowedRoles: ['super_admin'],
     divider: true
   },
   {
     path: '/system-users',
     label: 'System Users',
-    icon: 'users',
+    icon: 'user_check',
     allowedRoles: ['super_admin']
   },
   {
     path: '/system-logs',
     label: 'System Logs',
-    icon: 'document_chart',
+    icon: 'database',
     allowedRoles: ['super_admin']
   },
   {
     path: '/analytics',
     label: 'Analytics',
-    icon: 'bar_chart',
+    icon: 'analytics',
     allowedRoles: ['super_admin']
   },
   {
@@ -202,7 +185,7 @@ export const routePermissions: RoutePermission[] = [
   {
     path: '/security',
     label: 'Security Monitor',
-    icon: 'shield',
+    icon: 'security',
     allowedRoles: ['super_admin']
   },
   {
