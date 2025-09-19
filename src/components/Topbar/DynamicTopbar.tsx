@@ -202,12 +202,6 @@ function OrganizationAdminDynamicTopbar() {
 
   const handleQuickAction = (action: string) => {
     switch (action) {
-      case 'add_branch':
-        navigate('/branches/create');
-        break;
-      case 'add_user':
-        navigate('/users/create');
-        break;
       case 'view_reports':
         navigate('/reports');
         break;
@@ -249,34 +243,14 @@ function OrganizationAdminDynamicTopbar() {
 
   return (
     <div className="bg-gradient-to-r from-blue-700 to-cyan-700 text-white px-4 py-3 flex items-center justify-between shadow-lg">
-      {/* Left: Organization Branding & Quick Actions */}
-      <div className="flex items-center space-x-4">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-            <span className="text-lg">🏥</span>
-          </div>
-          <div>
-            <h1 className="text-lg font-bold">{organizationName}</h1>
-            <p className="text-xs text-cyan-200">Organization Admin</p>
-          </div>
+      {/* Left: Organization Branding */}
+      <div className="flex items-center space-x-3">
+        <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+          <span className="text-lg">🏥</span>
         </div>
-
-        {/* Quick Action Buttons */}
-        <div className="hidden lg:flex items-center space-x-2">
-          <button
-            onClick={() => handleQuickAction('add_branch')}
-            className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-md text-xs font-medium transition-colors"
-            title="Add New Branch"
-          >
-            + Branch
-          </button>
-          <button
-            onClick={() => handleQuickAction('add_user')}
-            className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-md text-xs font-medium transition-colors"
-            title="Add New User"
-          >
-            + User
-          </button>
+        <div>
+          <h1 className="text-lg font-bold">{organizationName}</h1>
+          <p className="text-xs text-cyan-200">Organization Admin</p>
         </div>
       </div>
 

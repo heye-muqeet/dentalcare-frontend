@@ -8,6 +8,7 @@ import OrganizationManagement from '../pages/OrganizationManagement';
 import SystemUsers from '../pages/SystemUsers';
 import SystemLogs from '../pages/SystemLogs';
 import Account from '../pages/Account';
+import BranchManagement from '../pages/BranchManagement';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../lib/store/store';
 
@@ -108,6 +109,18 @@ export const router = createBrowserRouter([
         <RoleBasedRoute requiredRoles={['super_admin', 'organization_admin', 'branch_admin', 'doctor', 'receptionist', 'patient']}>
           <DashboardWrapper>
             <Dashboard />
+          </DashboardWrapper>
+        </RoleBasedRoute>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/branches',
+    element: (
+      <ProtectedRoute>
+        <RoleBasedRoute requiredRoles={['organization_admin']}>
+          <DashboardWrapper>
+            <BranchManagement />
           </DashboardWrapper>
         </RoleBasedRoute>
       </ProtectedRoute>

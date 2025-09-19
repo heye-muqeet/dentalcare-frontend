@@ -35,7 +35,8 @@ export const API_ENDPOINTS = {
   },
 
   // Branch endpoints
-  BRANCHES: {
+  BRANCHES: `${BASE_URL}/branches`,
+  BRANCH_ENDPOINTS: {
     BASE: `${BASE_URL}/branches`,
     BY_ID: (id: string) => `${BASE_URL}/branches/${id}`,
     ADMINS: (id: string) => `${BASE_URL}/branches/${id}/admins`,
