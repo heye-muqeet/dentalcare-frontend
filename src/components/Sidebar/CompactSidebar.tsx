@@ -71,8 +71,8 @@ function SuperAdminCompactSidebar() {
         </div>
       </div>
 
-      {/* Navigation */}
-      <div className="flex-1 p-3 space-y-1">
+      {/* Navigation - Scrollable */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-1 custom-scrollbar">
         {allowedRoutes.map((route) => (
           <CompactMenuItem
             key={route.path}
@@ -135,8 +135,8 @@ function OrganizationAdminCompactSidebar() {
         </div>
       </div>
 
-      {/* Navigation */}
-      <div className="flex-1 p-3 space-y-1">
+      {/* Navigation - Scrollable */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-1 custom-scrollbar">
         {allowedRoutes.map((route) => (
           <CompactMenuItem
             key={route.path}
@@ -199,8 +199,8 @@ function BranchAdminCompactSidebar() {
         </div>
       </div>
 
-      {/* Navigation */}
-      <div className="flex-1 p-3 space-y-1">
+      {/* Navigation - Scrollable */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-1 custom-scrollbar">
         {allowedRoutes.map((route) => (
           <CompactMenuItem
             key={route.path}
@@ -263,8 +263,8 @@ function DoctorCompactSidebar() {
         </div>
       </div>
 
-      {/* Navigation */}
-      <div className="flex-1 p-3 space-y-1">
+      {/* Navigation - Scrollable */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-1 custom-scrollbar">
         {allowedRoutes.map((route) => (
           <CompactMenuItem
             key={route.path}
@@ -327,8 +327,8 @@ function ReceptionistCompactSidebar() {
         </div>
       </div>
 
-      {/* Navigation */}
-      <div className="flex-1 p-3 space-y-1">
+      {/* Navigation - Scrollable */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-1 custom-scrollbar">
         {allowedRoutes.map((route) => (
           <CompactMenuItem
             key={route.path}
@@ -391,8 +391,8 @@ function PatientCompactSidebar() {
         </div>
       </div>
 
-      {/* Navigation */}
-      <div className="flex-1 p-3 space-y-1">
+      {/* Navigation - Scrollable */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-1 custom-scrollbar">
         {allowedRoutes.map((route) => (
           <CompactMenuItem
             key={route.path}

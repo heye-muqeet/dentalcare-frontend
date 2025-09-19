@@ -38,8 +38,9 @@ function SuperAdminSidebar() {
 
   return (
     <aside className="w-74 min-h-screen h-screen flex justify-center">
-      <div className="bg-gradient-to-b from-purple-900 to-blue-900 w-64 h-screen rounded-lg mt-5 drop-shadow-lg p-4">
-        <div className="flex items-center justify-center w-full pb-3">
+      <div className="bg-gradient-to-b from-purple-900 to-blue-900 w-64 h-screen rounded-lg mt-5 drop-shadow-lg flex flex-col">
+        {/* Header - Fixed */}
+        <div className="flex-shrink-0 p-4 border-b border-white/10">
           <div 
             className="text-2xl flex items-center gap-2 cursor-pointer font-bold text-white"
             onClick={() => navigate('/dashboard')}
@@ -52,7 +53,8 @@ function SuperAdminSidebar() {
           </div>
         </div>
         
-        <div className="space-y-2">
+        {/* Navigation - Scrollable */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-2 custom-scrollbar">
           {allowedRoutes.map((route) => (
             <MenuItem
               key={route.path}
@@ -63,16 +65,18 @@ function SuperAdminSidebar() {
           ))}
         </div>
         
-        <div className="absolute bottom-16 left-4 right-4">
-          <SessionStatus className="mb-2" />
-        </div>
-        
-        <div className="absolute bottom-4 left-4 right-4">
-          <MenuItem
-            icon="logout"
-            text="Logout"
-            onClick={() => handleNavigation('', true)}
-          />
+        {/* Footer - Fixed */}
+        <div className="flex-shrink-0 border-t border-white/10">
+          <div className="p-3">
+            <SessionStatus className="mb-2" />
+          </div>
+          <div className="p-3 pt-0">
+            <MenuItem
+              icon="logout"
+              text="Logout"
+              onClick={() => handleNavigation('', true)}
+            />
+          </div>
         </div>
       </div>
     </aside>
@@ -105,8 +109,9 @@ function OrganizationAdminSidebar() {
 
   return (
     <aside className="w-74 min-h-screen h-screen flex justify-center">
-      <div className="bg-gradient-to-b from-blue-900 to-cyan-900 w-64 h-screen rounded-lg mt-5 drop-shadow-lg p-4">
-        <div className="flex items-center justify-center w-full pb-3">
+      <div className="bg-gradient-to-b from-blue-900 to-cyan-900 w-64 h-screen rounded-lg mt-5 drop-shadow-lg flex flex-col">
+        {/* Header - Fixed */}
+        <div className="flex-shrink-0 p-4 border-b border-white/10">
           <div 
             className="text-2xl flex items-center gap-2 cursor-pointer font-bold text-white"
             onClick={() => navigate('/dashboard')}
@@ -119,7 +124,8 @@ function OrganizationAdminSidebar() {
           </div>
         </div>
         
-        <div className="space-y-2">
+        {/* Navigation - Scrollable */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-2 custom-scrollbar">
           {allowedRoutes.map((route) => (
             <MenuItem
               key={route.path}
@@ -130,7 +136,8 @@ function OrganizationAdminSidebar() {
           ))}
         </div>
         
-        <div className="absolute bottom-4 left-4 right-4">
+        {/* Footer - Fixed */}
+        <div className="flex-shrink-0 p-4 border-t border-white/10">
           <MenuItem
             icon="logout"
             text="Logout"
@@ -169,8 +176,9 @@ function BranchAdminSidebar() {
 
   return (
     <aside className="w-74 min-h-screen h-screen flex justify-center">
-      <div className="bg-gradient-to-b from-green-900 to-emerald-900 w-64 h-screen rounded-lg mt-5 drop-shadow-lg p-4">
-        <div className="flex items-center justify-center w-full pb-3">
+      <div className="bg-gradient-to-b from-green-900 to-emerald-900 w-64 h-screen rounded-lg mt-5 drop-shadow-lg flex flex-col">
+        {/* Header - Fixed */}
+        <div className="flex-shrink-0 p-4 border-b border-white/10">
           <div 
             className="text-2xl flex items-center gap-2 cursor-pointer font-bold text-white"
             onClick={() => navigate('/dashboard')}
@@ -183,7 +191,8 @@ function BranchAdminSidebar() {
           </div>
         </div>
         
-        <div className="space-y-2">
+        {/* Navigation - Scrollable */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-2 custom-scrollbar">
           {allowedRoutes.map((route) => (
             <MenuItem
               key={route.path}
@@ -194,7 +203,8 @@ function BranchAdminSidebar() {
           ))}
         </div>
         
-        <div className="absolute bottom-4 left-4 right-4">
+        {/* Footer - Fixed */}
+        <div className="flex-shrink-0 p-4 border-t border-white/10">
           <MenuItem
             icon="logout"
             text="Logout"

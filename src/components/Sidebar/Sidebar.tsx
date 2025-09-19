@@ -39,26 +39,28 @@ export function Sidebar() {
 
   return (
     <aside className="w-74 min-h-screen h-screen flex justify-center">
-      <div className="bg-white w-64 h-screen rounded-lg mt-5 drop-shadow-md p-4">
-        <div className="flex items-center justify-center w-full pb-3">
-          <span 
-            className="text-3xl flex items-center gap-2 cursor-pointer font-bold text-[#0A0F56]"
-            onClick={() => navigate('/dashboard')}
-          >
-            MI Dental
-          </span>
+      <div className="bg-white w-64 h-screen rounded-lg mt-5 drop-shadow-md flex flex-col">
+        {/* Header - Fixed */}
+        <div className="flex-shrink-0 p-4 border-b border-gray-200">
+          <div className="flex items-center justify-center w-full">
+            <span 
+              className="text-3xl flex items-center gap-2 cursor-pointer font-bold text-[#0A0F56]"
+              onClick={() => navigate('/dashboard')}
+            >
+              MI Dental
+            </span>
+          </div>
         </div>
 
-        <div className="bg-gray-100 h-0.5 w-full mb-6"></div>
-
-        <nav className="flex-1 flex flex-col gap-1">
+        {/* Navigation - Scrollable */}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-1 custom-scrollbar light">
           {allowedRoutes.map((route: any, idx: number) => {
             const elements = [];
             
             // Add divider before the route if it has divider: true
             if (route.divider && idx > 0) {
               elements.push(
-                <div key={`divider-${idx}`} className="bg-gray-100 h-0.5 w-full my-3"></div>
+                <div key={`divider-${idx}`} className="bg-gray-200 h-0.5 w-full my-3"></div>
               );
             }
             
