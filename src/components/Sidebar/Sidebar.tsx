@@ -87,9 +87,9 @@ export function Sidebar() {
 function MenuItem({ icon, text, onClick, isActive = false }: MenuItemProps) {
   return (
     <div
-      className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer text-[15px] font-medium transition-all duration-200 ${
+      className={`relative flex items-center space-x-3 p-3 rounded-lg cursor-pointer text-[15px] font-medium transition-all duration-200 ${
         isActive 
-          ? 'bg-blue-600 text-white shadow-md' 
+          ? 'bg-blue-600 text-white shadow-md border-l-4 border-blue-300' 
           : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'
       }`}
       onClick={onClick}
@@ -98,7 +98,10 @@ function MenuItem({ icon, text, onClick, isActive = false }: MenuItemProps) {
         name={icon} 
         className={`w-5 h-5 ${isActive ? 'text-white' : 'text-gray-600'}`} 
       />
-      <span>{text}</span>
+      <span className={isActive ? 'font-semibold' : ''}>{text}</span>
+      {isActive && (
+        <div className="absolute right-2 w-2 h-2 bg-white rounded-full opacity-80"></div>
+      )}
     </div>
   );
 }

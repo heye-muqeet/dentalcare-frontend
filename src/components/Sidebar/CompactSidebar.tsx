@@ -18,10 +18,10 @@ function CompactMenuItem({ icon, text, onClick, isActive = false }: MenuItemProp
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+      className={`relative w-full flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-all duration-200 ${
         isActive 
-          ? 'bg-white/30 text-white shadow-lg border border-white/20' 
-          : 'text-white/80 hover:bg-white/15 hover:text-white'
+          ? 'bg-white/30 text-white shadow-lg border-l-4 border-white/60 font-semibold' 
+          : 'text-white/80 hover:bg-white/15 hover:text-white font-medium'
       }`}
     >
       <SidebarIcon 
@@ -29,6 +29,9 @@ function CompactMenuItem({ icon, text, onClick, isActive = false }: MenuItemProp
         className={`w-4 h-4 ${isActive ? 'text-white' : 'text-white/80'}`} 
       />
       <span className="truncate">{text}</span>
+      {isActive && (
+        <div className="absolute right-2 w-1 h-1 bg-white rounded-full opacity-90"></div>
+      )}
     </button>
   );
 }

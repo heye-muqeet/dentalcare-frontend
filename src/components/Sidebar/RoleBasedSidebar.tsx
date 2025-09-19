@@ -422,17 +422,20 @@ function MenuItem({ icon, text, onClick, isActive = false }: MenuItemProps) {
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left ${
+      className={`relative w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-left ${
         isActive 
-          ? 'bg-white/30 text-white shadow-lg border border-white/20' 
-          : 'text-white/80 hover:bg-white/20 hover:text-white'
+          ? 'bg-white/30 text-white shadow-lg border-l-4 border-white/60' 
+          : 'text-white/80 hover:bg-white/15 hover:text-white'
       }`}
     >
       <SidebarIcon 
         name={icon} 
         className={`w-5 h-5 ${isActive ? 'text-white' : 'text-white/80'}`} 
       />
-      <span className="text-sm font-medium">{text}</span>
+      <span className={`text-sm ${isActive ? 'font-semibold' : 'font-medium'}`}>{text}</span>
+      {isActive && (
+        <div className="absolute right-2 w-1.5 h-1.5 bg-white rounded-full opacity-90"></div>
+      )}
     </button>
   );
 }
