@@ -110,7 +110,7 @@ export const routePermissions: RoutePermission[] = [
     path: '/doctors',
     label: 'Doctors',
     icon: 'calender_add',
-    allowedRoles: ['super_admin', 'organization_admin', 'branch_admin', 'receptionist']
+    allowedRoles: ['organization_admin', 'branch_admin', 'receptionist']
   },
   {
     path: '/appointments',

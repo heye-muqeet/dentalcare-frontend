@@ -71,7 +71,7 @@ export default function Dashboard() {
       icon: FiPlus, 
       color: 'from-blue-500 to-blue-600',
       action: () => navigate('/add-appointment'),
-      available: ['super_admin', 'organization_admin', 'branch_admin', 'receptionist'].includes(user?.role || '')
+      available: ['organization_admin', 'branch_admin', 'receptionist'].includes(user?.role || '')
     },
     { 
       title: 'View Patients', 
@@ -79,7 +79,7 @@ export default function Dashboard() {
       icon: FiUsers, 
       color: 'from-green-500 to-green-600',
       action: () => navigate('/patients'),
-      available: true
+      available: ['organization_admin', 'branch_admin', 'doctor', 'receptionist'].includes(user?.role || '')
     },
     { 
       title: 'Today\'s Schedule', 
@@ -87,7 +87,7 @@ export default function Dashboard() {
       icon: FiEye, 
       color: 'from-purple-500 to-purple-600',
       action: () => navigate('/appointments'),
-      available: true
+      available: ['organization_admin', 'branch_admin', 'doctor', 'receptionist', 'patient'].includes(user?.role || '')
     },
     { 
       title: 'Treatment Records', 
@@ -95,7 +95,7 @@ export default function Dashboard() {
       icon: FiActivity, 
       color: 'from-pink-500 to-pink-600',
       action: () => navigate('/appointments'),
-      available: ['super_admin', 'organization_admin', 'branch_admin', 'doctor'].includes(user?.role || '')
+      available: ['organization_admin', 'branch_admin', 'doctor'].includes(user?.role || '')
     },
     { 
       title: 'Manage Services', 
@@ -103,7 +103,7 @@ export default function Dashboard() {
       icon: FiActivity, 
       color: 'from-orange-500 to-orange-600',
       action: () => navigate('/services'),
-      available: ['super_admin', 'organization_admin', 'branch_admin', 'receptionist'].includes(user?.role || '')
+      available: ['organization_admin', 'branch_admin', 'receptionist'].includes(user?.role || '')
     },
     { 
       title: 'View Invoices', 
@@ -111,7 +111,7 @@ export default function Dashboard() {
       icon: FiDollarSign, 
       color: 'from-emerald-500 to-emerald-600',
       action: () => navigate('/invoice'),
-      available: ['super_admin', 'organization_admin', 'branch_admin', 'receptionist'].includes(user?.role || '')
+      available: ['organization_admin', 'branch_admin', 'receptionist'].includes(user?.role || '')
     }
   ];
 

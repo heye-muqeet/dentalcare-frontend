@@ -121,7 +121,7 @@ export const router = createBrowserRouter([
     path: '/doctors',
     element: (
       <ProtectedRoute>
-        <RoleBasedRoute requiredRoles={['super_admin', 'organization_admin', 'branch_admin', 'receptionist']}>
+        <RoleBasedRoute requiredRoles={['organization_admin', 'branch_admin', 'receptionist']}>
           <DashboardWrapper>
             <Doctors />
           </DashboardWrapper>
@@ -133,7 +133,7 @@ export const router = createBrowserRouter([
     path: '/patients',
     element: (
       <ProtectedRoute>
-        <RoleBasedRoute requiredRoles={['super_admin', 'organization_admin', 'branch_admin', 'doctor', 'receptionist']}>
+        <RoleBasedRoute requiredRoles={['organization_admin', 'branch_admin', 'doctor', 'receptionist']}>
           <DashboardWrapper>
             <Patients />
           </DashboardWrapper>
@@ -145,7 +145,7 @@ export const router = createBrowserRouter([
     path: '/appointments',
     element: (
       <ProtectedRoute>
-        <RoleBasedRoute requiredRoles={['super_admin', 'organization_admin', 'branch_admin', 'doctor', 'receptionist', 'patient']}>
+        <RoleBasedRoute requiredRoles={['organization_admin', 'branch_admin', 'doctor', 'receptionist', 'patient']}>
           <DashboardWrapper>
             <Appointments />
           </DashboardWrapper>
@@ -157,7 +157,7 @@ export const router = createBrowserRouter([
     path: '/services',
     element: (
       <ProtectedRoute>
-        <RoleBasedRoute requiredRoles={['super_admin', 'organization_admin', 'branch_admin', 'receptionist']}>
+        <RoleBasedRoute requiredRoles={['organization_admin', 'branch_admin', 'receptionist']}>
           <DashboardWrapper>
             <Services />
           </DashboardWrapper>
@@ -169,7 +169,7 @@ export const router = createBrowserRouter([
     path: '/treatments',
     element: (
       <ProtectedRoute>
-        <RoleBasedRoute requiredRoles={['super_admin', 'organization_admin', 'branch_admin', 'doctor', 'receptionist', 'patient']}>
+        <RoleBasedRoute requiredRoles={['organization_admin', 'branch_admin', 'doctor', 'receptionist', 'patient']}>
           <DashboardWrapper>
             <Treatments />
           </DashboardWrapper>
@@ -181,7 +181,7 @@ export const router = createBrowserRouter([
     path: '/invoices',
     element: (
       <ProtectedRoute>
-        <RoleBasedRoute requiredRoles={['super_admin', 'organization_admin', 'branch_admin', 'receptionist']}>
+        <RoleBasedRoute requiredRoles={['organization_admin', 'branch_admin', 'receptionist']}>
           <DashboardWrapper>
             <Invoices />
           </DashboardWrapper>
@@ -193,7 +193,7 @@ export const router = createBrowserRouter([
     path: '/expenses',
     element: (
       <ProtectedRoute>
-        <RoleBasedRoute requiredRoles={['super_admin', 'organization_admin', 'branch_admin', 'receptionist']}>
+        <RoleBasedRoute requiredRoles={['organization_admin', 'branch_admin', 'receptionist']}>
           <DashboardWrapper>
             <Expenses />
           </DashboardWrapper>
