@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../lib/hooks';
 import { logoutUser } from '../../lib/store/slices/authSlice';
 import { getFilteredRoutes, hasRouteAccess } from '../../lib/utils/rolePermissions';
@@ -20,11 +20,14 @@ function CompactMenuItem({ icon, text, onClick, isActive = false }: MenuItemProp
       onClick={onClick}
       className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
         isActive 
-          ? 'bg-white/20 text-white shadow-sm' 
-          : 'text-white/80 hover:bg-white/10 hover:text-white'
+          ? 'bg-white/30 text-white shadow-lg border border-white/20' 
+          : 'text-white/80 hover:bg-white/15 hover:text-white'
       }`}
     >
-      <SidebarIcon name={icon} className="w-4 h-4 text-white" />
+      <SidebarIcon 
+        name={icon} 
+        className={`w-4 h-4 ${isActive ? 'text-white' : 'text-white/80'}`} 
+      />
       <span className="truncate">{text}</span>
     </button>
   );
@@ -33,6 +36,7 @@ function CompactMenuItem({ icon, text, onClick, isActive = false }: MenuItemProp
 // Super Admin Compact Sidebar
 function SuperAdminCompactSidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state: RootState) => state.auth.user);
 
@@ -97,6 +101,7 @@ function SuperAdminCompactSidebar() {
 // Organization Admin Compact Sidebar
 function OrganizationAdminCompactSidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state: RootState) => state.auth.user);
 
@@ -161,6 +166,7 @@ function OrganizationAdminCompactSidebar() {
 // Branch Admin Compact Sidebar
 function BranchAdminCompactSidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state: RootState) => state.auth.user);
 
@@ -225,6 +231,7 @@ function BranchAdminCompactSidebar() {
 // Doctor Compact Sidebar
 function DoctorCompactSidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state: RootState) => state.auth.user);
 

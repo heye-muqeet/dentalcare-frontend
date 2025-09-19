@@ -17,6 +17,7 @@ interface MenuItemProps {
 // Super Admin Sidebar
 function SuperAdminSidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state: RootState) => state.auth.user);
 
@@ -61,6 +62,7 @@ function SuperAdminSidebar() {
               icon={route.icon}
               text={route.label}
               onClick={() => handleNavigation(route.path)}
+              isActive={location.pathname === route.path}
             />
           ))}
         </div>
@@ -86,6 +88,7 @@ function SuperAdminSidebar() {
 // Organization Admin Sidebar
 function OrganizationAdminSidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state: RootState) => state.auth.user);
 
@@ -132,6 +135,7 @@ function OrganizationAdminSidebar() {
               icon={route.icon}
               text={route.label}
               onClick={() => handleNavigation(route.path)}
+              isActive={location.pathname === route.path}
             />
           ))}
         </div>
@@ -152,6 +156,7 @@ function OrganizationAdminSidebar() {
 // Branch Admin Sidebar
 function BranchAdminSidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state: RootState) => state.auth.user);
 
@@ -199,6 +204,7 @@ function BranchAdminSidebar() {
               icon={route.icon}
               text={route.label}
               onClick={() => handleNavigation(route.path)}
+              isActive={location.pathname === route.path}
             />
           ))}
         </div>
@@ -219,6 +225,7 @@ function BranchAdminSidebar() {
 // Doctor Sidebar
 function DoctorSidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state: RootState) => state.auth.user);
 
@@ -263,6 +270,7 @@ function DoctorSidebar() {
               icon={route.icon}
               text={route.label}
               onClick={() => handleNavigation(route.path)}
+              isActive={location.pathname === route.path}
             />
           ))}
         </div>
@@ -282,6 +290,7 @@ function DoctorSidebar() {
 // Receptionist Sidebar
 function ReceptionistSidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state: RootState) => state.auth.user);
 
@@ -326,6 +335,7 @@ function ReceptionistSidebar() {
               icon={route.icon}
               text={route.label}
               onClick={() => handleNavigation(route.path)}
+              isActive={location.pathname === route.path}
             />
           ))}
         </div>
@@ -345,6 +355,7 @@ function ReceptionistSidebar() {
 // Patient Sidebar
 function PatientSidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state: RootState) => state.auth.user);
 
@@ -389,6 +400,7 @@ function PatientSidebar() {
               icon={route.icon}
               text={route.label}
               onClick={() => handleNavigation(route.path)}
+              isActive={location.pathname === route.path}
             />
           ))}
         </div>
@@ -406,13 +418,20 @@ function PatientSidebar() {
 }
 
 // Menu Item Component
-function MenuItem({ icon, text, onClick }: MenuItemProps) {
+function MenuItem({ icon, text, onClick, isActive = false }: MenuItemProps) {
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-3 px-3 py-2 text-white hover:bg-white/20 rounded-lg transition-colors text-left"
+      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left ${
+        isActive 
+          ? 'bg-white/30 text-white shadow-lg border border-white/20' 
+          : 'text-white/80 hover:bg-white/20 hover:text-white'
+      }`}
     >
-      <SidebarIcon name={icon} className="w-5 h-5 text-white" />
+      <SidebarIcon 
+        name={icon} 
+        className={`w-5 h-5 ${isActive ? 'text-white' : 'text-white/80'}`} 
+      />
       <span className="text-sm font-medium">{text}</span>
     </button>
   );
