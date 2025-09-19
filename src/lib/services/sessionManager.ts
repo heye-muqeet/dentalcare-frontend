@@ -37,11 +37,11 @@ class SessionManager {
   private retryCount: number = 0;
 
   private config: SessionConfig = {
-    autoRefresh: true,
+    autoRefresh: false, // Disabled - tokens refresh only on-demand via axios interceptor
     refreshThreshold: 300, // 5 minutes before expiry
     maxRetries: 3,
     retryDelay: 1000,
-    sessionTimeout: 30, // 30 minutes
+    sessionTimeout: 0, // Disabled - using automatic token refresh instead of activity timeout
     rememberMeDuration: 30, // 30 days
   };
 
@@ -65,7 +65,6 @@ class SessionManager {
         // Check if session is still valid
         if (sessionData.expiresAt > Date.now()) {
           this.sessionData = sessionData;
-          this.scheduleRefresh();
           this.notifyListeners();
         } else {
           this.clearSession();
@@ -151,7 +150,6 @@ class SessionManager {
     };
 
     this.saveToStorage();
-    this.scheduleRefresh();
     this.resetSessionTimer();
     this.notifyListeners();
   }
@@ -199,13 +197,12 @@ class SessionManager {
       if (response.success && response.data) {
         const { accessToken, refreshToken, expiresIn = 900, tokenType = 'Bearer' } = response.data;
         
-        // Update session data
+        // Update session data with both new tokens
         this.sessionData.accessToken = accessToken;
         this.sessionData.refreshToken = refreshToken;
         this.sessionData.expiresAt = Date.now() + (expiresIn * 1000);
         
         this.saveToStorage();
-        this.scheduleRefresh();
         this.notifyListeners();
         
         return {
@@ -234,38 +231,24 @@ class SessionManager {
   }
 
   /**
-   * Schedule automatic token refresh
+   * Schedule automatic token refresh (disabled - now handled by axios interceptor)
    */
   private scheduleRefresh(): void {
-    if (this.refreshTimer) {
-      clearTimeout(this.refreshTimer);
-    }
-
-    if (!this.sessionData || !this.config.autoRefresh) return;
-
-    const now = Date.now();
-    const timeUntilExpiry = this.sessionData.expiresAt - now;
-    const refreshTime = Math.max(0, timeUntilExpiry - (this.config.refreshThreshold * 1000));
-
-    this.refreshTimer = window.setTimeout(async () => {
-      try {
-        await this.refreshAccessToken();
-      } catch (error) {
-        console.error('Scheduled token refresh failed:', error);
-        this.clearSession();
-      }
-    }, refreshTime);
+    // Auto-refresh is disabled - tokens are refreshed on-demand by axios interceptor
+    // This method is kept for backward compatibility but does nothing
+    return;
   }
 
   /**
-   * Reset session timeout timer
+   * Reset session timeout timer (disabled when sessionTimeout is 0)
    */
   private resetSessionTimer(): void {
     if (this.sessionTimer) {
       clearTimeout(this.sessionTimer);
     }
 
-    if (!this.sessionData) return;
+    // Skip setting timer if sessionTimeout is disabled (0) or no session data
+    if (!this.sessionData || this.config.sessionTimeout === 0) return;
 
     this.sessionTimer = window.setTimeout(() => {
       console.log('Session timeout due to inactivity');
@@ -351,7 +334,6 @@ class SessionManager {
     this.config = { ...this.config, ...newConfig };
     
     if (this.sessionData) {
-      this.scheduleRefresh();
       this.resetSessionTimer();
     }
   }

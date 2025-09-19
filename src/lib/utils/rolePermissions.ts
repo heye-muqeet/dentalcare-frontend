@@ -116,19 +116,19 @@ export const routePermissions: RoutePermission[] = [
     path: '/appointments',
     label: 'Appointments',
     icon: 'vase',
-    allowedRoles: ['super_admin', 'organization_admin', 'branch_admin', 'doctor', 'receptionist', 'patient']
+    allowedRoles: ['organization_admin', 'branch_admin', 'doctor', 'receptionist', 'patient']
   },
   {
     path: '/patients',
     label: 'Patients',
     icon: 'users',
-    allowedRoles: ['super_admin', 'organization_admin', 'branch_admin', 'doctor', 'receptionist']
+    allowedRoles: ['organization_admin', 'branch_admin', 'doctor', 'receptionist']
   },
   {
     path: '/services',
     label: 'Services',
     icon: 'document_chart',
-    allowedRoles: ['super_admin', 'organization_admin', 'branch_admin', 'receptionist']
+    allowedRoles: ['organization_admin', 'branch_admin', 'receptionist']
   },
   {
     path: '/invoice',

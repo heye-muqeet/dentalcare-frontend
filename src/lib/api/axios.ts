@@ -51,15 +51,29 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Handle 401 errors (unauthorized)
+    // Handle 401 errors (unauthorized) - token expired or invalid
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // Don't try to refresh if this is already a refresh token request
+      if (originalRequest.url?.includes('/auth/token/refresh')) {
+        // Refresh token is invalid/expired, clear session and logout
+        await sessionManager.clearSession();
+        window.dispatchEvent(new CustomEvent('auth:session-expired', { 
+          detail: { reason: 'refresh_token_expired' } 
+        }));
+        return Promise.reject(error);
+      }
+
       if (isRefreshing) {
         // If we're already refreshing, queue this request
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         }).then(token => {
-          originalRequest.headers.Authorization = `Bearer ${token}`;
-          return api(originalRequest);
+          if (token) {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return api(originalRequest);
+          } else {
+            return Promise.reject(new Error('Token refresh failed'));
+          }
         }).catch(err => {
           return Promise.reject(err);
         });
@@ -72,19 +86,29 @@ api.interceptors.response.use(
         // Try to refresh the token
         const tokenPair = await sessionManager.refreshAccessToken();
         
-        // Process queued requests
+        // Process queued requests with new token
         processQueue(null, tokenPair.accessToken);
         
         // Retry the original request with new token
         originalRequest.headers.Authorization = `Bearer ${tokenPair.accessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        // Refresh failed, clear session and redirect to login
+        // Refresh failed - could be because refresh token is expired
+        console.warn('Token refresh failed:', refreshError);
+        
+        // Process queued requests with error
         processQueue(refreshError, null);
+        
+        // Clear session and notify about expiration
         await sessionManager.clearSession();
         
-        // Dispatch custom event for auth state change
-        window.dispatchEvent(new CustomEvent('auth:session-expired'));
+        // Dispatch custom event for auth state change with reason
+        window.dispatchEvent(new CustomEvent('auth:session-expired', { 
+          detail: { 
+            reason: (refreshError as any)?.response?.status === 401 ? 'refresh_token_expired' : 'refresh_failed',
+            error: (refreshError as any)?.message 
+          } 
+        }));
         
         return Promise.reject(refreshError);
       } finally {

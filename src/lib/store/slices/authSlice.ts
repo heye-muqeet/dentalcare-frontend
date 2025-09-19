@@ -101,6 +101,19 @@ export const logoutAllDevices = createAsyncThunk(
   }
 );
 
+export const handleSessionExpired = createAsyncThunk(
+  'auth/handleSessionExpired',
+  async (reason: string, { rejectWithValue }) => {
+    try {
+      // Clear session without making API call since tokens are already invalid
+      await sessionManager.clearSession();
+      return reason;
+    } catch (error: any) {
+      return rejectWithValue('Failed to handle session expiration');
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -223,6 +236,29 @@ const authSlice = createSlice({
       .addCase(logoutAllDevices.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
+      })
+      // Handle Session Expired
+      .addCase(handleSessionExpired.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(handleSessionExpired.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isAuthenticated = false;
+        state.user = null;
+        state.sessionData = null;
+        state.isSessionExpiring = false;
+        state.error = null;
+        
+        // Log the reason for session expiration
+        console.log('Session expired:', action.payload);
+      })
+      .addCase(handleSessionExpired.rejected, (state) => {
+        state.isLoading = false;
+        state.isAuthenticated = false;
+        state.user = null;
+        state.sessionData = null;
+        state.isSessionExpiring = false;
+        state.error = null;
       });
   },
 });

@@ -6,7 +6,8 @@ import {
   setSessionExpiring, 
   clearSession,
   refreshToken,
-  logoutUser 
+  logoutUser,
+  handleSessionExpired 
 } from '../store/slices/authSlice';
 import sessionManager from '../services/sessionManager';
 
@@ -37,31 +38,28 @@ export const useSessionManager = () => {
     return unsubscribe;
   }, [dispatch]);
 
-  // Monitor session expiry
+  // Monitor session expiry - DISABLED: Using automatic token refresh via axios interceptor
   useEffect(() => {
-    const checkSessionExpiry = () => {
-      if (sessionData && sessionManager.isSessionExpiringSoon()) {
-        dispatch(setSessionExpiring(true));
-      } else {
-        dispatch(setSessionExpiring(false));
-      }
-    };
-
-    const interval = setInterval(checkSessionExpiry, 30000); // Check every 30 seconds
-    checkSessionExpiry(); // Check immediately
-
-    return () => clearInterval(interval);
+    // Automatic token refresh handles session expiry, so we don't need to monitor it manually
+    // Always set session expiring to false since tokens are refreshed automatically
+    dispatch(setSessionExpiring(false));
   }, [sessionData, dispatch]);
 
   // Handle session expiry event
   useEffect(() => {
-    const handleSessionExpired = () => {
-      dispatch(clearSession());
+    const handleSessionExpiredEvent = (event: CustomEvent) => {
+      const reason = event.detail?.reason || 'unknown';
+      const error = event.detail?.error || '';
+      
+      console.log('Session expired event received:', { reason, error });
+      
+      // Dispatch the session expired action with the reason
+      dispatch(handleSessionExpired(reason));
     };
 
-    window.addEventListener('auth:session-expired', handleSessionExpired);
+    window.addEventListener('auth:session-expired', handleSessionExpiredEvent as EventListener);
     return () => {
-      window.removeEventListener('auth:session-expired', handleSessionExpired);
+      window.removeEventListener('auth:session-expired', handleSessionExpiredEvent as EventListener);
     };
   }, [dispatch]);
 

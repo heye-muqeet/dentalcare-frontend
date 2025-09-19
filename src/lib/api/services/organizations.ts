@@ -15,6 +15,10 @@ export interface Organization {
   website: string;
   tags: string[];
   isActive: boolean;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
+  deletedReason?: string;
   organizationAdminIds?: string[];
   organizationAdmins?: {
     _id: string;
@@ -29,8 +33,8 @@ export interface Organization {
   }[];
   createdAt: string;
   updatedAt: string;
-  branchCount: number;
-  userCount: number;
+  branchCount?: number;
+  userCount?: number;
 }
 
 export interface CreateOrganizationData {
@@ -56,6 +60,51 @@ export interface OrganizationStats {
   totalPatients: number;
   monthlyRevenue: number;
   activeUsers: number;
+}
+
+export interface CascadeDeleteResult {
+  modelName: string;
+  deletedCount: number;
+  documents: Array<{
+    id: string;
+    organizationId: string;
+  }>;
+}
+
+export interface CascadeDeleteResponse {
+  success: boolean;
+  message: string;
+  data: {
+    organization: Organization;
+    cascadeResults: CascadeDeleteResult[];
+  };
+}
+
+export interface CascadeRestoreResult {
+  modelName: string;
+  restoredCount: number;
+  documents: Array<{
+    id: string;
+    organizationId: string;
+  }>;
+}
+
+export interface CascadeRestoreResponse {
+  success: boolean;
+  message: string;
+  data: {
+    organization: Organization;
+    cascadeResults: CascadeRestoreResult[];
+  };
+}
+
+export interface SoftDeleteStats {
+  total: number;
+  active: number;
+  deleted: number;
+  deletedToday: number;
+  deletedThisWeek: number;
+  deletedThisMonth: number;
 }
 
 export const organizationService = {
@@ -133,13 +182,89 @@ export const organizationService = {
     }
   },
 
-  // Delete organization (Super Admin only)
-  deleteOrganization: async (id: string): Promise<void> => {
+  // Delete organization with cascade (Super Admin only)
+  deleteOrganization: async (id: string, reason?: string): Promise<CascadeDeleteResponse> => {
     try {
-      await api.delete(API_ENDPOINTS.ORGANIZATIONS.BY_ID(id));
+      const response = await api.delete(API_ENDPOINTS.ORGANIZATIONS.BY_ID(id), {
+        data: { reason }
+      });
+      return response.data;
     } catch (error) {
       console.error('Failed to delete organization:', error);
       throw error;
+    }
+  },
+
+  // Restore organization with cascade (Super Admin only)
+  restoreOrganization: async (id: string, reason?: string): Promise<CascadeRestoreResponse> => {
+    try {
+      const response = await api.put(`${API_ENDPOINTS.ORGANIZATIONS.BY_ID(id)}/restore`, {
+        reason
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to restore organization:', error);
+      throw error;
+    }
+  },
+
+  // Get organizations including soft deleted ones
+  getOrganizationsWithDeleted: async (includeDeleted = false): Promise<Organization[]> => {
+    try {
+      const params = includeDeleted ? { includeDeleted: 'true' } : {};
+      const response = await api.get(API_ENDPOINTS.ORGANIZATIONS.BASE, { params });
+      return response.data || [];
+    } catch (error) {
+      console.error('Failed to fetch organizations:', error);
+      return [];
+    }
+  },
+
+  // Get soft delete statistics
+  getSoftDeleteStats: async (organizationId?: string): Promise<SoftDeleteStats> => {
+    try {
+      const endpoint = organizationId 
+        ? `/soft-delete/organization/stats?organizationId=${organizationId}`
+        : '/soft-delete/organization/stats';
+      const response = await api.get(endpoint);
+      return response.data.data;
+    } catch (error) {
+      console.error('Failed to fetch soft delete stats:', error);
+      return {
+        total: 0,
+        active: 0,
+        deleted: 0,
+        deletedToday: 0,
+        deletedThisWeek: 0,
+        deletedThisMonth: 0
+      };
+    }
+  },
+
+  // Get deleted organizations
+  getDeletedOrganizations: async (page = 1, limit = 10): Promise<{
+    organizations: Organization[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> => {
+    try {
+      const response = await api.get('/soft-delete/organization/deleted', {
+        params: { page, limit }
+      });
+      return {
+        organizations: response.data.data.documents,
+        pagination: response.data.data.pagination
+      };
+    } catch (error) {
+      console.error('Failed to fetch deleted organizations:', error);
+      return {
+        organizations: [],
+        pagination: { page, limit, total: 0, totalPages: 0 }
+      };
     }
   },
 

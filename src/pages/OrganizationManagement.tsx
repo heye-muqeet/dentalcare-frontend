@@ -9,6 +9,8 @@ import {
   ViewOrganizationModal, 
   UpdateOrganizationModal 
 } from '../components/Modals';
+import CascadeDeleteConfirmModal from '../components/CascadeDeleteConfirmModal';
+import CascadeRestoreModal from '../components/CascadeRestoreModal';
 import { 
   FiPlus, 
   FiEdit, 
@@ -19,7 +21,9 @@ import {
   FiPhone, 
   FiGlobe, 
   FiMapPin, 
-  FiSearch
+  FiSearch,
+  FiRotateCcw,
+  FiArchive
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
@@ -30,13 +34,19 @@ export default function OrganizationManagement() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'deleted'>('all');
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showCascadeDeleteModal, setShowCascadeDeleteModal] = useState(false);
+  const [showCascadeRestoreModal, setShowCascadeRestoreModal] = useState(false);
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
+  const [deletingOrg, setDeletingOrg] = useState<Organization | null>(null);
+  const [restoringOrg, setRestoringOrg] = useState<Organization | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [restoreLoading, setRestoreLoading] = useState(false);
 
   useEffect(() => {
     if (user?.role !== 'super_admin') {
@@ -44,12 +54,13 @@ export default function OrganizationManagement() {
       return;
     }
     loadOrganizations();
-  }, [user, navigate]);
+  }, [user, navigate, statusFilter]);
 
   const loadOrganizations = async () => {
     try {
       setLoading(true);
-      const data = await organizationService.getOrganizations();
+      const includeDeleted = statusFilter === 'deleted' || statusFilter === 'all';
+      const data = await organizationService.getOrganizationsWithDeleted(includeDeleted);
       setOrganizations(data);
     } catch (error) {
       console.error('Failed to load organizations:', error);
@@ -59,13 +70,54 @@ export default function OrganizationManagement() {
     }
   };
 
-  const loadOrganizationDetails = async (orgId: string) => {
+
+  const handleDeleteClick = (org: Organization) => {
+    setDeletingOrg(org);
+    setShowCascadeDeleteModal(true);
+  };
+
+  const handleRestoreClick = (org: Organization) => {
+    setRestoringOrg(org);
+    setShowCascadeRestoreModal(true);
+  };
+
+  const handleCascadeDelete = async (reason: string) => {
+    if (!deletingOrg) return;
+
     try {
-      // Load organization details if needed
-      console.log('Loading details for organization:', orgId);
+      setDeleteLoading(true);
+      const result = await organizationService.deleteOrganization(deletingOrg._id, reason);
+      
+      toast.success(`Organization deleted successfully! ${result.data.cascadeResults.reduce((sum, item) => sum + item.deletedCount, 0)} related entities were also deleted.`);
+      
+      setShowCascadeDeleteModal(false);
+      setDeletingOrg(null);
+      loadOrganizations();
     } catch (error) {
-      console.error('Failed to load organization details:', error);
-      toast.error('Failed to load organization details');
+      console.error('Failed to delete organization:', error);
+      toast.error('Failed to delete organization');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleCascadeRestore = async (reason: string) => {
+    if (!restoringOrg) return;
+
+    try {
+      setRestoreLoading(true);
+      const result = await organizationService.restoreOrganization(restoringOrg._id, reason);
+      
+      toast.success(`Organization restored successfully! ${result.data.cascadeResults.reduce((sum, item) => sum + item.restoredCount, 0)} related entities were also restored.`);
+      
+      setShowCascadeRestoreModal(false);
+      setRestoringOrg(null);
+      loadOrganizations();
+    } catch (error) {
+      console.error('Failed to restore organization:', error);
+      toast.error('Failed to restore organization');
+    } finally {
+      setRestoreLoading(false);
     }
   };
 
@@ -95,19 +147,6 @@ export default function OrganizationManagement() {
     }
   };
 
-  const handleDeleteOrganization = async (orgId: string) => {
-    if (!window.confirm('Are you sure you want to delete this organization? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      await organizationService.deleteOrganization(orgId);
-      toast.success('Organization deleted successfully');
-      loadOrganizations();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete organization');
-    }
-  };
 
 
   const openEditModal = async (org: Organization) => {
@@ -141,9 +180,18 @@ export default function OrganizationManagement() {
     const matchesSearch = org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          org.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          org.city.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || 
-                         (statusFilter === 'active' && org.isActive) ||
-                         (statusFilter === 'inactive' && !org.isActive);
+    
+    let matchesStatus = false;
+    if (statusFilter === 'all') {
+      matchesStatus = true;
+    } else if (statusFilter === 'active') {
+      matchesStatus = org.isActive && !org.isDeleted;
+    } else if (statusFilter === 'inactive') {
+      matchesStatus = !org.isActive && !org.isDeleted;
+    } else if (statusFilter === 'deleted') {
+      matchesStatus = !!org.isDeleted;
+    }
+    
     return matchesSearch && matchesStatus;
   });
 
@@ -192,12 +240,13 @@ export default function OrganizationManagement() {
           <div className="flex gap-2">
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive' | 'deleted')}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
+              <option value="deleted">Deleted</option>
             </select>
           </div>
         </div>
@@ -206,7 +255,7 @@ export default function OrganizationManagement() {
       {/* Organizations Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredOrganizations.map((org) => (
-          <div key={org._id} className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow">
+          <div key={org._id} className={`bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow ${org.isDeleted ? 'opacity-60 border-red-200 bg-red-50' : ''}`}>
             <div className="p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
@@ -219,13 +268,20 @@ export default function OrganizationManagement() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    org.isActive 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {org.isActive ? 'Active' : 'Inactive'}
-                  </span>
+                  {org.isDeleted ? (
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 flex items-center gap-1">
+                      <FiArchive className="w-3 h-3" />
+                      Deleted
+                    </span>
+                  ) : (
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      org.isActive 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {org.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -265,19 +321,34 @@ export default function OrganizationManagement() {
                   <FiEye className="w-4 h-4" />
                   View
                 </button>
-                <button
-                  onClick={() => openEditModal(org)}
-                  className="flex-1 bg-blue-100 text-blue-700 px-3 py-2 rounded-lg hover:bg-blue-200 flex items-center justify-center gap-2"
-                >
-                  <FiEdit className="w-4 h-4" />
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDeleteOrganization(org._id)}
-                  className="bg-red-100 text-red-700 px-3 py-2 rounded-lg hover:bg-red-200 flex items-center justify-center"
-                >
-                  <FiTrash2 className="w-4 h-4" />
-                </button>
+                
+                {!org.isDeleted ? (
+                  <>
+                    <button
+                      onClick={() => openEditModal(org)}
+                      className="flex-1 bg-blue-100 text-blue-700 px-3 py-2 rounded-lg hover:bg-blue-200 flex items-center justify-center gap-2"
+                    >
+                      <FiEdit className="w-4 h-4" />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteClick(org)}
+                      className="bg-red-100 text-red-700 px-3 py-2 rounded-lg hover:bg-red-200 flex items-center justify-center"
+                      title="Delete organization and all related entities"
+                    >
+                      <FiTrash2 className="w-4 h-4" />
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => handleRestoreClick(org)}
+                    className="flex-1 bg-green-100 text-green-700 px-3 py-2 rounded-lg hover:bg-green-200 flex items-center justify-center gap-2"
+                    title="Restore organization and all related entities"
+                  >
+                    <FiRotateCcw className="w-4 h-4" />
+                    Restore
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -317,7 +388,7 @@ export default function OrganizationManagement() {
           setShowViewModal(false);
           setShowEditModal(true);
         }}
-        onDelete={(org) => handleDeleteOrganization(org._id)}
+        onDelete={(org) => handleDeleteClick(org)}
       />
 
       {/* Update Organization Modal */}
@@ -329,6 +400,44 @@ export default function OrganizationManagement() {
         fields={['name', 'email', 'phone', 'website', 'isActive']}
         title="Quick Update"
         description="Update organization contact information and status"
+      />
+
+      {/* Cascade Delete Confirmation Modal */}
+      <CascadeDeleteConfirmModal
+        isOpen={showCascadeDeleteModal}
+        onClose={() => {
+          setShowCascadeDeleteModal(false);
+          setDeletingOrg(null);
+        }}
+        onConfirm={handleCascadeDelete}
+        organization={deletingOrg}
+        isLoading={deleteLoading}
+        estimatedImpact={{
+          branches: deletingOrg?.branchCount || 0,
+          doctors: 0, // Would need to fetch from API
+          patients: 0, // Would need to fetch from API
+          admins: 0, // Would need to fetch from API
+          receptionists: 0, // Would need to fetch from API
+        }}
+      />
+
+      {/* Cascade Restore Modal */}
+      <CascadeRestoreModal
+        isOpen={showCascadeRestoreModal}
+        onClose={() => {
+          setShowCascadeRestoreModal(false);
+          setRestoringOrg(null);
+        }}
+        onConfirm={handleCascadeRestore}
+        organization={restoringOrg}
+        isLoading={restoreLoading}
+        estimatedRestoreImpact={{
+          branches: restoringOrg?.branchCount || 0,
+          doctors: 0, // Would need to fetch from API
+          patients: 0, // Would need to fetch from API
+          admins: 0, // Would need to fetch from API
+          receptionists: 0, // Would need to fetch from API
+        }}
       />
     </div>
   );
