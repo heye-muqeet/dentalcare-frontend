@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Building2, MapPin, Phone, Mail, Globe, Tag, User, Calendar, CheckCircle, XCircle, Edit, Trash2 } from 'lucide-react';
-import { LoadingButton } from '../Loader';
+// import { LoadingButton } from '../Loader'; // Unused import
 import { organizationService } from '../../lib/api/services/organizations';
 
 interface Organization {

@@ -65,7 +65,7 @@ const UpdateOrganizationModal: React.FC<UpdateOrganizationModalProps> = ({
       const initialData: UpdateOrganizationData = {};
       fields.forEach(field => {
         if (organization[field] !== undefined) {
-          initialData[field] = organization[field] as any;
+          (initialData as any)[field] = organization[field];
         }
       });
       setFormData(initialData);

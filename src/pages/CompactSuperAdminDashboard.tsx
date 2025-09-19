@@ -44,8 +44,8 @@ interface Organization {
   website: string;
   isActive: boolean;
   createdAt: string;
-  branchCount: number;
-  userCount: number;
+  branchCount?: number;
+  userCount?: number;
 }
 
 interface RecentActivity {

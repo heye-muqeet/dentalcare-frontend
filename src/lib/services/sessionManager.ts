@@ -230,14 +230,7 @@ class SessionManager {
     }
   }
 
-  /**
-   * Schedule automatic token refresh (disabled - now handled by axios interceptor)
-   */
-  private scheduleRefresh(): void {
-    // Auto-refresh is disabled - tokens are refreshed on-demand by axios interceptor
-    // This method is kept for backward compatibility but does nothing
-    return;
-  }
+  // scheduleRefresh method removed - auto-refresh is now handled by axios interceptor
 
   /**
    * Reset session timeout timer (disabled when sessionTimeout is 0)

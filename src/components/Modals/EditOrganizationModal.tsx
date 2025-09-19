@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Building2, MapPin, Phone, Mail, Globe, Tag, Plus, User, AlertCircle, CheckCircle, RefreshCw, Eye, EyeOff, Save } from 'lucide-react';
 import { LoadingButton } from '../Loader';
-import { systemService } from '../../lib/api/services/system';
+// import { systemService } from '../../lib/api/services/system'; // Unused import
 import { organizationService } from '../../lib/api/services/organizations';
 import { authService } from '../../lib/api/services/auth';
 import type { SystemUser } from '../../lib/api/services/system';
@@ -69,6 +69,29 @@ interface EditOrganizationData {
   };
 }
 
+interface EditOrganizationErrors {
+  name?: string;
+  description?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  selectedAdminIds?: string;
+  adminData?: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    password?: string;
+    phone?: string;
+    address?: string;
+    dateOfBirth?: string;
+  };
+}
+
 const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
   isOpen,
   onClose,
@@ -101,7 +124,7 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
     },
   });
 
-  const [errors, setErrors] = useState<Partial<EditOrganizationData>>({});
+  const [errors, setErrors] = useState<EditOrganizationErrors>({});
   const [availableAdmins, setAvailableAdmins] = useState<SystemUser[]>([]);
   const [existingAdmins, setExistingAdmins] = useState<SystemUser[]>([]);
   const [loadingAdmins, setLoadingAdmins] = useState(false);
@@ -144,7 +167,12 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
       // Set existing admins from organization data
       if (organization.organizationAdmins && organization.organizationAdmins.length > 0) {
         console.log('Setting existing admins:', organization.organizationAdmins);
-        setExistingAdmins(organization.organizationAdmins);
+        // Map to SystemUser format with role property
+        const adminsWithRole = organization.organizationAdmins.map(admin => ({
+          ...admin,
+          role: 'organization_admin'
+        }));
+        setExistingAdmins(adminsWithRole);
       } else {
         console.log('No organization admins found, setting empty array');
         setExistingAdmins([]);
@@ -299,13 +327,13 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
     }
 
     // Clear error when user starts typing
-    if (errors[name as keyof EditOrganizationData]) {
+    if (errors[name as keyof EditOrganizationErrors]) {
       setErrors(prev => ({ ...prev, [name]: undefined }));
     }
   };
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<EditOrganizationData> = {};
+    const newErrors: EditOrganizationErrors = {};
 
     // Basic organization validation
     if (!formData.name.trim()) newErrors.name = 'Organization name is required';
@@ -327,17 +355,22 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
 
     // Admin validation if creating new admin
     if (formData.isActive && formData.createNewAdmin) {
-      if (!formData.adminData.firstName.trim()) newErrors.adminData = { ...newErrors.adminData, firstName: 'First name is required' };
-      if (!formData.adminData.lastName.trim()) newErrors.adminData = { ...newErrors.adminData, lastName: 'Last name is required' };
-      if (!formData.adminData.email.trim()) newErrors.adminData = { ...newErrors.adminData, email: 'Email is required' };
+      const adminErrors: any = {};
+      if (!formData.adminData.firstName.trim()) adminErrors.firstName = 'First name is required';
+      if (!formData.adminData.lastName.trim()) adminErrors.lastName = 'Last name is required';
+      if (!formData.adminData.email.trim()) adminErrors.email = 'Email is required';
       else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.adminData.email)) {
-        newErrors.adminData = { ...newErrors.adminData, email: 'Please enter a valid email address' };
+        adminErrors.email = 'Please enter a valid email address';
       }
-      if (!formData.adminData.password.trim()) newErrors.adminData = { ...newErrors.adminData, password: 'Password is required' };
+      if (!formData.adminData.password.trim()) adminErrors.password = 'Password is required';
       else if (formData.adminData.password.length !== 10) {
-        newErrors.adminData = { ...newErrors.adminData, password: 'Password must be exactly 10 characters' };
+        adminErrors.password = 'Password must be exactly 10 characters';
       }
-      if (!formData.adminData.phone.trim()) newErrors.adminData = { ...newErrors.adminData, phone: 'Phone number is required' };
+      if (!formData.adminData.phone.trim()) adminErrors.phone = 'Phone number is required';
+      
+      if (Object.keys(adminErrors).length > 0) {
+        newErrors.adminData = adminErrors;
+      }
     } else if (formData.isActive && !formData.createNewAdmin) {
       // Check if there are any admins (existing + selected new ones)
       const totalAdmins = existingAdmins.length + formData.selectedAdminIds.length;
