@@ -197,7 +197,7 @@ const UpdateOrganizationModal: React.FC<UpdateOrganizationModalProps> = ({
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-8 max-h-[calc(95vh-120px)] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-6 space-y-8 max-h-[calc(95vh-120px)] overflow-y-auto custom-scrollbar light">
           {/* Organization Details Section */}
           <div className="space-y-6">
             <div className="flex items-center space-x-2 mb-4">

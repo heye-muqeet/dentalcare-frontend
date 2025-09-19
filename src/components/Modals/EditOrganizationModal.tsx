@@ -544,7 +544,7 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-8 max-h-[calc(95vh-120px)] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-6 space-y-8 max-h-[calc(95vh-120px)] overflow-y-auto custom-scrollbar light">
           {/* Organization Details Section */}
           <div className="space-y-6">
             <div className="flex items-center space-x-2 mb-4">
@@ -941,7 +941,7 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
                             <span className="ml-2 text-sm text-gray-600">Loading available admins...</span>
                           </div>
                         ) : availableAdmins.length > 0 ? (
-                          <div className="max-h-40 overflow-y-auto space-y-2 border border-gray-200 rounded-lg p-2">
+                          <div className="max-h-40 overflow-y-auto custom-scrollbar light space-y-2 border border-gray-200 rounded-lg p-2">
                             {availableAdmins
                               .filter(admin => !formData.selectedAdminIds.includes(admin._id))
                               .map((admin) => (

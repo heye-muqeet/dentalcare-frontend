@@ -351,44 +351,37 @@ export const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = (
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-slate-900/80 via-purple-900/60 to-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
-      <div className="bg-white/95 backdrop-blur-xl rounded-3xl max-w-6xl w-full max-h-[95vh] overflow-hidden shadow-2xl border border-white/20 animate-in fade-in-0 zoom-in-95 duration-300">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white p-8 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent"></div>
-          <div className="relative flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="p-4 bg-white/20 rounded-2xl backdrop-blur-sm border border-white/30">
-                <Building2 className="h-8 w-8" />
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-xl">
+        {/* Compact Header */}
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-white/20 rounded-lg">
+                <Building2 className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
-                  Create Organization
-                </h2>
-                <p className="text-white/90 text-lg mt-1">Add a new dental organization to your system</p>
+                <h2 className="text-lg font-bold">Create Organization</h2>
+                <p className="text-white/80 text-sm">Add a new dental organization to your system</p>
               </div>
             </div>
             <button
               onClick={handleClose}
-              className="p-3 hover:bg-white/20 rounded-2xl backdrop-blur-sm transition-all duration-200 group border border-white/20"
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
             >
-              <X className="h-6 w-6 group-hover:scale-110 transition-transform" />
+              <X className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[calc(95vh-140px)]">
-          <div className="p-8 space-y-10">
-            {/* Basic Information Section */}
-            <div className="space-y-6">
-              <div className="flex items-center space-x-3 pb-4 border-b border-gradient-to-r from-indigo-200 to-purple-200">
-                <div className="p-2 bg-gradient-to-r from-indigo-100 to-purple-100 rounded-lg">
-                  <Building2 className="w-5 h-5 text-indigo-600" />
-                </div>
-                <h3 className="text-xl font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  Basic Information
-                </h3>
+        {/* Compact Form */}
+        <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[calc(90vh-80px)] custom-scrollbar light">
+          <div className="p-4 space-y-4">
+            {/* Basic Information */}
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2 pb-2 border-b border-gray-200">
+                <Building2 className="w-4 h-4 text-indigo-600" />
+                <h3 className="text-base font-semibold text-gray-900">Basic Information</h3>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -900,23 +893,23 @@ export const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = (
              </div>
            </div>
 
-          {/* Footer */}
-          <div className="bg-gray-50/80 backdrop-blur-sm px-8 py-6 border-t border-gray-200">
-            <div className="flex justify-end space-x-4">
+          {/* Compact Footer */}
+          <div className="bg-gray-50 px-4 py-3 border-t border-gray-200">
+            <div className="flex justify-end space-x-2">
               <button
                 type="button"
                 onClick={handleClose}
-                className="px-6 py-3 text-gray-600 hover:text-gray-800 font-medium transition-colors duration-200"
+                className="px-3 py-2 text-gray-600 hover:text-gray-800 text-sm"
               >
                 Cancel
               </button>
               <LoadingButton
                 type="submit"
                 loading={loading}
-                loadingText="Creating Organization..."
+                loadingText="Creating..."
                 variant="primary"
-                size="lg"
-                className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg"
+                size="sm"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm"
               >
                 Create Organization
               </LoadingButton>

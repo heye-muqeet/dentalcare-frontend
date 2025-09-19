@@ -158,7 +158,7 @@ const ViewOrganizationModal: React.FC<ViewOrganizationModalProps> = ({
           </div>
         ) : (
 
-        <div className="p-6 space-y-8 max-h-[calc(95vh-120px)] overflow-y-auto">
+        <div className="p-6 space-y-8 max-h-[calc(95vh-120px)] overflow-y-auto custom-scrollbar light">
           {/* Status and Basic Info */}
           <div className="space-y-6">
             <div className="flex items-center justify-between">
