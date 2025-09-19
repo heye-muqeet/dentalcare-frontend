@@ -296,6 +296,7 @@ function DoctorCompactSidebar() {
 // Receptionist Compact Sidebar
 function ReceptionistCompactSidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state: RootState) => state.auth.user);
 
@@ -360,6 +361,7 @@ function ReceptionistCompactSidebar() {
 // Patient Compact Sidebar
 function PatientCompactSidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state: RootState) => state.auth.user);
 
