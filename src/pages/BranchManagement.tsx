@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAppSelector } from '../lib/hooks';
 import type { RootState } from '../lib/store/store';
 import { branchService, type Branch, type BranchFilters } from '../lib/api/services/branches';
+import CreateBranchModal from '../components/Modals/CreateBranchModal';
 import { 
   FiPlus, 
   FiSearch, 
@@ -26,8 +27,7 @@ export default function BranchManagement() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  // Modal states would be implemented when modals are added
-  // const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   // const [showEditModal, setShowEditModal] = useState(false);
   // const [showDeleteModal, setShowDeleteModal] = useState(false);
   // const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
@@ -81,8 +81,12 @@ export default function BranchManagement() {
   };
 
   const handleCreateBranch = () => {
-    // TODO: Implement create branch modal
-    alert('Create branch functionality will be implemented with modal components');
+    setShowCreateModal(true);
+  };
+
+  const handleCreateSuccess = () => {
+    loadBranches();
+    loadStats();
   };
 
   const handleEditBranch = (branch: Branch) => {
@@ -436,8 +440,12 @@ export default function BranchManagement() {
         </div>
       )}
 
-      {/* Modals would go here - CreateBranchModal, EditBranchModal, DeleteBranchModal */}
-      {/* These would be separate components imported and used conditionally */}
+      {/* Create Branch Modal */}
+      <CreateBranchModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={handleCreateSuccess}
+      />
     </div>
   );
 }
