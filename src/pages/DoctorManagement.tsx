@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAppSelector } from '../lib/hooks';
 import type { RootState } from '../lib/store/store';
 import { doctorService, type Doctor } from '../lib/api/services/doctors';
+import CreateDoctorModal from '../components/Modals/CreateDoctorModal';
 import { toast } from 'sonner';
 import { 
   FiPlus, 
@@ -361,11 +362,12 @@ export default function DoctorManagement() {
         </div>
       )}
 
-      {/* Modals would be rendered here */}
-      {/* CreateDoctorModal */}
-      {/* ViewDoctorModal */}
-      {/* EditDoctorModal */}
-      {/* DeleteConfirmationModal */}
+      {/* Create Doctor Modal */}
+      <CreateDoctorModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={handleCreateSuccess}
+      />
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedDoctor && (

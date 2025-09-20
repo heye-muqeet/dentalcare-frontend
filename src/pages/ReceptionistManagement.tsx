@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAppSelector } from '../lib/hooks';
 import type { RootState } from '../lib/store/store';
 import { receptionistService, type Receptionist } from '../lib/api/services/receptionists';
+import CreateReceptionistModal from '../components/Modals/CreateReceptionistModal';
 import { toast } from 'sonner';
 import { 
   FiPlus, 
@@ -367,11 +368,12 @@ export default function ReceptionistManagement() {
         </div>
       )}
 
-      {/* Modals would be rendered here */}
-      {/* CreateReceptionistModal */}
-      {/* ViewReceptionistModal */}
-      {/* EditReceptionistModal */}
-      {/* DeleteConfirmationModal */}
+      {/* Create Receptionist Modal */}
+      <CreateReceptionistModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={handleCreateSuccess}
+      />
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedReceptionist && (
