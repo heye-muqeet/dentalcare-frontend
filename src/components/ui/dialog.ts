@@ -9,6 +9,8 @@ export interface DialogProps {
 export interface DialogContentProps {
   children?: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
+  role?: string;
 }
 
 export interface DialogHeaderProps {

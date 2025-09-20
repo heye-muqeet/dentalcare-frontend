@@ -437,39 +437,104 @@ function BranchAdminDynamicTopbar() {
   const navigate = useNavigate();
   
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [stats, setStats] = useState<TopbarStats>({
     totalStaff: 0,
     totalPatients: 0,
-    todayAppointments: 0
+    todayAppointments: 0,
+    totalDoctors: 0,
+    totalReceptionists: 0,
+    monthlyRevenue: 0,
+    completedAppointments: 0
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [branchData, setBranchData] = useState<any>(null);
+  const [organizationData, setOrganizationData] = useState<any>(null);
+  const [notifications] = useState([
+    { id: 1, title: 'New Patient', message: 'John Doe registered today', type: 'success', time: '5 min ago' },
+    { id: 2, title: 'Appointment', message: 'Dr. Smith has 3 appointments pending', type: 'info', time: '30 min ago' },
+    { id: 3, title: 'Staff Update', message: 'New receptionist started today', type: 'success', time: '2 hours ago' }
+  ]);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const notificationRef = useRef<HTMLDivElement>(null);
 
-  const branchName = user?.branch?.name || 'Branch';
-  const organizationName = user?.organization?.name || 'Organization';
+  // Extract branch and organization IDs safely
+  const branchId = typeof user?.branchId === 'string' 
+    ? user.branchId 
+    : (user?.branchId as any)?._id || (user?.branchId as any)?.id || String(user?.branchId);
+    
+  const organizationId = typeof user?.organizationId === 'string' 
+    ? user.organizationId 
+    : (user?.organizationId as any)?._id || (user?.organizationId as any)?.id || String(user?.organizationId);
+
+  // Use backend data with fallbacks
+  const branchName = branchData?.name || user?.branch?.name || 'Branch';
+  
+  // Extract organization name from populated branch data
+  const populatedOrgName = branchData?.organizationId?.name;
+  const organizationName = populatedOrgName || organizationData?.name || branchData?.organizationName || user?.organization?.name || 'Organization';
+
+  // Debug organization name resolution
+  console.log('BranchAdminTopbar - Organization name resolution:', {
+    populatedOrgName,
+    organizationDataName: organizationData?.name,
+    branchDataOrgName: branchData?.organizationName,
+    userOrgName: user?.organization?.name,
+    finalOrganizationName: organizationName,
+    organizationId,
+    branchId,
+    fullBranchData: branchData
+  });
 
   useEffect(() => {
-    const loadStats = async () => {
+    const loadBranchAndOrganizationData = async () => {
       try {
-        if (user?.branchId) {
-          const branchStats = await topbarService.getBranchStats(user.branchId);
-          setStats(branchStats);
+        console.log('BranchAdminTopbar - Loading data:', { branchId, organizationId });
+        
+        // Load branch data
+        if (branchId) {
+          // Import branchService dynamically to avoid circular imports
+          const { branchService } = await import('../../lib/api/services/branches');
+          const branchResponse = await branchService.getBranchById(branchId);
+          
+          if (branchResponse.success) {
+            console.log('BranchAdminTopbar - Branch data loaded:', branchResponse.data);
+            console.log('BranchAdminTopbar - Organization data from branch:', branchResponse.data.organizationId);
+            setBranchData(branchResponse.data);
+            
+            // Set comprehensive stats from branch data
+            setStats({
+              totalStaff: (branchResponse.data.totalDoctors || 0) + (branchResponse.data.totalReceptionists || 0),
+              totalPatients: branchResponse.data.totalPatients || 0,
+              totalDoctors: branchResponse.data.totalDoctors || 0,
+              totalReceptionists: branchResponse.data.totalReceptionists || 0,
+              todayAppointments: 0, // This would come from appointments API
+              monthlyRevenue: 0, // This would come from revenue API
+              completedAppointments: 0 // This would come from appointments API
+            });
+          }
         }
+
+        // Note: Branch admins don't have permission to access organization endpoint directly
+        // Organization name will be extracted from the populated branch data
       } catch (error) {
-        console.error('Failed to load branch stats:', error);
+        console.error('Failed to load branch data:', error);
         // Keep fallback values
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadStats();
-  }, [user?.branchId]);
+    loadBranchAndOrganizationData();
+  }, [branchId, organizationId]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setIsUserMenuOpen(false);
+      }
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setIsNotificationOpen(false);
       }
     }
 
@@ -489,6 +554,34 @@ function BranchAdminDynamicTopbar() {
     }
   };
 
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'success': return '✅';
+      case 'warning': return '⚠️';
+      case 'error': return '❌';
+      default: return 'ℹ️';
+    }
+  };
+
+  const handleQuickAction = (action: string) => {
+    switch (action) {
+      case 'manage_staff':
+        navigate('/branch/staff');
+        break;
+      case 'view_appointments':
+        navigate('/branch/appointments');
+        break;
+      case 'view_patients':
+        navigate('/branch/patients');
+        break;
+      case 'branch_reports':
+        navigate('/branch/reports');
+        break;
+      default:
+        console.log(`Quick action: ${action}`);
+    }
+  };
+
   return (
     <div className="bg-gradient-to-r from-green-700 to-emerald-700 text-white px-4 py-3 flex items-center justify-between shadow-lg">
       {/* Left: Branch Branding */}
@@ -498,66 +591,156 @@ function BranchAdminDynamicTopbar() {
         </div>
         <div>
           <h1 className="text-lg font-bold">{branchName}</h1>
-          <p className="text-xs text-emerald-200">{organizationName}</p>
+          <p className="text-xs text-emerald-200">
+            {isLoading ? 'Loading...' : organizationName} • Branch Admin
+          </p>
         </div>
       </div>
 
-      {/* Center: Dynamic Quick Stats */}
-      <div className="hidden md:flex items-center space-x-6">
+      {/* Center: Enhanced Dynamic Stats */}
+      <div className="hidden lg:flex items-center space-x-6">
         <div className="text-center">
           <div className="text-sm font-semibold">
-            {isLoading ? '...' : stats.totalStaff}
+            {isLoading ? '...' : stats.totalDoctors || 0}
           </div>
-          <div className="text-xs text-emerald-200">Staff</div>
+          <div className="text-xs text-emerald-200">Doctors</div>
         </div>
         <div className="text-center">
           <div className="text-sm font-semibold">
-            {isLoading ? '...' : stats.totalPatients}
+            {isLoading ? '...' : stats.totalReceptionists || 0}
+          </div>
+          <div className="text-xs text-emerald-200">Reception</div>
+        </div>
+        <div className="text-center">
+          <div className="text-sm font-semibold">
+            {isLoading ? '...' : stats.totalPatients || 0}
           </div>
           <div className="text-xs text-emerald-200">Patients</div>
         </div>
         <div className="text-center">
           <div className="text-sm font-semibold">
-            {isLoading ? '...' : stats.todayAppointments}
+            {isLoading ? '...' : stats.todayAppointments || 0}
           </div>
           <div className="text-xs text-emerald-200">Today</div>
         </div>
+        <div className="text-center">
+          <div className="text-sm font-semibold">
+            {isLoading ? '...' : `$${((stats.monthlyRevenue || 0) / 1000).toFixed(0)}K`}
+          </div>
+          <div className="text-xs text-emerald-200">Revenue</div>
+        </div>
       </div>
 
-      {/* Right: User Menu */}
+      {/* Right: Tools & User Menu */}
       <div className="flex items-center space-x-3">
-        <div className="text-right">
-          <p className="text-sm font-medium">{user?.firstName} {user?.lastName}</p>
-          <p className="text-xs text-emerald-200">Branch Admin</p>
-        </div>
-        
-        <div className="relative" ref={userMenuRef}>
+        {/* Notifications */}
+        <div className="relative" ref={notificationRef}>
           <button
-            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-            className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+            onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+            className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors relative"
+            title="Notifications"
           >
-            <span className="text-sm">👤</span>
+            <span className="text-sm">🔔</span>
+            {notifications.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-xs flex items-center justify-center">
+                {notifications.length}
+              </span>
+            )}
           </button>
 
-          {isUserMenuOpen && (
-            <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-              <div className="py-2">
-                <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                  Profile Settings
-                </button>
-                <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                  Branch Settings
-                </button>
-                <hr className="my-1" />
-                <button
-                  onClick={handleLogout}
-                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                >
-                  Logout
+          {isNotificationOpen && (
+            <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+              <div className="p-3 border-b border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-900">Branch Notifications</h3>
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                {notifications.map((notification) => (
+                  <div key={notification.id} className="p-3 border-b border-gray-100 hover:bg-gray-50">
+                    <div className="flex items-start space-x-3">
+                      <span className="text-lg">{getNotificationIcon(notification.type)}</span>
+                      <div className="flex-1">
+                        <h4 className="text-sm font-medium text-gray-900">{notification.title}</h4>
+                        <p className="text-xs text-gray-600 mt-1">{notification.message}</p>
+                        <p className="text-xs text-gray-400 mt-1">{notification.time}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="p-3 border-t border-gray-200">
+                <button className="text-xs text-blue-600 hover:text-blue-800">
+                  View All Notifications
                 </button>
               </div>
             </div>
           )}
+        </div>
+
+        {/* User Info & Menu */}
+        <div className="flex items-center space-x-3">
+          <div className="text-right hidden sm:block">
+            <p className="text-sm font-medium">{user?.firstName} {user?.lastName}</p>
+            <p className="text-xs text-emerald-200">Branch Admin</p>
+          </div>
+          
+          <div className="relative" ref={userMenuRef}>
+            <button
+              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+              className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+            >
+              <span className="text-sm">👤</span>
+            </button>
+
+            {isUserMenuOpen && (
+              <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                <div className="py-2">
+                  <button 
+                    onClick={() => navigate('/profile')}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                  >
+                    <span>👤</span>
+                    <span>Profile Settings</span>
+                  </button>
+                  <button 
+                    onClick={() => handleQuickAction('manage_staff')}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                  >
+                    <span>👥</span>
+                    <span>Manage Staff</span>
+                  </button>
+                  <button 
+                    onClick={() => handleQuickAction('view_appointments')}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                  >
+                    <span>📅</span>
+                    <span>Appointments</span>
+                  </button>
+                  <button 
+                    onClick={() => handleQuickAction('view_patients')}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                  >
+                    <span>👥</span>
+                    <span>Patient Management</span>
+                  </button>
+                  <button 
+                    onClick={() => handleQuickAction('branch_reports')}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                  >
+                    <span>📊</span>
+                    <span>Branch Reports</span>
+                  </button>
+                  <hr className="my-1" />
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                  >
+                    <span>🚪</span>
+                    <span>Logout</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

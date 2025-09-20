@@ -72,6 +72,18 @@ export interface CreateBranchData {
 
 export interface UpdateBranchData extends Partial<CreateBranchData> {
   isActive?: boolean;
+  branchAdmins?: {
+    _id?: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    password?: string;
+    phone: string;
+    address?: string;
+    dateOfBirth?: string;
+    employeeId?: string;
+    isActive: boolean;
+  }[];
 }
 
 export interface BranchStats {
@@ -189,8 +201,31 @@ export const branchService = {
 
   // Update branch
   async updateBranch(id: string, branchData: UpdateBranchData): Promise<SingleBranchResponse> {
-    const response = await api.put(`${API_ENDPOINTS.BRANCHES}/${id}`, branchData);
-    return response.data;
+    try {
+      console.log('Branch service - updating branch:', {
+        branchId: id,
+        updateData: branchData,
+        adminCount: branchData.branchAdmins?.length || 0
+      });
+      
+      const response = await api.patch(`${API_ENDPOINTS.BRANCHES}/${id}`, branchData);
+      console.log('Branch service - update response:', response.data);
+      
+      // Ensure we return the proper format
+      if (response.data.success !== undefined) {
+        return response.data;
+      } else {
+        // Handle case where backend returns raw branch object (fallback)
+        return {
+          success: true,
+          data: response.data,
+          message: 'Branch updated successfully'
+        };
+      }
+    } catch (error) {
+      console.error('Branch service - updateBranch error:', error);
+      throw error;
+    }
   },
 
   // Delete branch (soft delete)

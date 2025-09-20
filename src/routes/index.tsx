@@ -9,6 +9,8 @@ import SystemUsers from '../pages/SystemUsers';
 import SystemLogs from '../pages/SystemLogs';
 import Account from '../pages/Account';
 import BranchManagement from '../pages/BranchManagement';
+import DoctorManagement from '../pages/DoctorManagement';
+import ReceptionistManagement from '../pages/ReceptionistManagement';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../lib/store/store';
 
@@ -132,7 +134,19 @@ export const router = createBrowserRouter([
       <ProtectedRoute>
         <RoleBasedRoute requiredRoles={['organization_admin', 'branch_admin', 'receptionist']}>
           <DashboardWrapper>
-            <Doctors />
+            <DoctorManagement />
+          </DashboardWrapper>
+        </RoleBasedRoute>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/receptionists',
+    element: (
+      <ProtectedRoute>
+        <RoleBasedRoute requiredRoles={['organization_admin', 'branch_admin']}>
+          <DashboardWrapper>
+            <ReceptionistManagement />
           </DashboardWrapper>
         </RoleBasedRoute>
       </ProtectedRoute>

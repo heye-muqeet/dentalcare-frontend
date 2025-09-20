@@ -35,6 +35,7 @@ export const getAccessibleRoutes = (userRole: UserRole): string[] => {
       '/dashboard',
       '/branches',
       '/doctors',
+      '/receptionists',
       '/patients',
       '/appointments',
       '/services',
@@ -46,6 +47,7 @@ export const getAccessibleRoutes = (userRole: UserRole): string[] => {
     branch_admin: [
       '/dashboard',
       '/doctors',
+      '/receptionists',
       '/patients',
       '/appointments',
       '/services',
@@ -123,6 +125,12 @@ export const routePermissions: RoutePermission[] = [
     label: 'Doctors',
     icon: 'stethoscope',
     allowedRoles: ['organization_admin', 'branch_admin', 'receptionist']
+  },
+  {
+    path: '/receptionists',
+    label: 'Receptionists',
+    icon: 'users',
+    allowedRoles: ['organization_admin', 'branch_admin']
   },
   {
     path: '/appointments',

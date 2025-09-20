@@ -4,7 +4,7 @@ import type { RootState } from '../lib/store/store';
 import { useState, useEffect } from 'react';
 import CompactSuperAdminDashboard from './CompactSuperAdminDashboard';
 import CompactOrganizationAdminDashboard from './CompactOrganizationAdminDashboard';
-import BranchAdminDashboard from './BranchAdminDashboard';
+import CompactBranchAdminDashboard from './CompactBranchAdminDashboard';
 import DoctorDashboard from './DoctorDashboard';
 import { 
   FiCalendar, 
@@ -35,7 +35,7 @@ export default function Dashboard() {
   }
   
   if (user?.role === 'branch_admin') {
-    return <BranchAdminDashboard />;
+    return <CompactBranchAdminDashboard />;
   }
   
   if (user?.role === 'doctor') {

@@ -15,6 +15,8 @@ export interface TopbarStats {
   totalStaff?: number;
   totalPatients?: number;
   todayAppointments?: number;
+  totalDoctors?: number;
+  totalReceptionists?: number;
   
   // Doctor stats
   completedAppointments?: number;
