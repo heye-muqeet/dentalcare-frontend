@@ -3,6 +3,10 @@ import { useAppSelector } from '../lib/hooks';
 import type { RootState } from '../lib/store/store';
 import { branchService, type Branch, type BranchFilters } from '../lib/api/services/branches';
 import CreateBranchModal from '../components/Modals/CreateBranchModal';
+import ViewBranchModal from '../components/Modals/ViewBranchModal';
+import EditBranchModal from '../components/Modals/EditBranchModal';
+import DeleteBranchModal from '../components/Modals/DeleteBranchModal';
+import RestoreBranchModal from '../components/Modals/RestoreBranchModal';
 import { 
   FiPlus, 
   FiSearch, 
@@ -29,9 +33,11 @@ export default function BranchManagement() {
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  // const [showEditModal, setShowEditModal] = useState(false);
-  // const [showDeleteModal, setShowDeleteModal] = useState(false);
-  // const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [filters, setFilters] = useState<BranchFilters>({
     search: '',
     isActive: undefined,
@@ -96,23 +102,60 @@ export default function BranchManagement() {
   };
 
   const handleViewBranch = (branch: Branch) => {
-    // TODO: Implement view branch modal
-    alert(`View branch details for: ${branch.name}`);
+    setSelectedBranch(branch);
+    setShowViewModal(true);
   };
 
   const handleEditBranch = (branch: Branch) => {
-    // TODO: Implement edit branch modal
-    alert(`Edit branch functionality will be implemented for: ${branch.name}`);
+    setSelectedBranch(branch);
+    setShowEditModal(true);
   };
 
   const handleDeleteBranch = (branch: Branch) => {
-    // TODO: Implement delete branch modal
-    alert(`Delete branch functionality will be implemented for: ${branch.name}`);
+    setSelectedBranch(branch);
+    setShowDeleteModal(true);
   };
 
   const handleRestoreBranch = (branch: Branch) => {
-    // TODO: Implement restore branch functionality
-    alert(`Restore branch functionality will be implemented for: ${branch.name}`);
+    setSelectedBranch(branch);
+    setShowRestoreModal(true);
+  };
+
+  const handleDeleteConfirm = async (reason: string) => {
+    if (!selectedBranch) return;
+    
+    try {
+      await branchService.deleteBranch(selectedBranch._id, reason);
+      setShowDeleteModal(false);
+      setSelectedBranch(null);
+      loadBranches();
+      loadStats();
+    } catch (error: any) {
+      console.error('Failed to delete branch:', error);
+      throw error; // Let the modal handle the error display
+    }
+  };
+
+  const handleRestoreConfirm = async (reason: string) => {
+    if (!selectedBranch) return;
+    
+    try {
+      await branchService.restoreBranch(selectedBranch._id, reason);
+      setShowRestoreModal(false);
+      setSelectedBranch(null);
+      loadBranches();
+      loadStats();
+    } catch (error: any) {
+      console.error('Failed to restore branch:', error);
+      throw error; // Let the modal handle the error display
+    }
+  };
+
+  const handleEditSuccess = () => {
+    setShowEditModal(false);
+    setSelectedBranch(null);
+    loadBranches();
+    loadStats();
   };
 
   const handleToggleStatus = async (branch: Branch) => {
@@ -499,6 +542,49 @@ export default function BranchManagement() {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSuccess={handleCreateSuccess}
+      />
+
+      {/* View Branch Modal */}
+      <ViewBranchModal
+        isOpen={showViewModal}
+        onClose={() => setShowViewModal(false)}
+        branch={selectedBranch}
+        onEdit={(branch) => {
+          setSelectedBranch(branch);
+          setShowViewModal(false);
+          setShowEditModal(true);
+        }}
+        onDelete={(branch) => {
+          setSelectedBranch(branch);
+          setShowViewModal(false);
+          setShowDeleteModal(true);
+        }}
+      />
+
+      {/* Edit Branch Modal */}
+      <EditBranchModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onSuccess={handleEditSuccess}
+        branch={selectedBranch}
+      />
+
+      {/* Delete Branch Modal */}
+      <DeleteBranchModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDeleteConfirm}
+        branch={selectedBranch}
+        isLoading={isLoading}
+      />
+
+      {/* Restore Branch Modal */}
+      <RestoreBranchModal
+        isOpen={showRestoreModal}
+        onClose={() => setShowRestoreModal(false)}
+        onConfirm={handleRestoreConfirm}
+        branch={selectedBranch}
+        isLoading={isLoading}
       />
     </div>
   );

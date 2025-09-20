@@ -30,14 +30,27 @@ const ViewBranchModal: React.FC<ViewBranchModalProps> = ({
   };
 
   const getOperatingHoursDisplay = () => {
-    if (!branch.operatingHours) return 'Not specified';
+    if (!branch?.operatingHours) {
+      return (
+        <div className="text-center py-4">
+          <span className="text-sm text-gray-500">Operating hours not specified</span>
+        </div>
+      );
+    }
     
     const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
     const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     
-    return days.map((day, index) => {
+    const hoursElements = days.map((day, index) => {
       const hours = branch.operatingHours?.[day];
-      if (!hours) return null;
+      if (!hours) {
+        return (
+          <div key={day} className="flex justify-between items-center py-1">
+            <span className="text-sm font-medium text-gray-700">{dayLabels[index]}</span>
+            <span className="text-sm text-gray-600">Not set</span>
+          </div>
+        );
+      }
       
       return (
         <div key={day} className="flex justify-between items-center py-1">
@@ -47,54 +60,56 @@ const ViewBranchModal: React.FC<ViewBranchModalProps> = ({
           </span>
         </div>
       );
-    }).filter(Boolean);
+    });
+    
+    return hoursElements;
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-xl">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white p-6">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[95vh] overflow-hidden shadow-xl flex flex-col">
+        {/* Compact Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-white/20 rounded-lg">
-                <MapPin className="h-6 w-6" />
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-white/20 rounded-lg">
+                <MapPin className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold">{branch.name}</h2>
-                <p className="text-blue-100">{branch.city}, {branch.state}</p>
+                <h2 className="text-lg font-bold">{String(branch.name || 'Unnamed Branch')}</h2>
+                <p className="text-blue-100 text-sm">{String(branch.city || '')}, {String(branch.state || '')}</p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+              <div className={`px-2 py-1 rounded-full text-xs font-medium ${
                 branch.isActive 
                   ? 'bg-green-100 text-green-800' 
                   : 'bg-red-100 text-red-800'
               }`}>
                 {branch.isActive ? (
                   <div className="flex items-center space-x-1">
-                    <CheckCircle className="h-4 w-4" />
+                    <CheckCircle className="h-3 w-3" />
                     <span>Active</span>
                   </div>
                 ) : (
                   <div className="flex items-center space-x-1">
-                    <XCircle className="h-4 w-4" />
+                    <XCircle className="h-3 w-3" />
                     <span>Inactive</span>
                   </div>
                 )}
               </div>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
           </div>
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto max-h-[calc(90vh-140px)] custom-scrollbar light">
+        <div className="flex-1 overflow-y-auto custom-scrollbar light">
           <div className="p-6 space-y-6">
             {/* Basic Information */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -108,15 +123,15 @@ const ViewBranchModal: React.FC<ViewBranchModalProps> = ({
                     {branch.description && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                        <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{branch.description}</p>
+                        <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{String(branch.description)}</p>
                       </div>
                     )}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Full Address</label>
                       <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">
-                        {branch.address}<br />
-                        {branch.city}, {branch.state} {branch.postalCode}<br />
-                        {branch.country}
+                        {String(branch.address || '')}<br />
+                        {String(branch.city || '')}, {String(branch.state || '')} {String(branch.postalCode || '')}<br />
+                        {String(branch.country || '')}
                       </p>
                     </div>
                   </div>
@@ -133,14 +148,14 @@ const ViewBranchModal: React.FC<ViewBranchModalProps> = ({
                       <Mail className="h-5 w-5 text-gray-500" />
                       <div>
                         <p className="text-sm font-medium text-gray-700">Email</p>
-                        <p className="text-gray-900">{branch.email}</p>
+                        <p className="text-gray-900">{String(branch.email || 'Not provided')}</p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
                       <Phone className="h-5 w-5 text-gray-500" />
                       <div>
                         <p className="text-sm font-medium text-gray-700">Phone</p>
-                        <p className="text-gray-900">{branch.phone}</p>
+                        <p className="text-gray-900">{String(branch.phone || 'Not provided')}</p>
                       </div>
                     </div>
                     {branch.website && (
@@ -149,12 +164,12 @@ const ViewBranchModal: React.FC<ViewBranchModalProps> = ({
                         <div>
                           <p className="text-sm font-medium text-gray-700">Website</p>
                           <a 
-                            href={branch.website} 
+                            href={String(branch.website)} 
                             target="_blank" 
                             rel="noopener noreferrer"
                             className="text-blue-600 hover:text-blue-800 hover:underline"
                           >
-                            {branch.website}
+                            {String(branch.website)}
                           </a>
                         </div>
                       </div>
@@ -172,19 +187,19 @@ const ViewBranchModal: React.FC<ViewBranchModalProps> = ({
                   </h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-blue-50 p-4 rounded-lg text-center">
-                      <p className="text-2xl font-bold text-blue-600">{branch.totalDoctors || 0}</p>
+                      <p className="text-2xl font-bold text-blue-600">{Number(branch.totalDoctors || 0)}</p>
                       <p className="text-sm text-blue-800">Doctors</p>
                     </div>
                     <div className="bg-green-50 p-4 rounded-lg text-center">
-                      <p className="text-2xl font-bold text-green-600">{branch.totalReceptionists || 0}</p>
+                      <p className="text-2xl font-bold text-green-600">{Number(branch.totalReceptionists || 0)}</p>
                       <p className="text-sm text-green-800">Receptionists</p>
                     </div>
                     <div className="bg-purple-50 p-4 rounded-lg text-center">
-                      <p className="text-2xl font-bold text-purple-600">{branch.totalPatients || 0}</p>
+                      <p className="text-2xl font-bold text-purple-600">{Number(branch.totalPatients || 0)}</p>
                       <p className="text-sm text-purple-800">Patients</p>
                     </div>
                     <div className="bg-orange-50 p-4 rounded-lg text-center">
-                      <p className="text-2xl font-bold text-orange-600">{branch.totalStaff || 0}</p>
+                      <p className="text-2xl font-bold text-orange-600">{Number(branch.totalStaff || 0)}</p>
                       <p className="text-sm text-orange-800">Total Staff</p>
                     </div>
                   </div>
@@ -202,7 +217,7 @@ const ViewBranchModal: React.FC<ViewBranchModalProps> = ({
                 </div>
 
                 {/* Tags */}
-                {branch.tags && branch.tags.length > 0 && (
+                {branch.tags && Array.isArray(branch.tags) && branch.tags.length > 0 && (
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
                       <Tag className="h-5 w-5 text-blue-600" />
@@ -214,7 +229,7 @@ const ViewBranchModal: React.FC<ViewBranchModalProps> = ({
                           key={index}
                           className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800"
                         >
-                          {tag}
+                          {String(tag)}
                         </span>
                       ))}
                     </div>
@@ -246,8 +261,12 @@ const ViewBranchModal: React.FC<ViewBranchModalProps> = ({
                     <span className="ml-2 text-gray-600 font-mono text-xs">{branch._id}</span>
                   </div>
                   <div>
-                    <span className="font-medium text-gray-700">Organization ID:</span>
-                    <span className="ml-2 text-gray-600 font-mono text-xs">{branch.organizationId}</span>
+                    <span className="font-medium text-gray-700">Organization:</span>
+                    <span className="ml-2 text-gray-600 text-xs">
+                      {typeof branch.organizationId === 'string' 
+                        ? branch.organizationId 
+                        : (branch.organizationId as any)?.name || (branch.organizationId as any)?._id || 'Unknown'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -255,32 +274,32 @@ const ViewBranchModal: React.FC<ViewBranchModalProps> = ({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
-          <div className="flex justify-between">
+        {/* Compact Footer */}
+        <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex-shrink-0">
+          <div className="flex items-center justify-between">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              className="px-3 py-2 text-gray-600 hover:text-gray-800 transition-colors text-sm"
             >
               Close
             </button>
-            <div className="flex space-x-3">
+            <div className="flex items-center space-x-2">
               {onEdit && !branch.isDeleted && (
                 <button
                   onClick={() => onEdit(branch)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2 transition-colors"
+                  className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center space-x-2 transition-all duration-200 text-sm shadow-sm hover:shadow-md"
                 >
                   <Edit className="h-4 w-4" />
-                  <span>Edit Branch</span>
+                  <span>Edit</span>
                 </button>
               )}
               {onDelete && !branch.isDeleted && (
                 <button
                   onClick={() => onDelete(branch)}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center space-x-2 transition-colors"
+                  className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center space-x-2 transition-all duration-200 text-sm shadow-sm hover:shadow-md"
                 >
                   <Trash2 className="h-4 w-4" />
-                  <span>Delete Branch</span>
+                  <span>Delete</span>
                 </button>
               )}
             </div>
