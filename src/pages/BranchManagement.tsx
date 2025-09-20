@@ -18,7 +18,8 @@ import {
   FiToggleLeft,
   FiToggleRight,
   FiAlertCircle,
-  FiCheckCircle
+  FiCheckCircle,
+  FiEye
 } from 'react-icons/fi';
 
 export default function BranchManagement() {
@@ -94,6 +95,11 @@ export default function BranchManagement() {
     loadStats();
   };
 
+  const handleViewBranch = (branch: Branch) => {
+    // TODO: Implement view branch modal
+    alert(`View branch details for: ${branch.name}`);
+  };
+
   const handleEditBranch = (branch: Branch) => {
     // TODO: Implement edit branch modal
     alert(`Edit branch functionality will be implemented for: ${branch.name}`);
@@ -102,6 +108,11 @@ export default function BranchManagement() {
   const handleDeleteBranch = (branch: Branch) => {
     // TODO: Implement delete branch modal
     alert(`Delete branch functionality will be implemented for: ${branch.name}`);
+  };
+
+  const handleRestoreBranch = (branch: Branch) => {
+    // TODO: Implement restore branch functionality
+    alert(`Restore branch functionality will be implemented for: ${branch.name}`);
   };
 
   const handleToggleStatus = async (branch: Branch) => {
@@ -278,67 +289,105 @@ export default function BranchManagement() {
         </div>
       )}
 
-      {/* Compact Branches Grid/List */}
+      {/* Beautiful Branches Grid/List */}
       {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {branches.map((branch) => (
-            <div key={branch._id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-base font-semibold text-gray-900 mb-1 truncate">{branch.name}</h3>
-                    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(branch.isActive)}`}>
-                      {getStatusIcon(branch.isActive)}
-                      {branch.isActive ? 'Active' : 'Inactive'}
+            <div key={branch._id} className={`bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow ${branch.isDeleted ? 'opacity-60 border-red-200 bg-red-50' : ''}`}>
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <FiMapPin className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">{branch.name}</h3>
+                      <p className="text-sm text-gray-500">{branch.city}, {branch.state}</p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleToggleStatus(branch)}
-                    className="p-1 hover:bg-gray-100 rounded ml-2"
-                    title={`${branch.isActive ? 'Deactivate' : 'Activate'} branch`}
-                  >
-                    {branch.isActive ? (
-                      <FiToggleRight className="w-4 h-4 text-green-600" />
+                  <div className="flex items-center gap-1">
+                    {branch.isDeleted ? (
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 flex items-center gap-1">
+                        <FiTrash2 className="w-3 h-3" />
+                        Deleted
+                      </span>
                     ) : (
-                      <FiToggleLeft className="w-4 h-4 text-gray-400" />
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        branch.isActive 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {branch.isActive ? 'Active' : 'Inactive'}
+                      </span>
                     )}
-                  </button>
+                  </div>
                 </div>
 
-                <div className="space-y-1.5 mb-3 text-xs text-gray-600">
-                  <div className="flex items-center gap-2 truncate">
-                    <FiMapPin className="w-3 h-3 flex-shrink-0" />
-                    <span className="truncate">{branch.address}, {branch.city}</span>
-                  </div>
-                  <div className="flex items-center gap-2 truncate">
-                    <FiPhone className="w-3 h-3 flex-shrink-0" />
-                    <span className="truncate">{branch.phone}</span>
-                  </div>
-                  <div className="flex items-center gap-2 truncate">
-                    <FiMail className="w-3 h-3 flex-shrink-0" />
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <FiMail className="w-4 h-4" />
                     <span className="truncate">{branch.email}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <FiUsers className="w-3 h-3 flex-shrink-0" />
-                    <span>{branch.totalStaff || 0} staff</span>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <FiPhone className="w-4 h-4" />
+                    <span>{branch.phone}</span>
                   </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <FiMapPin className="w-4 h-4" />
+                    <span className="truncate">{branch.address}</span>
+                  </div>
+                  {branch.website && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <FiRefreshCw className="w-4 h-4" />
+                      <a href={branch.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
+                        {branch.website}
+                      </a>
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex gap-1">
+                <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+                  <span>{branch.totalDoctors || 0} doctors</span>
+                  <span>{branch.totalReceptionists || 0} receptionists</span>
+                  <span>{branch.totalPatients || 0} patients</span>
+                </div>
+
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => handleEditBranch(branch)}
-                    className="flex-1 px-2 py-1.5 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100 flex items-center justify-center gap-1"
+                    onClick={() => handleViewBranch(branch)}
+                    className="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 flex items-center justify-center gap-2"
                   >
-                    <FiEdit2 className="w-3 h-3" />
-                    Edit
+                    <FiEye className="w-4 h-4" />
+                    View
                   </button>
-                  <button
-                    onClick={() => handleDeleteBranch(branch)}
-                    className="flex-1 px-2 py-1.5 text-xs bg-red-50 text-red-600 rounded hover:bg-red-100 flex items-center justify-center gap-1"
-                  >
-                    <FiTrash2 className="w-3 h-3" />
-                    Delete
-                  </button>
+                  
+                  {!branch.isDeleted ? (
+                    <>
+                      <button
+                        onClick={() => handleEditBranch(branch)}
+                        className="flex-1 bg-blue-100 text-blue-700 px-3 py-2 rounded-lg hover:bg-blue-200 flex items-center justify-center gap-2"
+                      >
+                        <FiEdit2 className="w-4 h-4" />
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteBranch(branch)}
+                        className="bg-red-100 text-red-700 px-3 py-2 rounded-lg hover:bg-red-200 flex items-center justify-center"
+                        title="Delete branch"
+                      >
+                        <FiTrash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => handleRestoreBranch(branch)}
+                      className="flex-1 bg-green-100 text-green-700 px-3 py-2 rounded-lg hover:bg-green-200 flex items-center justify-center gap-2"
+                      title="Restore branch"
+                    >
+                      <FiRefreshCw className="w-4 h-4" />
+                      Restore
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -427,20 +476,20 @@ export default function BranchManagement() {
         </div>
       )}
 
-      {/* Compact Empty State */}
+      {/* Empty State */}
       {branches.length === 0 && !isLoading && (
-        <div className="text-center py-8">
-          <FiGrid className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <h3 className="text-base font-medium text-gray-900 mb-2">No branches found</h3>
-          <p className="text-sm text-gray-500 mb-4">
+        <div className="text-center py-12">
+          <FiMapPin className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No branches found</h3>
+          <p className="text-gray-500 mb-4">
             {filters.search ? 'No branches match your search criteria.' : 'Get started by creating your first branch.'}
           </p>
           <button
             onClick={handleCreateBranch}
-            className="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 flex items-center gap-1 mx-auto text-sm"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 mx-auto"
           >
             <FiPlus className="w-4 h-4" />
-            Add Branch
+            Create First Branch
           </button>
         </div>
       )}

@@ -27,6 +27,7 @@ export interface Branch {
   totalPatients?: number;
   totalDoctors?: number;
   totalReceptionists?: number;
+  totalBranchAdmins?: number;
   // Additional metadata
   tags?: string[];
   operatingHours?: {
@@ -108,19 +109,42 @@ export interface BranchStatsResponse {
 export const branchService = {
   // Get all branches for the organization
   async getBranches(filters: BranchFilters = {}): Promise<BranchResponse> {
-    const params = new URLSearchParams();
-    
-    if (filters.search) params.append('search', filters.search);
-    if (filters.isActive !== undefined) params.append('isActive', filters.isActive.toString());
-    if (filters.city) params.append('city', filters.city);
-    if (filters.state) params.append('state', filters.state);
-    if (filters.page) params.append('page', filters.page.toString());
-    if (filters.limit) params.append('limit', filters.limit.toString());
-    if (filters.sortBy) params.append('sortBy', filters.sortBy);
-    if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
+    try {
+      const params = new URLSearchParams();
+      
+      if (filters.search) params.append('search', filters.search);
+      if (filters.isActive !== undefined) params.append('isActive', filters.isActive.toString());
+      if (filters.city) params.append('city', filters.city);
+      if (filters.state) params.append('state', filters.state);
+      if (filters.page) params.append('page', filters.page.toString());
+      if (filters.limit) params.append('limit', filters.limit.toString());
+      if (filters.sortBy) params.append('sortBy', filters.sortBy);
+      if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
 
-    const response = await api.get(`${API_ENDPOINTS.BRANCHES}?${params.toString()}`);
-    return response.data;
+      const url = `${API_ENDPOINTS.BRANCHES}?${params.toString()}`;
+      console.log('Branch service - calling API:', url);
+      
+      const response = await api.get(url);
+      console.log('Branch service - API response:', response.data);
+      
+      // Ensure we return the proper format
+      if (response.data.success !== undefined) {
+        return response.data;
+      } else {
+        // Handle case where backend returns raw array (fallback)
+        return {
+          success: true,
+          data: Array.isArray(response.data) ? response.data : [],
+          total: Array.isArray(response.data) ? response.data.length : 0,
+          page: filters.page || 1,
+          totalPages: 1,
+          message: 'Branches retrieved successfully'
+        };
+      }
+    } catch (error) {
+      console.error('Branch service - getBranches error:', error);
+      throw error;
+    }
   },
 
   // Get single branch by ID
@@ -131,8 +155,26 @@ export const branchService = {
 
   // Create new branch
   async createBranch(branchData: CreateBranchData): Promise<SingleBranchResponse> {
-    const response = await api.post(API_ENDPOINTS.BRANCHES, branchData);
-    return response.data;
+    try {
+      console.log('Branch service - creating branch:', branchData);
+      const response = await api.post(API_ENDPOINTS.BRANCHES, branchData);
+      console.log('Branch service - create response:', response.data);
+      
+      // Ensure we return the proper format
+      if (response.data.success !== undefined) {
+        return response.data;
+      } else {
+        // Handle case where backend returns raw branch object (fallback)
+        return {
+          success: true,
+          data: response.data,
+          message: 'Branch created successfully'
+        };
+      }
+    } catch (error) {
+      console.error('Branch service - createBranch error:', error);
+      throw error;
+    }
   },
 
   // Update branch
