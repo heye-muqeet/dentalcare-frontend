@@ -35,7 +35,7 @@ export const LoadingButton: React.FC<LoadingButtonProps> = ({
   disabled,
   ...props
 }) => {
-  const baseClasses = 'inline-flex items-center justify-center font-medium rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+  const baseClasses = 'inline-flex items-center justify-center font-medium rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed relative overflow-hidden';
   
   const variantClass = variantClasses[variant];
   const sizeClass = sizeClasses[size];
@@ -43,20 +43,37 @@ export const LoadingButton: React.FC<LoadingButtonProps> = ({
   
   const focusRingClass = `focus:ring-${variant === 'primary' ? 'blue' : variant === 'secondary' ? 'gray' : variant === 'success' ? 'green' : variant === 'warning' ? 'yellow' : variant === 'error' ? 'red' : 'blue'}-500`;
 
+  // Apply reduced opacity when loading instead of disabled opacity
+  const loadingOpacity = loading ? 'opacity-80' : '';
+
+  // Get the appropriate loader size that matches the button size
+  const getLoaderSize = () => {
+    switch (size) {
+      case 'sm':
+        return 'xs';
+      case 'lg':
+        return 'sm';
+      default:
+        return 'xs'; // Use xs for md size to prevent height increase
+    }
+  };
+
   return (
     <button
-      className={`${baseClasses} ${variantClass} ${sizeClass} ${widthClass} ${focusRingClass} ${className}`}
+      className={`${baseClasses} ${variantClass} ${sizeClass} ${widthClass} ${focusRingClass} ${loadingOpacity} ${className}`}
       disabled={disabled || loading}
       {...props}
     >
-      {loading ? (
-        <div className="flex items-center space-x-2">
-          <ButtonLoader size={size === 'sm' ? 'xs' : size === 'lg' ? 'sm' : 'sm'} />
-          {loadingText && <span>{loadingText}</span>}
-        </div>
-      ) : (
-        children
-      )}
+      <div className="flex items-center justify-center space-x-2 min-h-0">
+        {loading && (
+          <div className="flex-shrink-0">
+            <ButtonLoader size={getLoaderSize()} />
+          </div>
+        )}
+        <span className={`transition-opacity duration-200 ${loading ? 'opacity-90' : 'opacity-100'} truncate`}>
+          {loading && loadingText ? loadingText : children}
+        </span>
+      </div>
     </button>
   );
 };

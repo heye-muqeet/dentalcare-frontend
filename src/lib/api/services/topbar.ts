@@ -91,11 +91,17 @@ export const topbarService = {
   // Get organization stats (organization admin)
   getOrganizationStats: async (organizationId: string): Promise<TopbarStats> => {
     try {
-      const response = await api.get(`${API_ENDPOINTS.DASHBOARD.BASE}/organization/${organizationId}/stats`);
+      console.log('Topbar service - calling organization stats with ID:', organizationId);
+      const response = await api.get(API_ENDPOINTS.ORGANIZATIONS.STATS(organizationId));
+      console.log('Topbar service - organization stats response:', response.data);
+      
+      // Handle both direct data and wrapped response formats
+      const data = response.data?.data || response.data;
+      
       return {
-        totalBranches: response.data.totalBranches,
-        totalUsers: response.data.totalUsers,
-        monthlyRevenue: response.data.monthlyRevenue || 0
+        totalBranches: data.totalBranches || 0,
+        totalUsers: data.totalUsers || 0,
+        monthlyRevenue: data.monthlyRevenue || 0
       };
     } catch (error) {
       console.error('Failed to fetch organization stats:', error);

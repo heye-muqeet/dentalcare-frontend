@@ -238,7 +238,7 @@ export function LoginForm() {
                     variant="primary"
                     size="lg"
                     fullWidth
-                    className="w-full bg-gradient-to-r from-[#0A0F56] to-[#3f51b5] text-white py-3 px-4 rounded-xl font-semibold hover:from-[#1a237e] hover:to-[#5c6bc0] focus:outline-none focus:ring-2 focus:ring-[#0A0F56] focus:ring-offset-2 transition-all duration-200 transform hover:scale-[1.02]"
+                    className="w-full bg-gradient-to-r from-[#0A0F56] to-[#3f51b5] text-white py-3 px-4 rounded-xl font-semibold hover:from-[#1a237e] hover:to-[#5c6bc0] focus:outline-none focus:ring-2 focus:ring-[#0A0F56] focus:ring-offset-2 transition-all duration-200 transform hover:scale-[1.02] h-[48px] relative"
                   >
                     Sign In
                   </LoadingButton>

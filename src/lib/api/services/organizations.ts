@@ -342,15 +342,21 @@ export const organizationService = {
   // Get organization statistics
   getOrganizationStats: async (id: string): Promise<OrganizationStats> => {
     try {
+      console.log('Calling organization stats API with ID:', id);
       const response = await api.get(API_ENDPOINTS.ORGANIZATIONS.STATS(id));
-      return response.data || {
-        totalBranches: 0,
-        totalUsers: 0,
-        totalDoctors: 0,
-        totalReceptionists: 0,
-        totalPatients: 0,
-        monthlyRevenue: 0,
-        activeUsers: 0
+      console.log('Organization stats response:', response.data);
+      
+      // Handle both direct data and wrapped response formats
+      const data = response.data?.data || response.data;
+      
+      return {
+        totalBranches: data.totalBranches || 0,
+        totalUsers: data.totalUsers || 0,
+        totalDoctors: data.totalDoctors || 0,
+        totalReceptionists: data.totalReceptionists || 0,
+        totalPatients: data.totalPatients || 0,
+        monthlyRevenue: data.monthlyRevenue || 0,
+        activeUsers: data.activeUsers || 0
       };
     } catch (error) {
       console.error('Failed to fetch organization stats:', error);

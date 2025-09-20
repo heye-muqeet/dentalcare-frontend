@@ -55,15 +55,20 @@ export default function BranchManagement() {
     try {
       setIsLoading(true);
       setError(null);
+      console.log('Loading branches with filters:', filters);
       const response = await branchService.getBranches(filters);
+      console.log('Branches response:', response);
+      
       if (response.success) {
+        console.log('Setting branches:', response.data);
         setBranches(response.data);
       } else {
+        console.log('Failed to load branches:', response.message);
         setError(response.message || 'Failed to load branches');
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to load branches');
       console.error('Error loading branches:', err);
+      setError(err.message || 'Failed to load branches');
     } finally {
       setIsLoading(false);
     }

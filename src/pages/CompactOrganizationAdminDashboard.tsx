@@ -58,8 +58,19 @@ export default function CompactOrganizationAdminDashboard() {
       
       try {
         if (user?.organizationId) {
+          console.log('User object:', user);
+          console.log('Organization ID:', user.organizationId);
+          console.log('Organization ID type:', typeof user.organizationId);
+          
+          // Ensure organizationId is a string
+          const organizationId = typeof user.organizationId === 'string' 
+            ? user.organizationId 
+            : (user.organizationId as any)?._id || (user.organizationId as any)?.id || String(user.organizationId);
+            
+          console.log('Processed Organization ID:', organizationId);
+          
           // Load organization statistics
-          const orgStats = await organizationService.getOrganizationStats(user.organizationId);
+          const orgStats = await organizationService.getOrganizationStats(organizationId);
           setStats(orgStats);
 
           // Mock recent activity for now

@@ -177,6 +177,7 @@ export const ButtonLoader: React.FC<{ size?: LoaderSize; color?: LoaderColor }> 
     variant="spinner"
     size={size}
     color={color}
+    centered={false}
   />
 );
 

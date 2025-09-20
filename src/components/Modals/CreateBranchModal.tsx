@@ -205,12 +205,27 @@ export const CreateBranchModal: React.FC<CreateBranchModalProps> = ({
         })
       };
       
-      await branchService.createBranch(branchData);
+      console.log('Creating branch with data:', branchData);
+      const response = await branchService.createBranch(branchData);
+      console.log('Branch created successfully:', response);
       
       handleClose();
       onSuccess();
     } catch (error: any) {
       console.error('Failed to create branch and admin:', error);
+      
+      // Extract error message
+      let errorMessage = 'Failed to create branch. Please try again.';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // Set error in form
+      setErrors({ 
+        submit: errorMessage 
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -361,6 +376,33 @@ export const CreateBranchModal: React.FC<CreateBranchModalProps> = ({
         {/* Compact Form */}
         <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[calc(90vh-80px)] custom-scrollbar light">
           <div className="p-4 space-y-4">
+            {/* Error Message */}
+            {errors.submit && (
+              <div className="mb-4 bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-xl p-4 shadow-sm">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                      <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-semibold text-red-800 mb-1">Branch Creation Failed</h3>
+                    <p className="text-red-700 text-sm leading-relaxed">{errors.submit}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setErrors(prev => ({ ...prev, submit: '' }))}
+                    className="flex-shrink-0 text-red-400 hover:text-red-600 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
             {/* Basic Information */}
             <div className="space-y-3">
               <div className="flex items-center space-x-2 pb-2 border-b border-gray-200">

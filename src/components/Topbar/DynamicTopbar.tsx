@@ -167,7 +167,13 @@ function OrganizationAdminDynamicTopbar() {
     const loadStats = async () => {
       try {
         if (user?.organizationId) {
-          const orgStats = await topbarService.getOrganizationStats(user.organizationId);
+          // Ensure organizationId is a string
+          const organizationId = typeof user.organizationId === 'string' 
+            ? user.organizationId 
+            : (user.organizationId as any)?._id || (user.organizationId as any)?.id || String(user.organizationId);
+            
+          console.log('DynamicTopbar - Organization ID:', organizationId);
+          const orgStats = await topbarService.getOrganizationStats(organizationId);
           setStats(orgStats);
         }
       } catch (error) {
