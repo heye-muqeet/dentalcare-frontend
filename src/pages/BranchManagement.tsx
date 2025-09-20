@@ -4,7 +4,7 @@ import type { RootState } from '../lib/store/store';
 import { branchService, type Branch, type BranchFilters } from '../lib/api/services/branches';
 import CreateBranchModal from '../components/Modals/CreateBranchModal';
 import ViewBranchModal from '../components/Modals/ViewBranchModal';
-import EditBranchModal from '../components/Modals/EditBranchModal';
+import { EditBranchModal } from '../components/Modals/EditBranchModal';
 import DeleteBranchModal from '../components/Modals/DeleteBranchModal';
 import RestoreBranchModal from '../components/Modals/RestoreBranchModal';
 import { 

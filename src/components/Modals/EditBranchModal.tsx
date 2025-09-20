@@ -1,24 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { X, User, Plus, Trash2, Edit2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import React, { useState } from 'react';
+import { Plus, Trash2, Edit2 } from 'lucide-react';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 import { 
   Dialog, 
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
   DialogDescription 
-} from '@/components/ui/dialog';
-import { branchService } from '@/lib/api/services/branches';
+} from '../ui/dialog';
+import { branchService } from '../../lib/api/services/branches';
 import { toast } from 'sonner';
-
-interface EditBranchModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  branch: any;
-  onSuccess: () => void;
-}
+import type { Branch } from '../../lib/api/services/branches';
 
 interface AdminFormData {
   _id?: string;
@@ -29,12 +23,22 @@ interface AdminFormData {
   isActive: boolean;
 }
 
+interface EditBranchModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  branch: Branch | null;
+  onSuccess: () => void;
+}
+
 export const EditBranchModal: React.FC<EditBranchModalProps> = ({
   isOpen, 
   onClose, 
   branch, 
   onSuccess
 }) => {
+  // If no branch, return null or a placeholder
+  if (!branch) return null;
+
   // Branch form state
   const [branchFormData, setBranchFormData] = useState({
     name: branch.name || '',
@@ -318,9 +322,10 @@ export const EditBranchModal: React.FC<EditBranchModalProps> = ({
                     <Input
                       name="firstName"
                       value={editingAdmin?.firstName || newAdminForm.firstName}
-                      onChange={editingAdmin 
-                        ? (e) => setEditingAdmin(prev => ({ ...prev!, firstName: e.target.value }))
-                        : handleNewAdminChange
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                        editingAdmin 
+                          ? setEditingAdmin(prev => ({ ...prev!, firstName: e.target.value }))
+                          : handleNewAdminChange(e)
                       }
                       required
                     />
@@ -330,9 +335,10 @@ export const EditBranchModal: React.FC<EditBranchModalProps> = ({
                     <Input
                       name="lastName"
                       value={editingAdmin?.lastName || newAdminForm.lastName}
-                      onChange={editingAdmin 
-                        ? (e) => setEditingAdmin(prev => ({ ...prev!, lastName: e.target.value }))
-                        : handleNewAdminChange
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                        editingAdmin 
+                          ? setEditingAdmin(prev => ({ ...prev!, lastName: e.target.value }))
+                          : handleNewAdminChange(e)
                       }
                       required
                     />
@@ -343,9 +349,10 @@ export const EditBranchModal: React.FC<EditBranchModalProps> = ({
                       name="email"
                       type="email"
                       value={editingAdmin?.email || newAdminForm.email}
-                      onChange={editingAdmin 
-                        ? (e) => setEditingAdmin(prev => ({ ...prev!, email: e.target.value }))
-                        : handleNewAdminChange
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                        editingAdmin 
+                          ? setEditingAdmin(prev => ({ ...prev!, email: e.target.value }))
+                          : handleNewAdminChange(e)
                       }
                       required
                     />
@@ -355,9 +362,10 @@ export const EditBranchModal: React.FC<EditBranchModalProps> = ({
                     <Input
                       name="phone"
                       value={editingAdmin?.phone || newAdminForm.phone}
-                      onChange={editingAdmin 
-                        ? (e) => setEditingAdmin(prev => ({ ...prev!, phone: e.target.value }))
-                        : handleNewAdminChange
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                        editingAdmin 
+                          ? setEditingAdmin(prev => ({ ...prev!, phone: e.target.value }))
+                          : handleNewAdminChange(e)
                       }
                     />
                   </div>
@@ -415,3 +423,5 @@ export const EditBranchModal: React.FC<EditBranchModalProps> = ({
     </Dialog>
   );
 };
+
+export default EditBranchModal;
