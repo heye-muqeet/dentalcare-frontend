@@ -28,6 +28,16 @@ export interface Branch {
   totalDoctors?: number;
   totalReceptionists?: number;
   totalBranchAdmins?: number;
+  // Branch Admins
+  branchAdmins?: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    isActive: boolean;
+    createdAt: string;
+  }[];
   // Additional metadata
   tags?: string[];
   operatingHours?: {

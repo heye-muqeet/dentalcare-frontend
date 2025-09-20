@@ -101,9 +101,23 @@ export default function BranchManagement() {
     loadStats();
   };
 
-  const handleViewBranch = (branch: Branch) => {
-    setSelectedBranch(branch);
-    setShowViewModal(true);
+  const handleViewBranch = async (branch: Branch) => {
+    try {
+      // Fetch detailed branch data including admin information
+      const detailedBranch = await branchService.getBranchById(branch._id);
+      if (detailedBranch.success) {
+        setSelectedBranch(detailedBranch.data);
+      } else {
+        // Fallback to basic branch data
+        setSelectedBranch(branch);
+      }
+      setShowViewModal(true);
+    } catch (error) {
+      console.error('Failed to fetch detailed branch data:', error);
+      // Fallback to basic branch data
+      setSelectedBranch(branch);
+      setShowViewModal(true);
+    }
   };
 
   const handleEditBranch = (branch: Branch) => {
