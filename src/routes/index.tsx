@@ -11,6 +11,7 @@ import Account from '../pages/Account';
 import BranchManagement from '../pages/BranchManagement';
 import DoctorManagement from '../pages/DoctorManagement';
 import ReceptionistManagement from '../pages/ReceptionistManagement';
+import PatientManagement from '../pages/PatientManagement';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../lib/store/store';
 
@@ -51,12 +52,7 @@ const Doctors = () => (
   </div>
 );
 
-const Patients = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold text-gray-900">Patients</h1>
-    <p className="text-gray-600">Manage patient records and information</p>
-  </div>
-);
+// Patients component replaced with PatientManagement
 
 const Appointments = () => (
   <div className="p-6">
@@ -158,7 +154,7 @@ export const router = createBrowserRouter([
       <ProtectedRoute>
         <RoleBasedRoute requiredRoles={['organization_admin', 'branch_admin', 'doctor', 'receptionist']}>
           <DashboardWrapper>
-            <Patients />
+            <PatientManagement />
           </DashboardWrapper>
         </RoleBasedRoute>
       </ProtectedRoute>
