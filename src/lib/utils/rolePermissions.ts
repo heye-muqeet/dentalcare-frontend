@@ -29,6 +29,7 @@ export const getAccessibleRoutes = (userRole: UserRole): string[] => {
       '/analytics',
       '/system-settings',
       '/security',
+      '/categories',
       '/profile'
     ],
     organization_admin: [
@@ -39,6 +40,7 @@ export const getAccessibleRoutes = (userRole: UserRole): string[] => {
       '/patients',
       '/appointments',
       '/services',
+      '/categories',
       '/treatments',
       '/invoices',
       '/expenses',
@@ -143,6 +145,12 @@ export const routePermissions: RoutePermission[] = [
     label: 'Services',
     icon: 'treatments',
     allowedRoles: ['organization_admin', 'branch_admin', 'receptionist']
+  },
+  {
+    path: '/categories',
+    label: 'Categories',
+    icon: 'tag',
+    allowedRoles: ['organization_admin', 'super_admin']
   },
   // Financial Management
   {
