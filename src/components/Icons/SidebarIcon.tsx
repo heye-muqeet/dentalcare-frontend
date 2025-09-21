@@ -17,7 +17,8 @@ import {
   FiUserCheck,
   FiClipboard,
   FiHeart,
-  FiGrid
+  FiGrid,
+  FiTag
 } from 'react-icons/fi';
 
 // Icon mapping for sidebar navigation
@@ -55,6 +56,7 @@ const iconMap = {
   'database': FiDatabase,
   'analytics': FiTrendingUp,
   'activity': FiActivity,
+  'tag': FiTag, // Categories
   
   // Actions
   'logout': FiLogOut,
