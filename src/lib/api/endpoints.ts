@@ -1,64 +1,62 @@
-const BASE_URL = 'https://dental-backend-htv7.onrender.com';
-// const BASE_URL = 'http://localhost:1337';
-
+// Base URL is now handled by axios baseURL configuration
 export const API_ENDPOINTS = {
   // Auth endpoints
   AUTH: {
-    LOGIN: `${BASE_URL}/api/auth/login`,
-    REGISTER: `${BASE_URL}/api/auth/register`,
-    PROFILE: `${BASE_URL}/api/auth/profile`,
-    LOGOUT: `${BASE_URL}/api/auth/logout`,
-    ME: `${BASE_URL}/api/auth/me`,
+    LOGIN: '/api/auth/login',
+    REGISTER: '/api/auth/register',
+    PROFILE: '/api/auth/profile',
+    LOGOUT: '/api/auth/logout',
+    ME: '/api/auth/me',
   },
 
   // User endpoints
   USERS: {
-    BASE: `${BASE_URL}/api/users`,
-    DOCTORS: `${BASE_URL}/api/users/doctors`,
-    BY_ID: (id: string) => `${BASE_URL}/api/users/${id}`,
-    CHANGE_PASSWORD: `${BASE_URL}/api/users/change-password`,
+    BASE: '/api/users',
+    DOCTORS: '/api/users/doctors',
+    BY_ID: (id: string) => `/api/users/${id}`,
+    CHANGE_PASSWORD: '/api/users/change-password',
   },
 
   // Patient endpoints
   PATIENTS: {
-    BASE: `${BASE_URL}/api/patients`,
-    BY_ID: (id: string) => `${BASE_URL}/api/patients/${id}`,
-    DETAILS: (id: string) => `${BASE_URL}/api/patients/${id}/details`,
+    BASE: '/api/patients',
+    BY_ID: (id: string) => `/api/patients/${id}`,
+    DETAILS: (id: string) => `/api/patients/${id}/details`,
   },
 
   // Appointment endpoints
   APPOINTMENTS: {
-    BASE: `${BASE_URL}/api/appointments`,
-    AVAILABLE_SLOTS: `${BASE_URL}/api/appointments/available-slots`,
-    BY_ID: (id: string) => `${BASE_URL}/api/appointments/${id}`,
-    CANCEL: (id: string) => `${BASE_URL}/api/appointments/${id}/cancel`,
+    BASE: '/api/appointments',
+    AVAILABLE_SLOTS: '/api/appointments/available-slots',
+    BY_ID: (id: string) => `/api/appointments/${id}`,
+    CANCEL: (id: string) => `/api/appointments/${id}/cancel`,
   },
 
   SERVICES: {
-    BASE: `${BASE_URL}/api/services`,
-    BY_ID: (id: string) => `${BASE_URL}/api/services/${id}`,
+    BASE: '/api/services',
+    BY_ID: (id: string) => `/api/services/${id}`,
   },
 
   TREATMENTS: {
-    BASE: `${BASE_URL}/api/treatments`,
-    BY_ID: (id: string) => `${BASE_URL}/api/treatments/${id}`,
+    BASE: '/api/treatments',
+    BY_ID: (id: string) => `/api/treatments/${id}`,
   },
 
   // Invoice endpoints
   INVOICES: {
-    BASE: `${BASE_URL}/api/invoices`,
-    MARK_PAID: (id: string) => `${BASE_URL}/api/invoices/${id}/mark-paid`,
+    BASE: '/api/invoices',
+    MARK_PAID: (id: string) => `/api/invoices/${id}/mark-paid`,
   },
 
   // Expense endpoints
   EXPENSES: {
-    BASE: `${BASE_URL}/api/expenses`,
-    BY_ID: (id: string) => `${BASE_URL}/api/expenses/${id}`,
-    SUMMARY: `${BASE_URL}/api/expenses/summary`,
+    BASE: '/api/expenses',
+    BY_ID: (id: string) => `/api/expenses/${id}`,
+    SUMMARY: '/api/expenses/summary',
   },
 
   // Dashboard endpoints
   DASHBOARD: {
-    BASE: `${BASE_URL}/api/dashboard`,
+    BASE: '/api/dashboard',
   },
 } as const; 
