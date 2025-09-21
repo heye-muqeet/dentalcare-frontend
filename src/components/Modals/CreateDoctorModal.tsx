@@ -94,6 +94,7 @@ export default function CreateDoctorModal({ isOpen, onClose, onSuccess }: Create
   const [newQualification, setNewQualification] = useState('');
   const [newLanguage, setNewLanguage] = useState('');
   const [newService, setNewService] = useState('');
+  const [suggestedEmail, setSuggestedEmail] = useState('');
 
   // Extract branch ID safely
   const branchId = typeof user?.branchId === 'string' 
@@ -137,7 +138,7 @@ export default function CreateDoctorModal({ isOpen, onClose, onSuccess }: Create
     if (!formData.firstName.trim()) newErrors.firstName = 'First name is required';
     if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
     if (!formData.email.trim()) newErrors.email = 'Email is required';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Invalid email format';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Invalid email format';
     if (!formData.password) newErrors.password = 'Password is required';
     if (formData.password.length !== 10) newErrors.password = 'Password must be exactly 10 characters';
     if (!formData.phone.trim()) newErrors.phone = 'Phone is required';
@@ -244,9 +245,63 @@ export default function CreateDoctorModal({ isOpen, onClose, onSuccess }: Create
       }
     } catch (error: any) {
       console.error('Error creating doctor:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to create doctor';
+      
+      // Handle specific error types
+      const status = error.response?.status;
+      const errorData = error.response?.data;
+      
+      let errorMessage = 'Failed to create doctor';
+      let fieldError = '';
+      
+      switch (status) {
+        case 409:
+          errorMessage = 'A doctor with this email already exists. Please use a different email address.';
+          fieldError = 'email';
+          // Generate a suggested alternative email
+          const emailParts = formData.email.split('@');
+          if (emailParts.length === 2) {
+            const suggestedAlt = `${emailParts[0]}.${Date.now().toString().slice(-4)}@${emailParts[1]}`;
+            setSuggestedEmail(suggestedAlt);
+          }
+          break;
+        case 400:
+          errorMessage = errorData?.message || 'Invalid data provided. Please check all fields.';
+          // Check for specific field validation errors
+          if (errorData?.errors) {
+            const fieldErrors = errorData.errors;
+            if (fieldErrors.email) fieldError = 'email';
+            else if (fieldErrors.phone) fieldError = 'phone';
+            else if (fieldErrors.licenseNumber) fieldError = 'licenseNumber';
+          }
+          break;
+        case 422:
+          errorMessage = errorData?.message || 'Validation failed. Please check your input.';
+          break;
+        case 500:
+          errorMessage = 'Server error occurred. Please try again later.';
+          break;
+        default:
+          errorMessage = errorData?.message || 'Failed to create doctor. Please try again.';
+      }
+      
+      // Show toast notification
       toast.error(errorMessage);
-      setErrors({ submit: errorMessage });
+      
+      // Set form errors
+      const newErrors: FormErrors = { submit: errorMessage };
+      if (fieldError) {
+        newErrors[fieldError] = `This ${fieldError} is already in use or invalid`;
+      }
+      setErrors(newErrors);
+      
+      // Scroll to error message
+      setTimeout(() => {
+        const errorElement = document.querySelector('[data-error="submit"]');
+        if (errorElement) {
+          errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      
     } finally {
       setIsSubmitting(false);
     }
@@ -259,6 +314,7 @@ export default function CreateDoctorModal({ isOpen, onClose, onSuccess }: Create
     setNewLanguage('');
     setNewService('');
     setShowPassword(false);
+    setSuggestedEmail('');
     onClose();
   };
 
@@ -293,7 +349,10 @@ export default function CreateDoctorModal({ isOpen, onClose, onSuccess }: Create
           <div className="p-4 space-y-4">
             {/* Error Message */}
             {errors.submit && (
-              <div className="mb-4 bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-xl p-4 shadow-sm">
+              <div 
+                data-error="submit"
+                className="mb-4 bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-xl p-4 shadow-sm animate-in slide-in-from-top-2 duration-300"
+              >
                 <div className="flex items-start space-x-3">
                   <div className="flex-shrink-0">
                     <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
@@ -305,10 +364,20 @@ export default function CreateDoctorModal({ isOpen, onClose, onSuccess }: Create
                   <div className="flex-1">
                     <h3 className="text-sm font-semibold text-red-800 mb-1">Doctor Creation Failed</h3>
                     <p className="text-red-700 text-sm leading-relaxed">{errors.submit}</p>
+                    {errors.email && (
+                      <div className="mt-2 p-2 bg-red-100 rounded-md">
+                        <p className="text-red-600 text-xs">
+                          💡 <strong>Tip:</strong> Try using a different email address or check if this doctor already exists in your system.
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <button
                     type="button"
-                    onClick={() => setErrors(prev => ({ ...prev, submit: '' }))}
+                    onClick={() => {
+                      setErrors(prev => ({ ...prev, submit: '', email: '' }));
+                      setSuggestedEmail('');
+                    }}
                     className="flex-shrink-0 text-red-400 hover:text-red-600 transition-colors"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -364,18 +433,55 @@ export default function CreateDoctorModal({ isOpen, onClose, onSuccess }: Create
                 <div className="space-y-1">
                   <label className="block text-xs font-medium text-gray-700">Email *</label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Mail className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 ${
+                      errors.email ? 'text-red-400' : 'text-gray-400'
+                    }`} />
                     <input
                       type="email"
                       value={formData.email}
                       onChange={(e) => handleInputChange('email', e.target.value)}
-                      className={`w-full pl-10 pr-3 py-2 text-sm border rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 ${
-                        errors.email ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      className={`w-full pl-10 pr-3 py-2 text-sm border rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors ${
+                        errors.email ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="doctor@example.com"
                     />
+                    {errors.email && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
-                  {errors.email && <p className="text-red-500 text-xs">{errors.email}</p>}
+                    {errors.email && (
+                      <div className="space-y-2">
+                        <div className="flex items-start space-x-1">
+                          <svg className="w-3 h-3 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <p className="text-red-500 text-xs">{errors.email}</p>
+                        </div>
+                        {suggestedEmail && (
+                          <div className="flex items-center space-x-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                            <svg className="w-3 h-3 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-blue-700 text-xs">Try:</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleInputChange('email', suggestedEmail);
+                                setSuggestedEmail('');
+                                setErrors(prev => ({ ...prev, email: '' }));
+                              }}
+                              className="text-blue-600 hover:text-blue-800 text-xs font-medium underline"
+                            >
+                              {suggestedEmail}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                 </div>
 
                 <div className="space-y-1">
