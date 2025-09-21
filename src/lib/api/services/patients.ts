@@ -89,10 +89,24 @@ export const patientService = {
       const response = await api.get(`/branches/${branchId}/patients`);
       console.log('✅ Patients fetched successfully:', response.data);
       
+      // Handle different response structures
+      let patientsData = response.data;
+      
+      // If response has a data property, use that
+      if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+        patientsData = response.data.data;
+      }
+      
+      // If patientsData is not an array, default to empty array
+      if (!Array.isArray(patientsData)) {
+        console.log('⚠️ Patients data is not an array, defaulting to empty array:', patientsData);
+        patientsData = [];
+      }
+      
       // Convert backend data to frontend format
-      const patients = response.data.data.map((patient: any) => ({
+      const patients = patientsData.map((patient: any) => ({
         ...patient,
-        name: `${patient.firstName} ${patient.lastName}`.trim(),
+        name: `${patient.firstName || ''} ${patient.lastName || ''}`.trim(),
         area: patient.area || patient.address || '',
         city: patient.city || ''
       }));
