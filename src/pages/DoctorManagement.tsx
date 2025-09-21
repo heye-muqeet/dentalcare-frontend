@@ -17,8 +17,7 @@ import {
   FiCalendar,
   FiAward,
   FiClock,
-  FiDollarSign,
-  FiStar
+  FiFilter
 } from 'react-icons/fi';
 
 export default function DoctorManagement() {
@@ -164,15 +163,49 @@ export default function DoctorManagement() {
 
   if (isLoading) {
     return (
-      <div className="p-6">
+      <div className="p-4">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <div className="h-8 bg-gray-200 rounded w-48 mb-1"></div>
+              <div className="h-4 bg-gray-200 rounded w-80"></div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="h-10 bg-gray-200 rounded w-64"></div>
+              <div className="h-10 bg-gray-200 rounded w-20"></div>
+              <div className="h-10 bg-gray-200 rounded w-24"></div>
+            </div>
+          </div>
+          <div className="space-y-2">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
-                <div className="h-20 bg-gray-200 rounded"></div>
+              <div key={i} className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center space-x-4 flex-1 min-w-0">
+                    <div className="flex-shrink-0">
+                      <div className="w-16 h-16 bg-gray-200 rounded"></div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <div className="h-4 bg-gray-200 rounded w-40"></div>
+                        <div className="h-4 bg-gray-200 rounded w-16"></div>
+                      </div>
+                      <div className="flex items-center space-x-4 mb-1">
+                        <div className="h-3 bg-gray-200 rounded w-24"></div>
+                        <div className="h-3 bg-gray-200 rounded w-32"></div>
+                        <div className="h-3 bg-gray-200 rounded w-20"></div>
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        <div className="h-3 bg-gray-200 rounded w-20"></div>
+                        <div className="h-3 bg-gray-200 rounded w-16"></div>
+                        <div className="h-3 bg-gray-200 rounded w-12"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col space-y-2 flex-shrink-0 ml-3">
+                    <div className="h-7 bg-gray-200 rounded w-32"></div>
+                    <div className="h-7 bg-gray-200 rounded w-36"></div>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -182,89 +215,52 @@ export default function DoctorManagement() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Doctor Management</h1>
-          <p className="text-gray-600">Manage doctors in your branch</p>
+          <p className="text-gray-600 mt-1">Manage doctors in your branch</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <FiPlus className="w-4 h-4" />
-          <span>Add Doctor</span>
-        </button>
-      </div>
-
-      {/* Search */}
-      <div className="mb-6">
-        <div className="relative">
-          <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-          <input
-            type="text"
-            placeholder="Search doctors by name, email, specialization, or phone..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Doctors</p>
-              <p className="text-2xl font-bold text-gray-900">{doctors.length}</p>
-            </div>
-            <FiUserCheck className="w-8 h-8 text-blue-600" />
+        <div className="flex items-center space-x-3">
+          {/* Search */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search doctors by name, email, specialization..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-64 pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            />
+            <FiSearch className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
           </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Active Doctors</p>
-              <p className="text-2xl font-bold text-green-600">{doctors.filter(d => d.isActive).length}</p>
-            </div>
-            <FiUserCheck className="w-8 h-8 text-green-600" />
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Specializations</p>
-              <p className="text-2xl font-bold text-purple-600">{new Set(doctors.map(d => d.specialization)).size}</p>
-            </div>
-            <FiAward className="w-8 h-8 text-purple-600" />
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Avg Rating</p>
-              <p className="text-2xl font-bold text-yellow-600">
-                {doctors.length > 0 
-                  ? (doctors.reduce((sum, d) => sum + (d.rating || 0), 0) / doctors.length).toFixed(1)
-                  : '0.0'
-                }
-              </p>
-            </div>
-            <FiStar className="w-8 h-8 text-yellow-600" />
-          </div>
+          
+          {/* Filter Button */}
+          <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+            <FiFilter className="w-4 h-4" />
+            <span>Filter</span>
+          </button>
+          
+          {/* Add Doctor Button */}
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            <FiPlus className="w-4 h-4" />
+            <span>Add Doctor</span>
+          </button>
         </div>
       </div>
 
-      {/* Doctors Grid */}
+
+      {/* Doctors List */}
       {filteredDoctors.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-          <FiUserCheck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
+          <FiUserCheck className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+          <h3 className="text-base font-medium text-gray-900 mb-2">
             {searchTerm ? 'No doctors found' : 'No doctors yet'}
           </h3>
-          <p className="text-gray-600 mb-4">
+          <p className="text-sm text-gray-600 mb-3">
             {searchTerm 
               ? 'Try adjusting your search criteria'
               : 'Get started by adding your first doctor'
@@ -273,88 +269,92 @@ export default function DoctorManagement() {
           {!searchTerm && (
             <button
               onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"
             >
               Add Doctor
             </button>
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="space-y-2">
           {filteredDoctors.map((doctor) => (
-            <div key={doctor._id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      Dr. {doctor.firstName} {doctor.lastName}
-                    </h3>
-                    <p className="text-blue-600 font-medium">{doctor.specialization}</p>
+            <div key={doctor._id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+              <div className="p-3">
+                <div className="flex items-start justify-between">
+                  {/* Doctor Info */}
+                  <div className="flex items-center space-x-4 flex-1 min-w-0">
+                    <div className="flex-shrink-0">
+                      <div className="w-16 h-16 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded flex items-center justify-center">
+                        <FiUserCheck className="w-8 h-8 text-emerald-600" />
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      {/* Name and Status */}
+                      <div className="flex items-center space-x-2 mb-1">
+                        <h3 className="text-base font-semibold text-gray-900 truncate">
+                          Dr. {doctor.firstName} {doctor.lastName}
+                        </h3>
+                        <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          doctor.isActive 
+                            ? 'bg-emerald-100 text-emerald-700' 
+                            : 'bg-red-100 text-red-700'
+                        }`}>
+                          {doctor.isActive ? 'Active' : 'Inactive'}
+                        </div>
+                      </div>
+                      
+                      {/* Primary Info */}
+                      <div className="flex items-center space-x-4 mb-1">
+                        <div className="flex items-center bg-emerald-50 px-2 py-0.5 rounded text-xs">
+                          <FiAward className="w-3 h-3 mr-1 text-emerald-600" />
+                          <span className="font-medium text-emerald-700">{doctor.specialization}</span>
+                        </div>
+                        <div className="flex items-center text-xs text-gray-600">
+                          <FiMail className="w-3 h-3 mr-1 text-gray-400" />
+                          <span className="truncate max-w-32">{doctor.email}</span>
+                        </div>
+                        <div className="flex items-center text-xs text-gray-600">
+                          <FiPhone className="w-3 h-3 mr-1 text-gray-400" />
+                          <span>{doctor.phone}</span>
+                        </div>
+                      </div>
+                      
+                      {/* Secondary Info */}
+                      <div className="flex items-center space-x-4 text-xs text-gray-500">
+                        <div className="flex items-center">
+                          <FiAward className="w-3 h-3 mr-1 text-gray-400" />
+                          <span className="truncate max-w-20">Lic: {doctor.licenseNumber}</span>
+                        </div>
+                        {doctor.experienceYears && (
+                          <div className="flex items-center">
+                            <FiClock className="w-3 h-3 mr-1 text-gray-400" />
+                            <span>{doctor.experienceYears} years exp</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    doctor.isActive 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {doctor.isActive ? 'Active' : 'Inactive'}
-                  </div>
-                </div>
 
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center text-sm text-gray-600">
-                    <FiMail className="w-4 h-4 mr-2" />
-                    <span className="truncate">{doctor.email}</span>
+                  {/* Action Buttons */}
+                  <div className="flex flex-col space-y-2 flex-shrink-0 ml-3">
+                    <button
+                      onClick={() => handleViewDoctor(doctor)}
+                      className="flex items-center justify-center space-x-1 px-3 py-1.5 text-xs bg-emerald-600 text-white hover:bg-emerald-700 rounded transition-colors w-full"
+                      title="View Appointments"
+                    >
+                      <span>View Appointments</span>
+                      <FiCalendar className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => handleEditDoctor(doctor)}
+                      className="flex items-center justify-center space-x-1 px-3 py-1.5 text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 rounded transition-colors w-full"
+                      title="View Doctor Details"
+                    >
+                      <span>View Doctor Details</span>
+                      <FiEye className="w-3 h-3" />
+                    </button>
                   </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <FiPhone className="w-4 h-4 mr-2" />
-                    <span>{doctor.phone}</span>
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <FiAward className="w-4 h-4 mr-2" />
-                    <span>License: {doctor.licenseNumber}</span>
-                  </div>
-                  {doctor.experienceYears && (
-                    <div className="flex items-center text-sm text-gray-600">
-                      <FiClock className="w-4 h-4 mr-2" />
-                      <span>{doctor.experienceYears} years experience</span>
-                    </div>
-                  )}
-                  {doctor.consultationFee && (
-                    <div className="flex items-center text-sm text-gray-600">
-                      <FiDollarSign className="w-4 h-4 mr-2" />
-                      <span>{doctor.consultationFee.currency} {doctor.consultationFee.amount}</span>
-                    </div>
-                  )}
-                  {doctor.rating && doctor.rating > 0 && (
-                    <div className="flex items-center text-sm text-gray-600">
-                      <FiStar className="w-4 h-4 mr-2 text-yellow-500" />
-                      <span>{doctor.rating}/5 ({doctor.totalReviews || 0} reviews)</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleViewDoctor(doctor)}
-                    className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
-                  >
-                    <FiEye className="w-4 h-4" />
-                    <span>View</span>
-                  </button>
-                  <button
-                    onClick={() => handleEditDoctor(doctor)}
-                    className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 text-sm bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
-                  >
-                    <FiEdit2 className="w-4 h-4" />
-                    <span>Edit</span>
-                  </button>
-                  <button
-                    onClick={() => handleDeleteDoctor(doctor)}
-                    className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors"
-                  >
-                    <FiTrash2 className="w-4 h-4" />
-                    <span>Delete</span>
-                  </button>
                 </div>
               </div>
             </div>

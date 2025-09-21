@@ -17,7 +17,9 @@ import {
   FiCalendar,
   FiClock,
   FiShield,
-  FiGlobe
+  FiGlobe,
+  FiFilter,
+  FiAward
 } from 'react-icons/fi';
 
 export default function ReceptionistManagement() {
@@ -29,7 +31,6 @@ export default function ReceptionistManagement() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Extract branch ID safely
   const branchId = typeof user?.branchId === 'string' 
@@ -104,29 +105,6 @@ export default function ReceptionistManagement() {
     }
   };
 
-  const handleDeleteReceptionist = (receptionist: Receptionist) => {
-    setSelectedReceptionist(receptionist);
-    setShowDeleteModal(true);
-  };
-
-  const confirmDeleteReceptionist = async () => {
-    if (!selectedReceptionist) return;
-
-    try {
-      console.log('Deleting receptionist:', selectedReceptionist._id);
-      const response = await receptionistService.deleteReceptionist(selectedReceptionist._id);
-      
-      if (response.success) {
-        toast.success('Receptionist deleted successfully');
-        setReceptionists(receptionists.filter(r => r._id !== selectedReceptionist._id));
-        setShowDeleteModal(false);
-        setSelectedReceptionist(null);
-      }
-    } catch (error: any) {
-      console.error('Error deleting receptionist:', error);
-      toast.error(error.response?.data?.message || 'Failed to delete receptionist');
-    }
-  };
 
   const handleCreateSuccess = () => {
     setShowCreateModal(false);
@@ -163,15 +141,49 @@ export default function ReceptionistManagement() {
 
   if (isLoading) {
     return (
-      <div className="p-6">
+      <div className="p-4">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <div className="h-8 bg-gray-200 rounded w-48 mb-1"></div>
+              <div className="h-4 bg-gray-200 rounded w-80"></div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="h-10 bg-gray-200 rounded w-64"></div>
+              <div className="h-10 bg-gray-200 rounded w-20"></div>
+              <div className="h-10 bg-gray-200 rounded w-24"></div>
+            </div>
+          </div>
+          <div className="space-y-2">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
-                <div className="h-20 bg-gray-200 rounded"></div>
+              <div key={i} className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center space-x-4 flex-1 min-w-0">
+                    <div className="flex-shrink-0">
+                      <div className="w-16 h-16 bg-gray-200 rounded"></div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <div className="h-4 bg-gray-200 rounded w-40"></div>
+                        <div className="h-4 bg-gray-200 rounded w-16"></div>
+                      </div>
+                      <div className="flex items-center space-x-4 mb-1">
+                        <div className="h-3 bg-gray-200 rounded w-24"></div>
+                        <div className="h-3 bg-gray-200 rounded w-32"></div>
+                        <div className="h-3 bg-gray-200 rounded w-20"></div>
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        <div className="h-3 bg-gray-200 rounded w-20"></div>
+                        <div className="h-3 bg-gray-200 rounded w-16"></div>
+                        <div className="h-3 bg-gray-200 rounded w-12"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col space-y-2 flex-shrink-0 ml-3">
+                    <div className="h-7 bg-gray-200 rounded w-32"></div>
+                    <div className="h-7 bg-gray-200 rounded w-36"></div>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -181,91 +193,51 @@ export default function ReceptionistManagement() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Receptionist Management</h1>
-          <p className="text-gray-600">Manage receptionists in your branch</p>
+          <p className="text-gray-600 mt-1">Manage receptionists in your branch</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-        >
-          <FiPlus className="w-4 h-4" />
-          <span>Add Receptionist</span>
-        </button>
-      </div>
-
-      {/* Search */}
-      <div className="mb-6">
-        <div className="relative">
-          <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-          <input
-            type="text"
-            placeholder="Search receptionists by name, email, phone, or employee ID..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-          />
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Receptionists</p>
-              <p className="text-2xl font-bold text-gray-900">{receptionists.length}</p>
-            </div>
-            <FiUsers className="w-8 h-8 text-green-600" />
+        <div className="flex items-center space-x-3">
+          {/* Search */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search receptionists by name, email, phone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-64 pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            />
+            <FiSearch className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
           </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Active</p>
-              <p className="text-2xl font-bold text-green-600">{receptionists.filter(r => r.isActive).length}</p>
-            </div>
-            <FiUsers className="w-8 h-8 text-green-600" />
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Avg Experience</p>
-              <p className="text-2xl font-bold text-purple-600">
-                {receptionists.length > 0 
-                  ? Math.round(receptionists.reduce((sum, r) => sum + (r.experienceYears || 0), 0) / receptionists.length)
-                  : 0
-                } yrs
-              </p>
-            </div>
-            <FiClock className="w-8 h-8 text-purple-600" />
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Languages</p>
-              <p className="text-2xl font-bold text-blue-600">
-                {new Set(receptionists.flatMap(r => r.languages || [])).size}
-              </p>
-            </div>
-            <FiGlobe className="w-8 h-8 text-blue-600" />
-          </div>
+          
+          {/* Filter Button */}
+          <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+            <FiFilter className="w-4 h-4" />
+            <span>Filter</span>
+          </button>
+          
+          {/* Add Receptionist Button */}
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            <FiPlus className="w-4 h-4" />
+            <span>Add Receptionist</span>
+          </button>
         </div>
       </div>
 
-      {/* Receptionists Grid */}
+      {/* Receptionists List */}
       {filteredReceptionists.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-          <FiUsers className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
+          <FiUsers className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+          <h3 className="text-base font-medium text-gray-900 mb-2">
             {searchTerm ? 'No receptionists found' : 'No receptionists yet'}
           </h3>
-          <p className="text-gray-600 mb-4">
+          <p className="text-sm text-gray-600 mb-3">
             {searchTerm 
               ? 'Try adjusting your search criteria'
               : 'Get started by adding your first receptionist'
@@ -274,93 +246,100 @@ export default function ReceptionistManagement() {
           {!searchTerm && (
             <button
               onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"
             >
               Add Receptionist
             </button>
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="space-y-2">
           {filteredReceptionists.map((receptionist) => (
-            <div key={receptionist._id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {receptionist.firstName} {receptionist.lastName}
-                    </h3>
-                    <p className="text-green-600 font-medium">Receptionist</p>
-                    {receptionist.employeeId && (
-                      <p className="text-sm text-gray-500">ID: {receptionist.employeeId}</p>
-                    )}
+            <div key={receptionist._id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+              <div className="p-3">
+                <div className="flex items-start justify-between">
+                  {/* Receptionist Info */}
+                  <div className="flex items-center space-x-4 flex-1 min-w-0">
+                    <div className="flex-shrink-0">
+                      <div className="w-16 h-16 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded flex items-center justify-center">
+                        <FiUsers className="w-8 h-8 text-emerald-600" />
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      {/* Name and Status */}
+                      <div className="flex items-center space-x-2 mb-1">
+                        <h3 className="text-base font-semibold text-gray-900 truncate">
+                          {receptionist.firstName} {receptionist.lastName}
+                        </h3>
+                        <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          receptionist.isActive 
+                            ? 'bg-emerald-100 text-emerald-700' 
+                            : 'bg-red-100 text-red-700'
+                        }`}>
+                          {receptionist.isActive ? 'Active' : 'Inactive'}
+                        </div>
+                      </div>
+                      
+                      {/* Primary Info */}
+                      <div className="flex items-center space-x-4 mb-1">
+                        <div className="flex items-center bg-emerald-50 px-2 py-0.5 rounded text-xs">
+                          <FiUsers className="w-3 h-3 mr-1 text-emerald-600" />
+                          <span className="font-medium text-emerald-700">Receptionist</span>
+                        </div>
+                        <div className="flex items-center text-xs text-gray-600">
+                          <FiMail className="w-3 h-3 mr-1 text-gray-400" />
+                          <span className="truncate max-w-32">{receptionist.email}</span>
+                        </div>
+                        <div className="flex items-center text-xs text-gray-600">
+                          <FiPhone className="w-3 h-3 mr-1 text-gray-400" />
+                          <span>{receptionist.phone}</span>
+                        </div>
+                      </div>
+                      
+                      {/* Secondary Info */}
+                      <div className="flex items-center space-x-4 text-xs text-gray-500">
+                        {receptionist.employeeId && (
+                          <div className="flex items-center">
+                            <FiAward className="w-3 h-3 mr-1 text-gray-400" />
+                            <span className="truncate max-w-20">ID: {receptionist.employeeId}</span>
+                          </div>
+                        )}
+                        {receptionist.experienceYears && (
+                          <div className="flex items-center">
+                            <FiClock className="w-3 h-3 mr-1 text-gray-400" />
+                            <span>{receptionist.experienceYears} years exp</span>
+                          </div>
+                        )}
+                        {receptionist.languages && receptionist.languages.length > 0 && (
+                          <div className="flex items-center">
+                            <FiGlobe className="w-3 h-3 mr-1 text-gray-400" />
+                            <span className="truncate max-w-24">{receptionist.languages.join(', ')}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    receptionist.isActive 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {receptionist.isActive ? 'Active' : 'Inactive'}
-                  </div>
-                </div>
 
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center text-sm text-gray-600">
-                    <FiMail className="w-4 h-4 mr-2" />
-                    <span className="truncate">{receptionist.email}</span>
+                  {/* Action Buttons */}
+                  <div className="flex flex-col space-y-2 flex-shrink-0 ml-3">
+                    <button
+                      onClick={() => handleViewReceptionist(receptionist)}
+                      className="flex items-center justify-center space-x-1 px-3 py-1.5 text-xs bg-emerald-600 text-white hover:bg-emerald-700 rounded transition-colors w-full"
+                      title="View Receptionist"
+                    >
+                      <span>View Receptionist</span>
+                      <FiEye className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => handleEditReceptionist(receptionist)}
+                      className="flex items-center justify-center space-x-1 px-3 py-1.5 text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 rounded transition-colors w-full"
+                      title="Edit Receptionist"
+                    >
+                      <span>Edit Receptionist</span>
+                      <FiEdit2 className="w-3 h-3" />
+                    </button>
                   </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <FiPhone className="w-4 h-4 mr-2" />
-                    <span>{receptionist.phone}</span>
-                  </div>
-                  {receptionist.address && (
-                    <div className="flex items-center text-sm text-gray-600">
-                      <FiMapPin className="w-4 h-4 mr-2" />
-                      <span className="truncate">{receptionist.address}</span>
-                    </div>
-                  )}
-                  {receptionist.experienceYears && (
-                    <div className="flex items-center text-sm text-gray-600">
-                      <FiClock className="w-4 h-4 mr-2" />
-                      <span>{receptionist.experienceYears} years experience</span>
-                    </div>
-                  )}
-                  {receptionist.languages && receptionist.languages.length > 0 && (
-                    <div className="flex items-center text-sm text-gray-600">
-                      <FiGlobe className="w-4 h-4 mr-2" />
-                      <span className="truncate">{receptionist.languages.join(', ')}</span>
-                    </div>
-                  )}
-                  {receptionist.permissions && receptionist.permissions.length > 0 && (
-                    <div className="flex items-center text-sm text-gray-600">
-                      <FiShield className="w-4 h-4 mr-2" />
-                      <span>{receptionist.permissions.length} permissions</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleViewReceptionist(receptionist)}
-                    className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
-                  >
-                    <FiEye className="w-4 h-4" />
-                    <span>View</span>
-                  </button>
-                  <button
-                    onClick={() => handleEditReceptionist(receptionist)}
-                    className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 text-sm bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors"
-                  >
-                    <FiEdit2 className="w-4 h-4" />
-                    <span>Edit</span>
-                  </button>
-                  <button
-                    onClick={() => handleDeleteReceptionist(receptionist)}
-                    className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors"
-                  >
-                    <FiTrash2 className="w-4 h-4" />
-                    <span>Delete</span>
-                  </button>
                 </div>
               </div>
             </div>
@@ -375,35 +354,6 @@ export default function ReceptionistManagement() {
         onSuccess={handleCreateSuccess}
       />
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && selectedReceptionist && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Delete Receptionist</h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete {selectedReceptionist.firstName} {selectedReceptionist.lastName}? 
-              This action cannot be undone.
-            </p>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setSelectedReceptionist(null);
-                }}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDeleteReceptionist}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

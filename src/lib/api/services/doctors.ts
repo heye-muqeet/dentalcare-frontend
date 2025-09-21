@@ -22,10 +22,6 @@ export interface Doctor {
   qualifications?: string[];
   experienceYears?: number;
   languages?: string[];
-  consultationFee?: {
-    amount: number;
-    currency: string;
-  };
   availability?: {
     monday: { start: string; end: string; isAvailable: boolean };
     tuesday: { start: string; end: string; isAvailable: boolean };
@@ -57,10 +53,6 @@ export interface CreateDoctorData {
   qualifications?: string[];
   experienceYears?: number;
   languages?: string[];
-  consultationFee?: {
-    amount: number;
-    currency: string;
-  };
   availability?: {
     monday: { start: string; end: string; isAvailable: boolean };
     tuesday: { start: string; end: string; isAvailable: boolean };
@@ -87,10 +79,6 @@ export interface UpdateDoctorData {
   qualifications?: string[];
   experienceYears?: number;
   languages?: string[];
-  consultationFee?: {
-    amount: number;
-    currency: string;
-  };
   availability?: {
     monday: { start: string; end: string; isAvailable: boolean };
     tuesday: { start: string; end: string; isAvailable: boolean };

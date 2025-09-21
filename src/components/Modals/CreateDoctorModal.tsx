@@ -1,23 +1,25 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppSelector } from '../../lib/hooks';
 import type { RootState } from '../../lib/store/store';
 import { doctorService } from '../../lib/api/services/doctors';
 import { toast } from 'sonner';
+import { LoadingButton } from '../Loader';
 import { 
-  FiX, 
-  FiUser, 
-  FiMail, 
-  FiPhone, 
-  FiMapPin, 
-  FiCalendar, 
-  FiAward, 
-  FiClock, 
-  FiDollarSign, 
-  FiEye, 
-  FiEyeOff,
-  FiPlus,
-  FiTrash2
-} from 'react-icons/fi';
+  X, 
+  User, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  Calendar, 
+  Award, 
+  Clock, 
+  Eye, 
+  EyeOff,
+  Plus,
+  RefreshCw,
+  Stethoscope,
+  CheckCircle
+} from 'lucide-react';
 
 interface CreateDoctorModalProps {
   isOpen: boolean;
@@ -39,10 +41,6 @@ interface DoctorFormData {
   qualifications: string[];
   experienceYears: number;
   languages: string[];
-  consultationFee: {
-    amount: number;
-    currency: string;
-  };
   availability: {
     monday: { start: string; end: string; isAvailable: boolean };
     tuesday: { start: string; end: string; isAvailable: boolean };
@@ -74,10 +72,6 @@ const initialFormData: DoctorFormData = {
   qualifications: [],
   experienceYears: 0,
   languages: [],
-  consultationFee: {
-    amount: 0,
-    currency: 'USD'
-  },
   availability: {
     monday: { start: '09:00', end: '17:00', isAvailable: true },
     tuesday: { start: '09:00', end: '17:00', isAvailable: true },
@@ -97,7 +91,6 @@ export default function CreateDoctorModal({ isOpen, onClose, onSuccess }: Create
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
   const [newQualification, setNewQualification] = useState('');
   const [newLanguage, setNewLanguage] = useState('');
   const [newService, setNewService] = useState('');
@@ -107,48 +100,52 @@ export default function CreateDoctorModal({ isOpen, onClose, onSuccess }: Create
     ? user.branchId 
     : (user?.branchId as any)?._id || (user?.branchId as any)?.id || String(user?.branchId);
 
+  // Generate random alphanumeric password
   const generatePassword = (): string => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%&*';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let password = '';
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 10; i++) {
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return password;
   };
 
-  const handleGeneratePassword = () => {
+  const handleRegeneratePassword = () => {
     const newPassword = generatePassword();
     setFormData(prev => ({ ...prev, password: newPassword }));
+    // Clear password error if any
+    if (errors.password) {
+      setErrors(prev => ({ ...prev, password: '' }));
+    }
   };
 
-  const validateStep = (step: number): boolean => {
+  // Generate initial password when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const initialPassword = generatePassword();
+      setFormData(prev => ({
+        ...prev,
+        password: initialPassword
+      }));
+    }
+  }, [isOpen]);
+
+  const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
-    if (step === 1) {
-      // Basic Information
-      if (!formData.firstName.trim()) newErrors.firstName = 'First name is required';
-      if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
-      if (!formData.email.trim()) newErrors.email = 'Email is required';
-      if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email format';
-      if (!formData.password) newErrors.password = 'Password is required';
-      if (formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters';
-      if (!formData.phone.trim()) newErrors.phone = 'Phone is required';
-      if (!formData.specialization.trim()) newErrors.specialization = 'Specialization is required';
-      if (!formData.licenseNumber.trim()) newErrors.licenseNumber = 'License number is required';
-    }
+    // Basic Information
+    if (!formData.firstName.trim()) newErrors.firstName = 'First name is required';
+    if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
+    if (!formData.email.trim()) newErrors.email = 'Email is required';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Invalid email format';
+    if (!formData.password) newErrors.password = 'Password is required';
+    if (formData.password.length !== 10) newErrors.password = 'Password must be exactly 10 characters';
+    if (!formData.phone.trim()) newErrors.phone = 'Phone is required';
+    if (!formData.specialization.trim()) newErrors.specialization = 'Specialization is required';
+    if (!formData.licenseNumber.trim()) newErrors.licenseNumber = 'License number is required';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
-
-  const handleNext = () => {
-    if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 3));
-    }
-  };
-
-  const handlePrevious = () => {
-    setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
   const handleInputChange = (field: string, value: any) => {
@@ -230,8 +227,7 @@ export default function CreateDoctorModal({ isOpen, onClose, onSuccess }: Create
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateStep(1) || !branchId) {
-      toast.error('Please fill in all required fields');
+    if (!validateForm() || !branchId) {
       return;
     }
 
@@ -259,546 +255,476 @@ export default function CreateDoctorModal({ isOpen, onClose, onSuccess }: Create
   const handleClose = () => {
     setFormData(initialFormData);
     setErrors({});
-    setCurrentStep(1);
     setNewQualification('');
     setNewLanguage('');
     setNewService('');
+    setShowPassword(false);
     onClose();
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-              <FiUser className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white">Add New Doctor</h2>
-              <p className="text-blue-100 text-sm">Step {currentStep} of 3</p>
-            </div>
-          </div>
-          <button
-            onClick={handleClose}
-            className="text-white/80 hover:text-white transition-colors"
-          >
-            <FiX className="w-6 h-6" />
-          </button>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="px-6 py-3 bg-gray-50 border-b">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-xl">
+        {/* Compact Header */}
+        <div className="bg-gradient-to-r from-emerald-600 to-green-600 text-white p-4">
           <div className="flex items-center justify-between">
-            <div className="flex space-x-4">
-              {[1, 2, 3].map((step) => (
-                <div key={step} className="flex items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                    step <= currentStep 
-                      ? 'bg-blue-600 text-white' 
-                      : 'bg-gray-200 text-gray-600'
-                  }`}>
-                    {step}
-                  </div>
-                  <span className={`ml-2 text-sm ${
-                    step <= currentStep ? 'text-blue-600 font-medium' : 'text-gray-500'
-                  }`}>
-                    {step === 1 && 'Basic Info'}
-                    {step === 2 && 'Professional'}
-                    {step === 3 && 'Availability'}
-                  </span>
-                </div>
-              ))}
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-white/20 rounded-lg">
+                <Stethoscope className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold">Add New Doctor</h2>
+                <p className="text-white/80 text-sm">Create a new doctor profile for your branch</p>
+              </div>
             </div>
+            <button
+              onClick={handleClose}
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          {/* Content */}
-          <div className="p-6 overflow-y-auto max-h-[60vh]">
-            {/* Step 1: Basic Information */}
-            {currentStep === 1 && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      First Name *
-                    </label>
-                    <div className="relative">
-                      <FiUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <input
-                        type="text"
-                        value={formData.firstName}
-                        onChange={(e) => handleInputChange('firstName', e.target.value)}
-                        className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                          errors.firstName ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        placeholder="Enter first name"
-                      />
-                    </div>
-                    {errors.firstName && <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Last Name *
-                    </label>
-                    <div className="relative">
-                      <FiUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <input
-                        type="text"
-                        value={formData.lastName}
-                        onChange={(e) => handleInputChange('lastName', e.target.value)}
-                        className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                          errors.lastName ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        placeholder="Enter last name"
-                      />
-                    </div>
-                    {errors.lastName && <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email *
-                    </label>
-                    <div className="relative">
-                      <FiMail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => handleInputChange('email', e.target.value)}
-                        className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                          errors.email ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        placeholder="Enter email address"
-                      />
-                    </div>
-                    {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Phone *
-                    </label>
-                    <div className="relative">
-                      <FiPhone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <input
-                        type="tel"
-                        value={formData.phone}
-                        onChange={(e) => handleInputChange('phone', e.target.value)}
-                        className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                          errors.phone ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        placeholder="Enter phone number"
-                      />
-                    </div>
-                    {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Password *
-                  </label>
-                  <div className="flex space-x-2">
-                    <div className="relative flex-1">
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        value={formData.password}
-                        onChange={(e) => handleInputChange('password', e.target.value)}
-                        className={`w-full pl-3 pr-10 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                          errors.password ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        placeholder="Enter password"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showPassword ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleGeneratePassword}
-                      className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
-                    >
-                      Generate
-                    </button>
-                  </div>
-                  {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Specialization *
-                    </label>
-                    <div className="relative">
-                      <FiAward className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <input
-                        type="text"
-                        value={formData.specialization}
-                        onChange={(e) => handleInputChange('specialization', e.target.value)}
-                        className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                          errors.specialization ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        placeholder="e.g., General Dentistry"
-                      />
-                    </div>
-                    {errors.specialization && <p className="text-red-500 text-xs mt-1">{errors.specialization}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      License Number *
-                    </label>
-                    <div className="relative">
-                      <FiAward className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <input
-                        type="text"
-                        value={formData.licenseNumber}
-                        onChange={(e) => handleInputChange('licenseNumber', e.target.value)}
-                        className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                          errors.licenseNumber ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        placeholder="Enter license number"
-                      />
-                    </div>
-                    {errors.licenseNumber && <p className="text-red-500 text-xs mt-1">{errors.licenseNumber}</p>}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Date of Birth
-                    </label>
-                    <div className="relative">
-                      <FiCalendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <input
-                        type="date"
-                        value={formData.dateOfBirth}
-                        onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
-                        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
+        {/* Compact Form */}
+        <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[calc(90vh-80px)] custom-scrollbar light">
+          <div className="p-4 space-y-4">
+            {/* Error Message */}
+            {errors.submit && (
+              <div className="mb-4 bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-xl p-4 shadow-sm">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                      <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
                     </div>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Employee ID
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.employeeId}
-                      onChange={(e) => handleInputChange('employeeId', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Enter employee ID"
-                    />
+                  <div className="flex-1">
+                    <h3 className="text-sm font-semibold text-red-800 mb-1">Doctor Creation Failed</h3>
+                    <p className="text-red-700 text-sm leading-relaxed">{errors.submit}</p>
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Address
-                  </label>
-                  <div className="relative">
-                    <FiMapPin className="absolute left-3 top-3 text-gray-400 w-4 h-4" />
-                    <textarea
-                      value={formData.address}
-                      onChange={(e) => handleInputChange('address', e.target.value)}
-                      rows={3}
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Enter full address"
-                    />
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setErrors(prev => ({ ...prev, submit: '' }))}
+                    className="flex-shrink-0 text-red-400 hover:text-red-600 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
               </div>
             )}
 
-            {/* Step 2: Professional Information */}
-            {currentStep === 2 && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Experience (Years)
-                    </label>
+            {/* Basic Information */}
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2 pb-2 border-b border-gray-200">
+                <User className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-base font-semibold text-gray-900">Basic Information</h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-gray-700">First Name *</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
-                      type="number"
-                      min="0"
-                      value={formData.experienceYears}
-                      onChange={(e) => handleInputChange('experienceYears', parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Years of experience"
+                      type="text"
+                      value={formData.firstName}
+                      onChange={(e) => handleInputChange('firstName', e.target.value)}
+                      className={`w-full pl-10 pr-3 py-2 text-sm border rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 ${
+                        errors.firstName ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
+                      placeholder="Enter first name"
                     />
                   </div>
+                  {errors.firstName && <p className="text-red-500 text-xs">{errors.firstName}</p>}
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Consultation Fee
-                    </label>
-                    <div className="flex space-x-2">
-                      <select
-                        value={formData.consultationFee.currency}
-                        onChange={(e) => handleInputChange('consultationFee', {
-                          ...formData.consultationFee,
-                          currency: e.target.value
-                        })}
-                        className="w-20 px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="GBP">GBP</option>
-                      </select>
-                      <input
-                        type="number"
-                        min="0"
-                        value={formData.consultationFee.amount}
-                        onChange={(e) => handleInputChange('consultationFee', {
-                          ...formData.consultationFee,
-                          amount: parseFloat(e.target.value) || 0
-                        })}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Amount"
-                      />
-                    </div>
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-gray-700">Last Name *</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={formData.lastName}
+                      onChange={(e) => handleInputChange('lastName', e.target.value)}
+                      className={`w-full pl-10 pr-3 py-2 text-sm border rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 ${
+                        errors.lastName ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
+                      placeholder="Enter last name"
+                    />
+                  </div>
+                  {errors.lastName && <p className="text-red-500 text-xs">{errors.lastName}</p>}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-gray-700">Email *</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                      className={`w-full pl-10 pr-3 py-2 text-sm border rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 ${
+                        errors.email ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
+                      placeholder="doctor@example.com"
+                    />
+                  </div>
+                  {errors.email && <p className="text-red-500 text-xs">{errors.email}</p>}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-gray-700">Phone *</label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => handleInputChange('phone', e.target.value)}
+                      className={`w-full pl-10 pr-3 py-2 text-sm border rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 ${
+                        errors.phone ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
+                      placeholder="+1 (555) 123-4567"
+                    />
+                  </div>
+                  {errors.phone && <p className="text-red-500 text-xs">{errors.phone}</p>}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-gray-700">Specialization *</label>
+                  <div className="relative">
+                    <Award className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={formData.specialization}
+                      onChange={(e) => handleInputChange('specialization', e.target.value)}
+                      className={`w-full pl-10 pr-3 py-2 text-sm border rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 ${
+                        errors.specialization ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
+                      placeholder="e.g., General Dentistry"
+                    />
+                  </div>
+                  {errors.specialization && <p className="text-red-500 text-xs">{errors.specialization}</p>}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-gray-700">License Number *</label>
+                  <div className="relative">
+                    <Award className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={formData.licenseNumber}
+                      onChange={(e) => handleInputChange('licenseNumber', e.target.value)}
+                      className={`w-full pl-10 pr-3 py-2 text-sm border rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 ${
+                        errors.licenseNumber ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
+                      placeholder="Enter license number"
+                    />
+                  </div>
+                  {errors.licenseNumber && <p className="text-red-500 text-xs">{errors.licenseNumber}</p>}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-gray-700">Date of Birth</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="date"
+                      value={formData.dateOfBirth}
+                      onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    />
                   </div>
                 </div>
 
-                {/* Qualifications */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Qualifications
-                  </label>
-                  <div className="flex space-x-2 mb-2">
-                    <input
-                      type="text"
-                      value={newQualification}
-                      onChange={(e) => setNewQualification(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Add qualification"
-                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addQualification())}
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-gray-700">Employee ID</label>
+                  <input
+                    type="text"
+                    value={formData.employeeId}
+                    onChange={(e) => handleInputChange('employeeId', e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                    placeholder="DOC001 (optional)"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-gray-700">Address</label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <textarea
+                      value={formData.address}
+                      onChange={(e) => handleInputChange('address', e.target.value)}
+                      rows={2}
+                      className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                      placeholder="Enter full address"
                     />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-gray-700">Experience (Years)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.experienceYears}
+                    onChange={(e) => handleInputChange('experienceYears', parseInt(e.target.value) || 0)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                    placeholder="Years of experience"
+                  />
+                </div>
+              </div>
+
+              {/* Password Field */}
+              <div className="space-y-1">
+                <label className="block text-xs font-medium text-gray-700">Password *</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={formData.password}
+                    onChange={(e) => handleInputChange('password', e.target.value)}
+                    className={`w-full px-3 py-2 pr-16 text-sm border rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 ${
+                      errors.password ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                    }`}
+                    placeholder="Auto-generated password"
+                  />
+                  <div className="absolute right-1 top-1/2 transform -translate-y-1/2 flex space-x-1">
                     <button
                       type="button"
-                      onClick={addQualification}
-                      className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      onClick={handleRegeneratePassword}
+                      className="p-1 text-gray-400 hover:text-emerald-600 rounded transition-colors"
+                      title="Regenerate password"
                     >
-                      <FiPlus className="w-4 h-4" />
+                      <RefreshCw className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="p-1 text-gray-400 hover:text-emerald-600 rounded transition-colors"
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                     </button>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                </div>
+                <div className="text-xs text-gray-500">10-character secure password</div>
+                {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
+              </div>
+            </div>
+
+            {/* Professional Information */}
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2 pb-2 border-b border-gray-200">
+                <Award className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-base font-semibold text-gray-900">Professional Information</h3>
+              </div>
+
+              {/* Qualifications */}
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-gray-700">Qualifications</label>
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={newQualification}
+                    onChange={(e) => setNewQualification(e.target.value)}
+                    className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                    placeholder="Add qualification and press Enter"
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addQualification())}
+                  />
+                  <button
+                    type="button"
+                    onClick={addQualification}
+                    className="px-3 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 text-sm"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+                
+                {formData.qualifications.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
                     {formData.qualifications.map((qual, index) => (
                       <span
                         key={index}
-                        className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                        className="inline-flex items-center px-2 py-1 rounded text-xs bg-emerald-100 text-emerald-700"
                       >
                         {qual}
                         <button
                           type="button"
                           onClick={() => removeQualification(index)}
-                          className="ml-2 text-blue-600 hover:text-blue-800"
+                          className="ml-1 text-emerald-500 hover:text-emerald-700"
                         >
-                          <FiX className="w-3 h-3" />
+                          <X className="h-3 w-3" />
                         </button>
                       </span>
                     ))}
                   </div>
-                </div>
+                )}
+              </div>
 
-                {/* Languages */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Languages
-                  </label>
-                  <div className="flex space-x-2 mb-2">
-                    <input
-                      type="text"
-                      value={newLanguage}
-                      onChange={(e) => setNewLanguage(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Add language"
-                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addLanguage())}
-                    />
-                    <button
-                      type="button"
-                      onClick={addLanguage}
-                      className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      <FiPlus className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
+              {/* Languages */}
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-gray-700">Languages</label>
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={newLanguage}
+                    onChange={(e) => setNewLanguage(e.target.value)}
+                    className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                    placeholder="Add language and press Enter"
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addLanguage())}
+                  />
+                  <button
+                    type="button"
+                    onClick={addLanguage}
+                    className="px-3 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 text-sm"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+                
+                {formData.languages.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
                     {formData.languages.map((lang, index) => (
                       <span
                         key={index}
-                        className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm"
+                        className="inline-flex items-center px-2 py-1 rounded text-xs bg-green-100 text-green-700"
                       >
                         {lang}
                         <button
                           type="button"
                           onClick={() => removeLanguage(index)}
-                          className="ml-2 text-green-600 hover:text-green-800"
+                          className="ml-1 text-green-500 hover:text-green-700"
                         >
-                          <FiX className="w-3 h-3" />
+                          <X className="h-3 w-3" />
                         </button>
                       </span>
                     ))}
                   </div>
-                </div>
+                )}
+              </div>
 
-                {/* Services */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Services
-                  </label>
-                  <div className="flex space-x-2 mb-2">
-                    <input
-                      type="text"
-                      value={newService}
-                      onChange={(e) => setNewService(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Add service"
-                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addService())}
-                    />
-                    <button
-                      type="button"
-                      onClick={addService}
-                      className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      <FiPlus className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
+              {/* Services */}
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-gray-700">Services</label>
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={newService}
+                    onChange={(e) => setNewService(e.target.value)}
+                    className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                    placeholder="Add service and press Enter"
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addService())}
+                  />
+                  <button
+                    type="button"
+                    onClick={addService}
+                    className="px-3 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 text-sm"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+                
+                {formData.services.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
                     {formData.services.map((service, index) => (
                       <span
                         key={index}
-                        className="inline-flex items-center px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm"
+                        className="inline-flex items-center px-2 py-1 rounded text-xs bg-purple-100 text-purple-700"
                       >
                         {service}
                         <button
                           type="button"
                           onClick={() => removeService(index)}
-                          className="ml-2 text-purple-600 hover:text-purple-800"
+                          className="ml-1 text-purple-500 hover:text-purple-700"
                         >
-                          <FiX className="w-3 h-3" />
+                          <X className="h-3 w-3" />
                         </button>
                       </span>
                     ))}
                   </div>
-                </div>
+                )}
               </div>
-            )}
+            </div>
 
-            {/* Step 3: Availability */}
-            {currentStep === 3 && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Working Hours</h3>
+            {/* Availability Schedule */}
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2 pb-2 border-b border-gray-200">
+                <Clock className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-base font-semibold text-gray-900">Availability Schedule</h3>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
                 {Object.entries(formData.availability).map(([day, schedule]) => (
                   <div key={day} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
-                    <div className="w-20">
-                      <span className="text-sm font-medium text-gray-700 capitalize">{day}</span>
-                    </div>
-                    <label className="flex items-center">
+                    <div className="flex items-center space-x-2 w-24">
                       <input
                         type="checkbox"
                         checked={schedule.isAvailable}
                         onChange={(e) => handleAvailabilityChange(day, 'isAvailable', e.target.checked)}
-                        className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                       />
-                      <span className="text-sm text-gray-600">Available</span>
-                    </label>
+                      <label className="text-sm font-medium text-gray-700 capitalize">
+                        {day}
+                      </label>
+                    </div>
+                    
                     {schedule.isAvailable && (
-                      <>
+                      <div className="flex items-center space-x-2">
                         <input
                           type="time"
                           value={schedule.start}
                           onChange={(e) => handleAvailabilityChange(day, 'start', e.target.value)}
-                          className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
                         />
                         <span className="text-gray-500">to</span>
                         <input
                           type="time"
                           value={schedule.end}
                           onChange={(e) => handleAvailabilityChange(day, 'end', e.target.value)}
-                          className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
                         />
-                      </>
+                      </div>
+                    )}
+                    
+                    {!schedule.isAvailable && (
+                      <span className="text-sm text-gray-500">Not Available</span>
                     )}
                   </div>
                 ))}
               </div>
-            )}
+            </div>
           </div>
 
-          {/* Footer */}
-          <div className="px-6 py-4 bg-gray-50 border-t flex items-center justify-between">
-            <div className="flex space-x-3">
-              {currentStep > 1 && (
-                <button
-                  type="button"
-                  onClick={handlePrevious}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Previous
-                </button>
-              )}
-            </div>
-
-            <div className="flex space-x-3">
+          {/* Compact Footer */}
+          <div className="bg-gray-50 px-4 py-3 border-t border-gray-200">
+            <div className="flex justify-end space-x-2">
               <button
                 type="button"
                 onClick={handleClose}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-3 py-2 text-gray-600 hover:text-gray-800 text-sm"
               >
                 Cancel
               </button>
-              
-              {currentStep < 3 ? (
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Next
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors flex items-center space-x-2"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Creating...</span>
-                    </>
-                  ) : (
-                    <>
-                      <FiPlus className="w-4 h-4" />
-                      <span>Create Doctor</span>
-                    </>
-                  )}
-                </button>
-              )}
+              <LoadingButton
+                type="submit"
+                loading={isSubmitting}
+                loadingText="Creating..."
+                variant="primary"
+                size="sm"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm"
+              >
+                Create Doctor
+              </LoadingButton>
             </div>
           </div>
         </form>
-
-        {errors.submit && (
-          <div className="px-6 py-3 bg-red-50 border-t border-red-200">
-            <p className="text-red-600 text-sm">{errors.submit}</p>
-          </div>
-        )}
       </div>
     </div>
   );
