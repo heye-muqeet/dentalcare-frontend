@@ -83,6 +83,7 @@ const CategoryManagement: React.FC = () => {
     loadCategories();
   };
 
+
   if (isLoading) {
     return (
       <div className="p-4">
@@ -159,14 +160,17 @@ const CategoryManagement: React.FC = () => {
             <span>Filter</span>
           </button>
           
-          {/* Add Category Button */}
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-          >
-            <FiPlus className="w-4 h-4" />
-            <span>Add Category</span>
-          </button>
+          
+          {/* Add Category Button - Only for organization_admin */}
+          {user?.role === 'organization_admin' && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              <FiPlus className="w-4 h-4" />
+              <span>Add Category</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -178,7 +182,7 @@ const CategoryManagement: React.FC = () => {
           <p className="text-gray-500 mb-4">
             {searchTerm ? 'No categories match your search criteria.' : 'Get started by adding your first category.'}
           </p>
-          {!searchTerm && (
+          {!searchTerm && user?.role === 'organization_admin' && (
             <button
               onClick={() => setShowCreateModal(true)}
               className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
@@ -189,101 +193,100 @@ const CategoryManagement: React.FC = () => {
           )}
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredCategories.map((category) => (
-            <div key={category._id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-              <div className="p-3">
-                <div className="flex items-start justify-between">
-                  {/* Category Info */}
-                  <div className="flex items-center space-x-4 flex-1 min-w-0">
-                    <div className="flex-shrink-0">
-                      <div 
-                        className="w-16 h-16 rounded flex items-center justify-center"
-                        style={{ 
-                          backgroundColor: category.color ? `${category.color}20` : '#f3f4f6',
-                          color: category.color || '#6b7280'
-                        }}
+            <div key={category._id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-200 group">
+              {/* Header with Icon and Status */}
+              <div className="p-4 pb-3">
+                <div className="flex items-start justify-between mb-3">
+                  <div 
+                    className="w-12 h-12 rounded-xl flex items-center justify-center shadow-sm"
+                    style={{ 
+                      backgroundColor: category.color ? `${category.color}15` : '#f8fafc',
+                      color: category.color || '#64748b'
+                    }}
+                  >
+                    {category.icon ? (
+                      <span className="text-xl">{category.icon}</span>
+                    ) : (
+                      <FiTag className="w-6 h-6" />
+                    )}
+                  </div>
+                  <div className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                    category.isActive 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-red-100 text-red-700'
+                  }`}>
+                    {category.isActive ? 'Active' : 'Inactive'}
+                  </div>
+                </div>
+                
+                {/* Category Name */}
+                <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-1">
+                  {category.name}
+                </h3>
+                
+                {/* Description */}
+                {category.description && (
+                  <p className="text-sm text-gray-600 mb-3 line-clamp-2 leading-relaxed">
+                    {category.description}
+                  </p>
+                )}
+                
+                {/* Stats */}
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex items-center">
+                      <FiUsers className="w-3 h-3 mr-1" />
+                      <span>{category.usageCount} services</span>
+                    </div>
+                    {category.color && (
+                      <div className="flex items-center">
+                        <div 
+                          className="w-3 h-3 rounded-full border border-gray-200"
+                          style={{ backgroundColor: category.color }}
+                        ></div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-gray-400">
+                    ID: {category._id.slice(-6)}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="px-4 pb-4 pt-2 border-t border-gray-100">
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleViewCategory(category)}
+                    className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg transition-colors font-medium"
+                    title="View Category Details"
+                  >
+                    <FiEye className="w-3 h-3" />
+                    <span>View</span>
+                  </button>
+                  {/* Edit and Delete buttons - Only for organization_admin */}
+                  {user?.role === 'organization_admin' && (
+                    <>
+                      <button
+                        onClick={() => handleEditCategory(category)}
+                        className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 text-xs bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors font-medium"
+                        title="Edit Category"
                       >
-                        {category.icon ? (
-                          <span className="text-2xl">{category.icon}</span>
-                        ) : (
-                          <FiTag className="w-8 h-8" />
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      {/* Name and Status */}
-                      <div className="flex items-center space-x-2 mb-1">
-                        <h3 className="text-base font-semibold text-gray-900 truncate">
-                          {category.name}
-                        </h3>
-                        <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                          category.isActive 
-                            ? 'bg-green-100 text-green-700' 
-                            : 'bg-red-100 text-red-700'
-                        }`}>
-                          {category.isActive ? 'Active' : 'Inactive'}
-                        </div>
-                      </div>
-                      
-                      {/* Description */}
-                      {category.description && (
-                        <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                          {category.description}
-                        </p>
-                      )}
-                      
-                      {/* Category Details */}
-                      <div className="flex items-center space-x-4 text-xs text-gray-500">
-                        <div className="flex items-center">
-                          <FiUsers className="w-3 h-3 mr-1 text-gray-400" />
-                          <span>{category.usageCount} services</span>
-                        </div>
-                        <div className="flex items-center">
-                          <FiHash className="w-3 h-3 mr-1 text-gray-400" />
-                          <span>ID: {category._id.slice(-6)}</span>
-                        </div>
-                        {category.color && (
-                          <div className="flex items-center">
-                            <FiCircle className="w-3 h-3 mr-1 text-gray-400" />
-                            <div 
-                              className="w-3 h-3 rounded-full border border-gray-300"
-                              style={{ backgroundColor: category.color }}
-                            ></div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex flex-col space-y-2 flex-shrink-0 ml-3">
-                    <button
-                      onClick={() => handleViewCategory(category)}
-                      className="flex items-center justify-center space-x-1 px-3 py-1.5 text-xs bg-emerald-600 text-white hover:bg-emerald-700 rounded transition-colors w-full"
-                      title="View Category Details"
-                    >
-                      <span>View Details</span>
-                      <FiEye className="w-3 h-3" />
-                    </button>
-                    <button
-                      onClick={() => handleEditCategory(category)}
-                      className="flex items-center justify-center space-x-1 px-3 py-1.5 text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 rounded transition-colors w-full"
-                      title="Edit Category"
-                    >
-                      <span>Edit Category</span>
-                      <FiEdit2 className="w-3 h-3" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteCategory(category)}
-                      className="flex items-center justify-center space-x-1 px-3 py-1.5 text-xs bg-red-600 text-white hover:bg-red-700 rounded transition-colors w-full"
-                      title="Delete Category"
-                    >
-                      <span>Delete</span>
-                      <FiTrash2 className="w-3 h-3" />
-                    </button>
-                  </div>
+                        <FiEdit2 className="w-3 h-3" />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCategory(category)}
+                        className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 text-xs bg-red-50 text-red-700 hover:bg-red-100 rounded-lg transition-colors font-medium"
+                        title="Delete Category"
+                      >
+                        <FiTrash2 className="w-3 h-3" />
+                        <span>Delete</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

@@ -60,8 +60,15 @@ export default function CreateServiceModal({ isOpen, onClose, onSuccess }: Creat
       try {
         setLoadingCategories(true);
         const response = await categoryService.getCategories();
+        console.log('🔍 Categories response in CreateServiceModal:', response);
+        
         if (response.success) {
-          setCategories(response.data.filter(cat => cat.isActive));
+          console.log('📋 All categories before filtering:', response.data);
+          // Show all categories that are not explicitly set to false
+          // This handles cases where isActive might be undefined or true
+          const activeCategories = response.data.filter(cat => cat.isActive !== false);
+          console.log('✅ Active categories after filtering:', activeCategories);
+          setCategories(activeCategories);
         }
       } catch (error) {
         console.error('Error loading categories:', error);

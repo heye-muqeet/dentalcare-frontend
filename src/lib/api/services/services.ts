@@ -163,5 +163,79 @@ export const serviceService = {
       console.error('❌ Error restoring service:', error);
       throw error;
     }
+  },
+
+  // Get all organization services (for organization admin)
+  getOrganizationServices: async (): Promise<ServicesResponse> => {
+    console.log('🏢 Fetching all organization services');
+    
+    try {
+      const response = await api.get('/branches/organization-services');
+      console.log('✅ Organization services fetched successfully:', response.data);
+      
+      // Handle different response structures
+      let servicesData = response.data;
+      
+      // If response has a data property, use that
+      if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+        servicesData = response.data.data;
+      }
+      
+      // If servicesData is not an array, default to empty array
+      if (!Array.isArray(servicesData)) {
+        console.log('⚠️ Services data is not an array, defaulting to empty array:', servicesData);
+        servicesData = [];
+      }
+      
+      return {
+        success: true,
+        data: servicesData
+      };
+    } catch (error: any) {
+      console.error('❌ Error fetching organization services:', error);
+      throw error;
+    }
+  },
+
+  // Update service (for organization admin)
+  updateOrganizationService: async (serviceId: string, updateData: any): Promise<ServiceResponse> => {
+    console.log('✏️ Updating organization service:', serviceId);
+    
+    try {
+      const response = await api.patch(`/branches/services/${serviceId}`, updateData);
+      console.log('✅ Organization service updated successfully:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error updating organization service:', error);
+      throw error;
+    }
+  },
+
+  // Delete service (for organization admin)
+  deleteOrganizationService: async (serviceId: string): Promise<DeleteResponse> => {
+    console.log('🗑️ Deleting organization service:', serviceId);
+    
+    try {
+      const response = await api.delete(`/branches/services/${serviceId}`);
+      console.log('✅ Organization service deleted successfully:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error deleting organization service:', error);
+      throw error;
+    }
+  },
+
+  // Restore service (for organization admin)
+  restoreOrganizationService: async (serviceId: string): Promise<ServiceResponse> => {
+    console.log('🔄 Restoring organization service:', serviceId);
+    
+    try {
+      const response = await api.patch(`/branches/services/${serviceId}/restore`);
+      console.log('✅ Organization service restored successfully:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error restoring organization service:', error);
+      throw error;
+    }
   }
 };

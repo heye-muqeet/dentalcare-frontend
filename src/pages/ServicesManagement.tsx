@@ -148,7 +148,12 @@ const ServicesManagement: React.FC = () => {
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Service Management</h1>
-          <p className="text-gray-600 mt-1">Manage services offered in your branch</p>
+          <p className="text-gray-600 mt-1">
+            {user?.role === 'branch_admin' 
+              ? 'Manage services offered in your branch' 
+              : 'View services available in your branch'
+            }
+          </p>
         </div>
         <div className="flex items-center space-x-3">
           {/* Search */}
@@ -169,14 +174,16 @@ const ServicesManagement: React.FC = () => {
             <span>Filter</span>
           </button>
           
-          {/* Add Service Button */}
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-          >
-            <FiPlus className="w-4 h-4" />
-            <span>Add Service</span>
-          </button>
+          {/* Add Service Button - Only for branch_admin */}
+          {user?.role === 'branch_admin' && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              <FiPlus className="w-4 h-4" />
+              <span>Add Service</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -188,7 +195,7 @@ const ServicesManagement: React.FC = () => {
           <p className="text-gray-500 mb-4">
             {searchTerm ? 'No services match your search criteria.' : 'Get started by adding your first service.'}
           </p>
-          {!searchTerm && (
+          {!searchTerm && user?.role === 'branch_admin' && (
             <button
               onClick={() => setShowCreateModal(true)}
               className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
@@ -196,6 +203,11 @@ const ServicesManagement: React.FC = () => {
               <FiPlus className="w-4 h-4 mr-2" />
               Add Service
             </button>
+          )}
+          {!searchTerm && user?.role !== 'branch_admin' && (
+            <p className="text-sm text-gray-500">
+              Only branch administrators can add or modify services. Contact your branch administrator to add new services.
+            </p>
           )}
         </div>
       ) : (
@@ -265,22 +277,27 @@ const ServicesManagement: React.FC = () => {
                       <span>View Details</span>
                       <FiEye className="w-3 h-3" />
                     </button>
-                    <button
-                      onClick={() => handleEditService(service)}
-                      className="flex items-center justify-center space-x-1 px-3 py-1.5 text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 rounded transition-colors w-full"
-                      title="Edit Service"
-                    >
-                      <span>Edit Service</span>
-                      <FiEdit2 className="w-3 h-3" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteService(service)}
-                      className="flex items-center justify-center space-x-1 px-3 py-1.5 text-xs bg-red-600 text-white hover:bg-red-700 rounded transition-colors w-full"
-                      title="Delete Service"
-                    >
-                      <span>Delete</span>
-                      <FiTrash2 className="w-3 h-3" />
-                    </button>
+                    {/* Edit and Delete buttons - Only for branch_admin */}
+                    {user?.role === 'branch_admin' && (
+                      <>
+                        <button
+                          onClick={() => handleEditService(service)}
+                          className="flex items-center justify-center space-x-1 px-3 py-1.5 text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 rounded transition-colors w-full"
+                          title="Edit Service"
+                        >
+                          <span>Edit Service</span>
+                          <FiEdit2 className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteService(service)}
+                          className="flex items-center justify-center space-x-1 px-3 py-1.5 text-xs bg-red-600 text-white hover:bg-red-700 rounded transition-colors w-full"
+                          title="Delete Service"
+                        >
+                          <span>Delete</span>
+                          <FiTrash2 className="w-3 h-3" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

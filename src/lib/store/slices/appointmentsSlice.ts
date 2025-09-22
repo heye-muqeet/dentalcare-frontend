@@ -1,13 +1,33 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import api from '../../api/axios';
 
 interface Appointment {
-  id: string;
-  patientId: string;
-  doctorId: string;
-  date: string;
-  time: string;
-  status: 'scheduled' | 'completed' | 'cancelled';
+  _id: string;
+  patientId: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+  };
+  doctorId?: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    specialization: string;
+  };
+  appointmentDate: string;
+  startTime: string;
+  endTime: string;
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'no_show';
+  visitType: 'walk_in' | 'scheduled';
+  reasonForVisit: string;
   notes?: string;
+  duration: number;
+  isWalkIn: boolean;
+  isEmergency: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface AppointmentsState {
@@ -34,96 +54,53 @@ const initialState: AppointmentsState = {
   cancelError: null,
 };
 
-// Mock async thunks
+// API async thunks
 export const fetchAppointments = createAsyncThunk(
   'appointments/fetchAppointments',
-  async (_, { rejectWithValue }) => {
+  async (filters: any = {}, { rejectWithValue }) => {
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const mockAppointments: Appointment[] = [
-        {
-          id: '1',
-          patientId: '1',
-          doctorId: '1',
-          date: '2024-01-15',
-          time: '10:00',
-          status: 'scheduled',
-          notes: 'Regular checkup'
-        },
-        {
-          id: '2',
-          patientId: '2',
-          doctorId: '2',
-          date: '2024-01-16',
-          time: '14:30',
-          status: 'scheduled',
-          notes: 'Cleaning appointment'
-        }
-      ];
-      
-      return mockAppointments;
+      const response = await api.get('/appointments', { params: filters });
+      return response.data;
     } catch (error: any) {
-      return rejectWithValue('Failed to fetch appointments');
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch appointments');
     }
   }
 );
 
 export const createAppointment = createAsyncThunk(
   'appointments/createAppointment',
-  async (appointmentData: Partial<Appointment>, { rejectWithValue }) => {
+  async (appointmentData: any, { rejectWithValue }) => {
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const newAppointment: Appointment = {
-        id: Date.now().toString(),
-        patientId: appointmentData.patientId || '',
-        doctorId: appointmentData.doctorId || '',
-        date: appointmentData.date || '',
-        time: appointmentData.time || '',
-        status: 'scheduled',
-        notes: appointmentData.notes
-      };
-      
-      return newAppointment;
+      const response = await api.post('/appointments', appointmentData);
+      return response.data;
     } catch (error: any) {
-      return rejectWithValue('Failed to create appointment');
+      return rejectWithValue(error.response?.data?.message || 'Failed to create appointment');
     }
   }
 );
 
 export const updateAppointment = createAsyncThunk(
   'appointments/updateAppointment',
-  async ({ id, appointmentData }: { id: string; appointmentData: Partial<Appointment> }, { rejectWithValue }) => {
+  async ({ id, appointmentData }: { id: string; appointmentData: any }, { rejectWithValue }) => {
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const updatedAppointment: Appointment = {
-        id,
-        patientId: appointmentData.patientId || '',
-        doctorId: appointmentData.doctorId || '',
-        date: appointmentData.date || '',
-        time: appointmentData.time || '',
-        status: appointmentData.status || 'scheduled',
-        notes: appointmentData.notes
-      };
-      
-      return updatedAppointment;
+      const response = await api.patch(`/appointments/${id}`, appointmentData);
+      return response.data;
     } catch (error: any) {
-      return rejectWithValue('Failed to update appointment');
+      return rejectWithValue(error.response?.data?.message || 'Failed to update appointment');
     }
   }
 );
 
 export const cancelAppointment = createAsyncThunk(
   'appointments/cancelAppointment',
-  async (id: string, { rejectWithValue }) => {
+  async ({ id, cancellationReason }: { id: string; cancellationReason: string }, { rejectWithValue }) => {
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      return { id, status: 'cancelled' as const };
+      const response = await api.delete(`/appointments/${id}/cancel`, {
+        data: { cancellationReason }
+      });
+      return response.data;
     } catch (error: any) {
-      return rejectWithValue('Failed to cancel appointment');
+      return rejectWithValue(error.response?.data?.message || 'Failed to cancel appointment');
     }
   }
 );
@@ -171,7 +148,7 @@ const appointmentsSlice = createSlice({
       })
       .addCase(updateAppointment.fulfilled, (state, action) => {
         state.isUpdating = false;
-        const index = state.appointments.findIndex(appointment => appointment.id === action.payload.id);
+        const index = state.appointments.findIndex(appointment => appointment._id === action.payload._id);
         if (index !== -1) {
           state.appointments[index] = action.payload;
         }
@@ -186,9 +163,9 @@ const appointmentsSlice = createSlice({
       })
       .addCase(cancelAppointment.fulfilled, (state, action) => {
         state.isCancelling = false;
-        const index = state.appointments.findIndex(appointment => appointment.id === action.payload.id);
+        const index = state.appointments.findIndex(appointment => appointment._id === action.payload._id);
         if (index !== -1) {
-          state.appointments[index].status = 'cancelled';
+          state.appointments[index] = action.payload;
         }
       })
       .addCase(cancelAppointment.rejected, (state, action) => {

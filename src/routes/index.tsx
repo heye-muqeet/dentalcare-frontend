@@ -12,8 +12,10 @@ import BranchManagement from '../pages/BranchManagement';
 import DoctorManagement from '../pages/DoctorManagement';
 import ReceptionistManagement from '../pages/ReceptionistManagement';
 import PatientManagement from '../pages/PatientManagement';
+import AppointmentManagement from '../pages/AppointmentManagement';
 import ServicesManagement from '../pages/ServicesManagement';
 import CategoryManagement from '../pages/CategoryManagement';
+import OrganizationServicesOverview from '../pages/OrganizationServicesOverview';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../lib/store/store';
 
@@ -55,13 +57,6 @@ const Doctors = () => (
 );
 
 // Patients component replaced with PatientManagement
-
-const Appointments = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold text-gray-900">Appointments</h1>
-    <p className="text-gray-600">Schedule and manage appointments</p>
-  </div>
-);
 
 // Services component replaced with ServicesManagement
 
@@ -163,7 +158,7 @@ export const router = createBrowserRouter([
       <ProtectedRoute>
         <RoleBasedRoute requiredRoles={['organization_admin', 'branch_admin', 'doctor', 'receptionist', 'patient']}>
           <DashboardWrapper>
-            <Appointments />
+            <AppointmentManagement />
           </DashboardWrapper>
         </RoleBasedRoute>
       </ProtectedRoute>
@@ -188,6 +183,18 @@ export const router = createBrowserRouter([
         <RoleBasedRoute requiredRoles={['organization_admin', 'super_admin']}>
           <DashboardWrapper>
             <CategoryManagement />
+          </DashboardWrapper>
+        </RoleBasedRoute>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/organization-services',
+    element: (
+      <ProtectedRoute>
+        <RoleBasedRoute requiredRoles={['organization_admin']}>
+          <DashboardWrapper>
+            <OrganizationServicesOverview />
           </DashboardWrapper>
         </RoleBasedRoute>
       </ProtectedRoute>

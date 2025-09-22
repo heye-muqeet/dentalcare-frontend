@@ -155,5 +155,6 @@ export const categoryService = {
       console.error('❌ Error restoring category:', error);
       throw error;
     }
-  }
+  },
+
 };

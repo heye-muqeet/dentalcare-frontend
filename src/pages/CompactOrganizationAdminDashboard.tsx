@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../lib/hooks';
+import { useTheme } from '../lib/hooks/useTheme';
 import type { RootState } from '../lib/store/store';
 import { organizationService } from '../lib/api/services/organizations';
 import { 
@@ -37,6 +38,7 @@ interface RecentActivity {
 export default function CompactOrganizationAdminDashboard() {
   const navigate = useNavigate();
   const user = useAppSelector((state: RootState) => state.auth.user);
+  const { theme, classes } = useTheme();
   
   const [stats, setStats] = useState<OrganizationStats>({
     totalBranches: 0,
@@ -175,33 +177,33 @@ export default function CompactOrganizationAdminDashboard() {
 
       {/* Compact Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+        <div className={`${classes.card} p-3`}>
           <div className="flex items-center justify-between mb-1">
-            <FiHome className="w-4 h-4 text-blue-600" />
+            <FiHome className={`w-4 h-4 ${theme.status.info.split(' ')[0]}`} />
             <span className="text-xs text-gray-500">Branches</span>
           </div>
           <p className="text-lg font-bold text-gray-900">{stats.totalBranches}</p>
         </div>
 
-        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+        <div className={`${classes.card} p-3`}>
           <div className="flex items-center justify-between mb-1">
-            <FiUsers className="w-4 h-4 text-green-600" />
+            <FiUsers className={`w-4 h-4 ${theme.status.success.split(' ')[0]}`} />
             <span className="text-xs text-gray-500">Users</span>
           </div>
           <p className="text-lg font-bold text-gray-900">{stats.totalUsers}</p>
         </div>
 
-        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+        <div className={`${classes.card} p-3`}>
           <div className="flex items-center justify-between mb-1">
-            <FiUserCheck className="w-4 h-4 text-purple-600" />
+            <FiUserCheck className={`w-4 h-4 ${theme.status.info.split(' ')[0]}`} />
             <span className="text-xs text-gray-500">Active</span>
           </div>
           <p className="text-lg font-bold text-gray-900">{stats.activeUsers}</p>
         </div>
 
-        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+        <div className={`${classes.card} p-3`}>
           <div className="flex items-center justify-between mb-1">
-            <FiDollarSign className="w-4 h-4 text-yellow-600" />
+            <FiDollarSign className={`w-4 h-4 ${theme.status.warning.split(' ')[0]}`} />
             <span className="text-xs text-gray-500">Revenue</span>
           </div>
           <p className="text-lg font-bold text-gray-900">${(stats.monthlyRevenue / 1000).toFixed(0)}K</p>
@@ -211,7 +213,7 @@ export default function CompactOrganizationAdminDashboard() {
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Staff Breakdown */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className={classes.card}>
           <div className="p-3 border-b border-gray-200">
             <h3 className="text-sm font-semibold text-gray-900">Staff Overview</h3>
           </div>
@@ -247,44 +249,44 @@ export default function CompactOrganizationAdminDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className={classes.card}>
           <div className="p-3 border-b border-gray-200">
             <h3 className="text-sm font-semibold text-gray-900">Quick Actions</h3>
           </div>
           <div className="p-3 space-y-2">
             <button
               onClick={() => navigate('/branches')}
-              className="w-full flex items-center space-x-2 p-2 text-left text-gray-700 hover:bg-gray-50 rounded-lg text-sm"
+              className={`w-full flex items-center space-x-2 p-2 text-left text-gray-700 hover:bg-gray-50 rounded-lg text-sm`}
             >
-              <FiHome className="w-4 h-4 text-blue-600" />
+              <FiHome className={`w-4 h-4 ${theme.status.info.split(' ')[0]}`} />
               <span>Manage Branches</span>
             </button>
             <button
               onClick={() => navigate('/users')}
               className="w-full flex items-center space-x-2 p-2 text-left text-gray-700 hover:bg-gray-50 rounded-lg text-sm"
             >
-              <FiUsers className="w-4 h-4 text-green-600" />
+              <FiUsers className={`w-4 h-4 ${theme.status.success.split(' ')[0]}`} />
               <span>Manage Users</span>
             </button>
             <button
               onClick={() => navigate('/appointments')}
               className="w-full flex items-center space-x-2 p-2 text-left text-gray-700 hover:bg-gray-50 rounded-lg text-sm"
             >
-              <FiCalendar className="w-4 h-4 text-purple-600" />
+              <FiCalendar className={`w-4 h-4 ${theme.status.info.split(' ')[0]}`} />
               <span>View Appointments</span>
             </button>
             <button
               onClick={() => navigate('/reports')}
               className="w-full flex items-center space-x-2 p-2 text-left text-gray-700 hover:bg-gray-50 rounded-lg text-sm"
             >
-              <FiActivity className="w-4 h-4 text-orange-600" />
+              <FiActivity className={`w-4 h-4 ${theme.status.warning.split(' ')[0]}`} />
               <span>Reports</span>
             </button>
           </div>
         </div>
 
         {/* Recent Activity */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className={classes.card}>
           <div className="p-3 border-b border-gray-200">
             <h3 className="text-sm font-semibold text-gray-900">Recent Activity</h3>
           </div>
@@ -309,7 +311,7 @@ export default function CompactOrganizationAdminDashboard() {
 
       {/* Performance Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+        <div className={`${classes.card} p-3`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-600">Monthly Growth</p>
@@ -319,7 +321,7 @@ export default function CompactOrganizationAdminDashboard() {
           </div>
         </div>
 
-        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+        <div className={`${classes.card} p-3`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-600">Active Branches</p>
@@ -329,7 +331,7 @@ export default function CompactOrganizationAdminDashboard() {
           </div>
         </div>
 
-        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+        <div className={`${classes.card} p-3`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-600">User Satisfaction</p>

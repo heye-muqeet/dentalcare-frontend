@@ -144,13 +144,19 @@ export const routePermissions: RoutePermission[] = [
     path: '/services',
     label: 'Services',
     icon: 'treatments',
-    allowedRoles: ['organization_admin', 'branch_admin', 'receptionist']
+    allowedRoles: ['branch_admin', 'receptionist', 'doctor']
   },
   {
     path: '/categories',
     label: 'Categories',
     icon: 'tag',
-    allowedRoles: ['organization_admin', 'super_admin']
+    allowedRoles: ['organization_admin']
+  },
+  {
+    path: '/organization-services',
+    label: 'Service Overview',
+    icon: 'treatments',
+    allowedRoles: ['organization_admin']
   },
   // Financial Management
   {

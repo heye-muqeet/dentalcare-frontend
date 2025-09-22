@@ -98,6 +98,7 @@ export default function CreateCategoryModal({ isOpen, onClose, onSuccess }: Crea
         color: formData.color || undefined,
         icon: formData.icon || undefined
       };
+
       
       console.log('Creating category:', submitData);
       
