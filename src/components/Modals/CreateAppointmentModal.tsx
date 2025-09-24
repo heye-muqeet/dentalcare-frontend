@@ -79,6 +79,10 @@ export default function CreateAppointmentModal({
 }: CreateAppointmentModalProps) {
   const user = useAppSelector((state: RootState) => state.auth.user);
   
+  // Debug doctors data
+  console.log('🔍 CreateAppointmentModal - doctors received:', doctors);
+  console.log('🔍 CreateAppointmentModal - doctors count:', doctors?.length || 0);
+  
   // Form states
   const [patientFormData, setPatientFormData] = useState<PatientFormData>(initialPatientFormData);
   const [appointmentFormData, setAppointmentFormData] = useState<AppointmentFormData>(initialAppointmentFormData);

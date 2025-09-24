@@ -31,6 +31,26 @@ const processQueue = (error: any, token: string | null = null) => {
 // Request interceptor
 api.interceptors.request.use(
   async (config) => {
+    // Skip token refresh for auth endpoints
+    if (config.url?.includes('/auth/')) {
+      return config;
+    }
+
+    // Check if session is expiring soon and refresh proactively
+    if (sessionManager.isSessionExpiringSoon() && sessionManager.hasValidRefreshToken()) {
+      console.log('Session expiring soon - proactively refreshing token');
+      try {
+        const tokenPair = await sessionManager.refreshAccessToken();
+        if (config.headers) {
+          config.headers.Authorization = `Bearer ${tokenPair.accessToken}`;
+        }
+        return config;
+      } catch (error) {
+        console.warn('Proactive token refresh failed:', error);
+        // Continue with current token, let response interceptor handle it
+      }
+    }
+
     // Get the current access token from session manager
     const token = sessionManager.getAccessToken();
     
@@ -56,6 +76,7 @@ api.interceptors.response.use(
       // Don't try to refresh if this is already a refresh token request
       if (originalRequest.url?.includes('/auth/token/refresh')) {
         // Refresh token is invalid/expired, clear session and logout
+        console.log('Refresh token request failed - clearing session');
         await sessionManager.clearSession();
         window.dispatchEvent(new CustomEvent('auth:session-expired', { 
           detail: { reason: 'refresh_token_expired' } 
@@ -63,8 +84,19 @@ api.interceptors.response.use(
         return Promise.reject(error);
       }
 
+      // Check if we have a valid refresh token before attempting refresh
+      if (!sessionManager.hasValidRefreshToken()) {
+        console.log('No refresh token available - clearing session');
+        await sessionManager.clearSession();
+        window.dispatchEvent(new CustomEvent('auth:session-expired', { 
+          detail: { reason: 'no_refresh_token' } 
+        }));
+        return Promise.reject(error);
+      }
+
       if (isRefreshing) {
         // If we're already refreshing, queue this request
+        console.log('Token refresh in progress - queuing request');
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         }).then(token => {
@@ -83,9 +115,11 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
+        console.log('Attempting to refresh access token...');
         // Try to refresh the token
         const tokenPair = await sessionManager.refreshAccessToken();
         
+        console.log('Token refresh successful');
         // Process queued requests with new token
         processQueue(null, tokenPair.accessToken);
         

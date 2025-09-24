@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../api/axios';
+import { validateSession } from '../../utils/sessionValidation';
 
 interface Patient {
   _id: string;
@@ -40,6 +41,9 @@ export const fetchPatients = createAsyncThunk(
   'patients/fetchPatients',
   async (_, { rejectWithValue, getState }) => {
     try {
+      // Validate session before making API call
+      validateSession();
+      
       const state = getState() as any;
       const user = state.auth.user;
       
@@ -64,6 +68,12 @@ export const fetchPatients = createAsyncThunk(
       return response.data.data || response.data; // Handle both response formats
     } catch (error: any) {
       console.error('Error fetching patients:', error);
+      
+      // Handle session expiry specifically
+      if (error.message === 'No active session' || error.response?.status === 401) {
+        return rejectWithValue('Session expired. Please log in again.');
+      }
+      
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch patients');
     }
   }
@@ -111,13 +121,16 @@ export const updatePatient = createAsyncThunk(
       
       // Mock updated patient
       const updatedPatient: Patient = {
-        id,
-        name: patientData.name || 'Updated Patient',
+        _id: id,
+        firstName: patientData.firstName || 'Updated',
+        lastName: patientData.lastName || 'Patient',
         email: patientData.email || 'updated@example.com',
         phone: patientData.phone,
         dateOfBirth: patientData.dateOfBirth,
-        address: patientData.address,
-        medicalHistory: patientData.medicalHistory
+        area: patientData.area,
+        city: patientData.city,
+        medicalHistory: patientData.medicalHistory,
+        isActive: true
       };
       
       return updatedPatient;
@@ -163,7 +176,7 @@ const patientsSlice = createSlice({
       })
       .addCase(updatePatient.fulfilled, (state, action) => {
         state.isUpdating = false;
-        const index = state.patients.findIndex(patient => patient.id === action.payload.id);
+        const index = state.patients.findIndex(patient => patient._id === action.payload._id);
         if (index !== -1) {
           state.patients[index] = action.payload;
         }

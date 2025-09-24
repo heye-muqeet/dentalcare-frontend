@@ -278,6 +278,13 @@ class SessionManager {
   }
 
   /**
+   * Check if refresh token is available and potentially valid
+   */
+  hasValidRefreshToken(): boolean {
+    return this.sessionData !== null && !!this.sessionData.refreshToken;
+  }
+
+  /**
    * Check if session is about to expire
    */
   isSessionExpiringSoon(): boolean {

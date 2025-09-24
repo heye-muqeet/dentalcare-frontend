@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../api/axios';
+import { validateSession } from '../../utils/sessionValidation';
 
 interface Appointment {
   _id: string;
@@ -59,6 +60,9 @@ export const fetchAppointments = createAsyncThunk(
   'appointments/fetchAppointments',
   async (filters: any = {}, { rejectWithValue, getState }) => {
     try {
+      // Validate session before making API call
+      validateSession();
+      
       const state = getState() as any;
       const user = state.auth.user;
       
@@ -73,6 +77,12 @@ export const fetchAppointments = createAsyncThunk(
       return response.data.data || response.data; // Handle both response formats
     } catch (error: any) {
       console.error('Error fetching appointments:', error);
+      
+      // Handle session expiry specifically
+      if (error.message === 'No active session' || error.response?.status === 401) {
+        return rejectWithValue('Session expired. Please log in again.');
+      }
+      
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch appointments');
     }
   }

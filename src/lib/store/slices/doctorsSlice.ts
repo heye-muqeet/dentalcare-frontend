@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../api/axios';
+import { validateSession } from '../../utils/sessionValidation';
 
 interface Doctor {
   _id: string;
@@ -37,6 +38,9 @@ export const fetchDoctors = createAsyncThunk(
   'doctors/fetchDoctors',
   async (_, { rejectWithValue, getState }) => {
     try {
+      // Validate session before making API call
+      validateSession();
+      
       const state = getState() as any;
       const user = state.auth.user;
       
@@ -53,14 +57,22 @@ export const fetchDoctors = createAsyncThunk(
         return rejectWithValue('Invalid branch ID format');
       }
       
-      console.log('Fetching doctors for branch:', branchId);
+      console.log('🔍 Fetching doctors for branch:', branchId);
+      console.log('🔍 User object:', user);
+      console.log('🔍 User branchId:', user.branchId);
       
       const response = await api.get(`/branches/${branchId}/doctors`);
-      console.log('Doctors API response:', response.data);
+      console.log('🔍 Doctors API response:', response.data);
       
       return response.data.data || response.data; // Handle both response formats
     } catch (error: any) {
       console.error('Error fetching doctors:', error);
+      
+      // Handle session expiry specifically
+      if (error.message === 'No active session' || error.response?.status === 401) {
+        return rejectWithValue('Session expired. Please log in again.');
+      }
+      
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch doctors');
     }
   }
@@ -75,12 +87,14 @@ export const createDoctor = createAsyncThunk(
       
       // Mock created doctor
       const newDoctor: Doctor = {
-        id: Date.now().toString(),
-        name: doctorData.name || 'New Doctor',
+        _id: Date.now().toString(),
+        firstName: doctorData.firstName || 'New',
+        lastName: doctorData.lastName || 'Doctor',
         email: doctorData.email || 'new@example.com',
         phone: doctorData.phone,
         specialization: doctorData.specialization,
-        role: 'doctor'
+        role: 'doctor',
+        isActive: true
       };
       
       return newDoctor;
@@ -99,12 +113,14 @@ export const updateDoctor = createAsyncThunk(
       
       // Mock updated doctor
       const updatedDoctor: Doctor = {
-        id,
-        name: doctorData.name || 'Updated Doctor',
+        _id: id,
+        firstName: doctorData.firstName || 'Updated',
+        lastName: doctorData.lastName || 'Doctor',
         email: doctorData.email || 'updated@example.com',
         phone: doctorData.phone,
         specialization: doctorData.specialization,
-        role: 'doctor'
+        role: 'doctor',
+        isActive: true
       };
       
       return updatedDoctor;
@@ -126,10 +142,12 @@ const doctorsSlice = createSlice({
       })
       .addCase(fetchDoctors.fulfilled, (state, action) => {
         state.isLoading = false;
+        console.log('🔍 Doctors fetched successfully:', action.payload);
         state.doctors = action.payload;
       })
       .addCase(fetchDoctors.rejected, (state, action) => {
         state.isLoading = false;
+        console.log('🔍 Doctors fetch rejected:', action.payload);
         state.error = action.payload as string;
       })
       .addCase(createDoctor.pending, (state) => {
@@ -150,7 +168,7 @@ const doctorsSlice = createSlice({
       })
       .addCase(updateDoctor.fulfilled, (state, action) => {
         state.isUpdating = false;
-        const index = state.doctors.findIndex(doctor => doctor.id === action.payload.id);
+        const index = state.doctors.findIndex(doctor => doctor._id === action.payload._id);
         if (index !== -1) {
           state.doctors[index] = action.payload;
         }

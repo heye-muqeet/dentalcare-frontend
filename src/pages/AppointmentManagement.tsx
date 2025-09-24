@@ -98,6 +98,12 @@ export default function AppointmentManagement() {
     dispatch(fetchDoctors());
   }, [dispatch]);
 
+  // Debug doctors data
+  useEffect(() => {
+    console.log('🔍 Doctors data updated:', doctors);
+    console.log('🔍 Doctors count:', doctors?.length || 0);
+  }, [doctors]);
+
   const handleCreateAppointment = async (appointmentData: any) => {
     try {
       console.log('🚀 Starting appointment creation with data:', appointmentData);
@@ -106,7 +112,7 @@ export default function AppointmentManagement() {
       toast.success('Appointment created successfully');
       setIsCreateModalOpen(false);
       // Refresh appointments list
-      dispatch(fetchAppointments());
+      dispatch(fetchAppointments({}));
     } catch (error: any) {
       console.error('❌ Error creating appointment:', error);
       toast.error(error || 'Failed to create appointment');
@@ -120,7 +126,7 @@ export default function AppointmentManagement() {
         toast.success('Appointment updated successfully');
         setIsEditModalOpen(false);
         setSelectedAppointment(null);
-        dispatch(fetchAppointments());
+        dispatch(fetchAppointments({}));
       } catch (error: any) {
         toast.error('Failed to update appointment');
       }
@@ -131,7 +137,7 @@ export default function AppointmentManagement() {
     try {
       await dispatch(cancelAppointment({ id: appointmentId, cancellationReason: reason })).unwrap();
       toast.success('Appointment cancelled successfully');
-      dispatch(fetchAppointments());
+      dispatch(fetchAppointments({}));
     } catch (error: any) {
       toast.error('Failed to cancel appointment');
     }
@@ -144,7 +150,7 @@ export default function AppointmentManagement() {
         appointmentData: { status: newStatus } 
       })).unwrap();
       toast.success(`Appointment status updated to ${newStatus.replace('_', ' ')}`);
-      dispatch(fetchAppointments());
+      dispatch(fetchAppointments({}));
     } catch (error: any) {
       toast.error('Failed to update appointment status');
     }
@@ -248,7 +254,7 @@ export default function AppointmentManagement() {
         </div>
         <div className="flex items-center space-x-3">
           <button 
-            onClick={() => dispatch(fetchAppointments())}
+            onClick={() => dispatch(fetchAppointments({}))}
             className="flex items-center gap-2 px-3 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <RefreshCw className="h-4 w-4" />
