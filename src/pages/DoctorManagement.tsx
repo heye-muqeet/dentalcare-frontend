@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../lib/hooks';
 import type { RootState } from '../lib/store/store';
 import { doctorService, type Doctor } from '../lib/api/services/doctors';
 import CreateDoctorModal from '../components/Modals/CreateDoctorModal';
+import ViewDoctorModal from '../components/Modals/ViewDoctorModal';
 import { toast } from 'sonner';
 import { 
   FiPlus, 
@@ -21,6 +23,7 @@ import {
 } from 'react-icons/fi';
 
 export default function DoctorManagement() {
+  const navigate = useNavigate();
   const user = useAppSelector((state: RootState) => state.auth.user);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,6 +33,9 @@ export default function DoctorManagement() {
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // Check if user is receptionist
+  const isReceptionist = user?.role === 'receptionist';
 
   // Extract branch ID safely
   const branchId = typeof user?.branchId === 'string' 
@@ -161,6 +167,16 @@ export default function DoctorManagement() {
     loadDoctors();
   };
 
+  const handleScheduleAppointment = (doctor: Doctor) => {
+    // Navigate to appointments page with doctor pre-selected
+    navigate('/appointments', { 
+      state: { 
+        selectedDoctor: doctor._id,
+        doctorName: `Dr. ${doctor.firstName} ${doctor.lastName}`
+      } 
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="p-4">
@@ -219,8 +235,15 @@ export default function DoctorManagement() {
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Doctor Management</h1>
-          <p className="text-gray-600 mt-1">Manage doctors in your branch</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {isReceptionist ? 'Doctor Directory' : 'Doctor Management'}
+          </h1>
+          <p className="text-gray-600 mt-1">
+            {isReceptionist 
+              ? 'View and manage doctor information for appointments' 
+              : 'Manage doctors in your branch'
+            }
+          </p>
         </div>
         <div className="flex items-center space-x-3">
           {/* Search */}
@@ -241,14 +264,16 @@ export default function DoctorManagement() {
             <span>Filter</span>
           </button>
           
-          {/* Add Doctor Button */}
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-          >
-            <FiPlus className="w-4 h-4" />
-            <span>Add Doctor</span>
-          </button>
+          {/* Add Doctor Button - Only for non-receptionists */}
+          {!isReceptionist && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              <FiPlus className="w-4 h-4" />
+              <span>Add Doctor</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -258,15 +283,17 @@ export default function DoctorManagement() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
           <FiUserCheck className="w-8 h-8 text-gray-300 mx-auto mb-3" />
           <h3 className="text-base font-medium text-gray-900 mb-2">
-            {searchTerm ? 'No doctors found' : 'No doctors yet'}
+            {searchTerm ? 'No doctors found' : 'No doctors available'}
           </h3>
           <p className="text-sm text-gray-600 mb-3">
             {searchTerm 
               ? 'Try adjusting your search criteria'
-              : 'Get started by adding your first doctor'
+              : isReceptionist 
+                ? 'No doctors are currently available in your branch'
+                : 'Get started by adding your first doctor'
             }
           </p>
-          {!searchTerm && (
+          {!searchTerm && !isReceptionist && (
             <button
               onClick={() => setShowCreateModal(true)}
               className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"
@@ -338,22 +365,45 @@ export default function DoctorManagement() {
 
                   {/* Action Buttons */}
                   <div className="flex flex-col space-y-2 flex-shrink-0 ml-3">
-                    <button
-                      onClick={() => handleViewDoctor(doctor)}
-                      className="flex items-center justify-center space-x-1 px-3 py-1.5 text-xs bg-emerald-600 text-white hover:bg-emerald-700 rounded transition-colors w-full"
-                      title="View Appointments"
-                    >
-                      <span>View Appointments</span>
-                      <FiCalendar className="w-3 h-3" />
-                    </button>
-                    <button
-                      onClick={() => handleEditDoctor(doctor)}
-                      className="flex items-center justify-center space-x-1 px-3 py-1.5 text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 rounded transition-colors w-full"
-                      title="View Doctor Details"
-                    >
-                      <span>View Doctor Details</span>
-                      <FiEye className="w-3 h-3" />
-                    </button>
+                    {isReceptionist ? (
+                      <>
+                        <button
+                          onClick={() => handleViewDoctor(doctor)}
+                          className="flex items-center justify-center space-x-1 px-3 py-1.5 text-xs bg-emerald-600 text-white hover:bg-emerald-700 rounded transition-colors w-full"
+                          title="View Doctor Details"
+                        >
+                          <span>View Details</span>
+                          <FiEye className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => handleScheduleAppointment(doctor)}
+                          className="flex items-center justify-center space-x-1 px-3 py-1.5 text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 rounded transition-colors w-full"
+                          title="Schedule Appointment"
+                        >
+                          <span>Schedule Appointment</span>
+                          <FiCalendar className="w-3 h-3" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleViewDoctor(doctor)}
+                          className="flex items-center justify-center space-x-1 px-3 py-1.5 text-xs bg-emerald-600 text-white hover:bg-emerald-700 rounded transition-colors w-full"
+                          title="View Appointments"
+                        >
+                          <span>View Appointments</span>
+                          <FiCalendar className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => handleEditDoctor(doctor)}
+                          className="flex items-center justify-center space-x-1 px-3 py-1.5 text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 rounded transition-colors w-full"
+                          title="View Doctor Details"
+                        >
+                          <span>View Doctor Details</span>
+                          <FiEye className="w-3 h-3" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -362,15 +412,28 @@ export default function DoctorManagement() {
         </div>
       )}
 
-      {/* Create Doctor Modal */}
-      <CreateDoctorModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSuccess={handleCreateSuccess}
+      {/* View Doctor Modal */}
+      <ViewDoctorModal
+        isOpen={showViewModal}
+        onClose={() => {
+          setShowViewModal(false);
+          setSelectedDoctor(null);
+        }}
+        doctor={selectedDoctor}
+        onEdit={!isReceptionist ? handleEditDoctor : undefined}
       />
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && selectedDoctor && (
+      {/* Create Doctor Modal - Only for non-receptionists */}
+      {!isReceptionist && (
+        <CreateDoctorModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={handleCreateSuccess}
+        />
+      )}
+
+      {/* Delete Confirmation Modal - Only for non-receptionists */}
+      {!isReceptionist && showDeleteModal && selectedDoctor && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Delete Doctor</h3>

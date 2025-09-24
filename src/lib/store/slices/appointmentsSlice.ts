@@ -57,11 +57,22 @@ const initialState: AppointmentsState = {
 // API async thunks
 export const fetchAppointments = createAsyncThunk(
   'appointments/fetchAppointments',
-  async (filters: any = {}, { rejectWithValue }) => {
+  async (filters: any = {}, { rejectWithValue, getState }) => {
     try {
-      const response = await api.get('/appointments', { params: filters });
-      return response.data;
+      const state = getState() as any;
+      const user = state.auth.user;
+      
+      // Add user context to the request
+      const params = {
+        ...filters,
+        branchId: user?.branchId,
+        organizationId: user?.organizationId,
+      };
+      
+      const response = await api.get('/appointments', { params });
+      return response.data.data || response.data; // Handle both response formats
     } catch (error: any) {
+      console.error('Error fetching appointments:', error);
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch appointments');
     }
   }
@@ -71,9 +82,12 @@ export const createAppointment = createAsyncThunk(
   'appointments/createAppointment',
   async (appointmentData: any, { rejectWithValue }) => {
     try {
+      console.log('📡 Sending appointment data to API:', appointmentData);
       const response = await api.post('/appointments', appointmentData);
+      console.log('📡 API response:', response.data);
       return response.data;
     } catch (error: any) {
+      console.error('📡 API error:', error.response?.data || error.message);
       return rejectWithValue(error.response?.data?.message || 'Failed to create appointment');
     }
   }
