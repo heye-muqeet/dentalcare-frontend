@@ -1,13 +1,22 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import api from '../../api/axios';
 
 interface Patient {
-  id: string;
-  name: string;
+  _id: string;
+  firstName: string;
+  lastName: string;
   email: string;
   phone?: string;
   dateOfBirth?: string;
-  address?: string;
-  medicalHistory?: string;
+  area?: string;
+  city?: string;
+  medicalHistory?: {
+    allergies: string[];
+    medications: string[];
+    conditions: string[];
+    previousSurgeries: string[];
+  };
+  isActive: boolean;
 }
 
 interface PatientsState {
@@ -26,64 +35,69 @@ const initialState: PatientsState = {
   isUpdating: false,
 };
 
-// Mock async thunks
+// API async thunks
 export const fetchPatients = createAsyncThunk(
   'patients/fetchPatients',
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, getState }) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const state = getState() as any;
+      const user = state.auth.user;
       
-      // Mock patients data
-      const mockPatients: Patient[] = [
-        {
-          id: '1',
-          name: 'Alice Johnson',
-          email: 'alice@example.com',
-          phone: '+1234567890',
-          dateOfBirth: '1990-01-15',
-          address: '123 Main St, City',
-          medicalHistory: 'No known allergies'
-        },
-        {
-          id: '2',
-          name: 'Bob Wilson',
-          email: 'bob@example.com',
-          phone: '+1234567891',
-          dateOfBirth: '1985-05-20',
-          address: '456 Oak Ave, City',
-          medicalHistory: 'Allergic to penicillin'
-        }
-      ];
+      if (!user?.branchId) {
+        return rejectWithValue('No branch ID available');
+      }
       
-      return mockPatients;
+      // Extract branchId - handle both string and object formats
+      const branchId = typeof user.branchId === 'string' 
+        ? user.branchId 
+        : user.branchId?._id || user.branchId?.id;
+      
+      if (!branchId) {
+        return rejectWithValue('Invalid branch ID format');
+      }
+      
+      console.log('Fetching patients for branch:', branchId);
+      
+      const response = await api.get(`/branches/${branchId}/patients`);
+      console.log('Patients API response:', response.data);
+      
+      return response.data.data || response.data; // Handle both response formats
     } catch (error: any) {
-      return rejectWithValue('Failed to fetch patients');
+      console.error('Error fetching patients:', error);
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch patients');
     }
   }
 );
 
 export const createPatient = createAsyncThunk(
   'patients/createPatient',
-  async (patientData: Partial<Patient>, { rejectWithValue }) => {
+  async (patientData: Partial<Patient>, { rejectWithValue, getState }) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const state = getState() as any;
+      const user = state.auth.user;
       
-      // Mock created patient
-      const newPatient: Patient = {
-        id: Date.now().toString(),
-        name: patientData.name || 'New Patient',
-        email: patientData.email || 'new@example.com',
-        phone: patientData.phone,
-        dateOfBirth: patientData.dateOfBirth,
-        address: patientData.address,
-        medicalHistory: patientData.medicalHistory
-      };
+      if (!user?.branchId) {
+        return rejectWithValue('No branch ID available');
+      }
       
-      return newPatient;
+      // Extract branchId - handle both string and object formats
+      const branchId = typeof user.branchId === 'string' 
+        ? user.branchId 
+        : user.branchId?._id || user.branchId?.id;
+      
+      if (!branchId) {
+        return rejectWithValue('Invalid branch ID format');
+      }
+      
+      console.log('Creating patient for branch:', branchId, 'with data:', patientData);
+      
+      const response = await api.post(`/branches/${branchId}/patients`, patientData);
+      console.log('Create patient API response:', response.data);
+      
+      return response.data.data || response.data;
     } catch (error: any) {
-      return rejectWithValue('Failed to create patient');
+      console.error('Error creating patient:', error);
+      return rejectWithValue(error.response?.data?.message || 'Failed to create patient');
     }
   }
 );

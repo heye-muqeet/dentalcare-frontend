@@ -7,8 +7,31 @@ import { fetchPatients } from '../lib/store/slices/patientsSlice';
 import { fetchDoctors } from '../lib/store/slices/doctorsSlice';
 import CreateAppointmentModal from '../components/Modals/CreateAppointmentModal';
 import EditAppointmentModal from '../components/Modals/EditAppointmentModal';
-import { Calendar, Clock, User, Stethoscope, Plus, Search, Filter, MoreVertical, ChevronDown } from 'lucide-react';
-import { format, parseISO, isToday, isTomorrow, isYesterday } from 'date-fns';
+import { 
+  Calendar, 
+  Clock, 
+  User, 
+  Stethoscope, 
+  Plus, 
+  Search, 
+  Filter, 
+  MoreVertical, 
+  ChevronDown,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Phone,
+  Mail,
+  MapPin,
+  Edit,
+  Trash2,
+  Eye,
+  RefreshCw,
+  CalendarDays,
+  Users,
+  Activity
+} from 'lucide-react';
+import { format, parseISO, isToday, isTomorrow, isYesterday, startOfDay, endOfDay } from 'date-fns';
 import { toast } from 'sonner';
 
 interface Appointment {
@@ -65,7 +88,9 @@ export default function AppointmentManagement() {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [dateFilter, setDateFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<string>('today'); // Default to today for receptionist
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [showQuickActions, setShowQuickActions] = useState(false);
 
   useEffect(() => {
     dispatch(fetchAppointments({}));
@@ -88,16 +113,41 @@ export default function AppointmentManagement() {
     }
   };
 
-  const handleEditAppointment = (appointmentData: any) => {
+  const handleEditAppointment = async (appointmentData: any) => {
     if (selectedAppointment) {
-      dispatch(updateAppointment({ id: selectedAppointment._id, appointmentData }));
-      setIsEditModalOpen(false);
-      setSelectedAppointment(null);
+      try {
+        await dispatch(updateAppointment({ id: selectedAppointment._id, appointmentData })).unwrap();
+        toast.success('Appointment updated successfully');
+        setIsEditModalOpen(false);
+        setSelectedAppointment(null);
+        dispatch(fetchAppointments());
+      } catch (error: any) {
+        toast.error('Failed to update appointment');
+      }
     }
   };
 
-  const handleCancelAppointment = (appointmentId: string, reason: string) => {
-    dispatch(cancelAppointment({ id: appointmentId, cancellationReason: reason }));
+  const handleCancelAppointment = async (appointmentId: string, reason: string) => {
+    try {
+      await dispatch(cancelAppointment({ id: appointmentId, cancellationReason: reason })).unwrap();
+      toast.success('Appointment cancelled successfully');
+      dispatch(fetchAppointments());
+    } catch (error: any) {
+      toast.error('Failed to cancel appointment');
+    }
+  };
+
+  const handleStatusChange = async (appointmentId: string, newStatus: string) => {
+    try {
+      await dispatch(updateAppointment({ 
+        id: appointmentId, 
+        appointmentData: { status: newStatus } 
+      })).unwrap();
+      toast.success(`Appointment status updated to ${newStatus.replace('_', ' ')}`);
+      dispatch(fetchAppointments());
+    } catch (error: any) {
+      toast.error('Failed to update appointment status');
+    }
   };
 
   const handleEditClick = (appointment: Appointment) => {
@@ -144,6 +194,42 @@ export default function AppointmentManagement() {
     return `${startTime} - ${endTime}`;
   };
 
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'scheduled':
+        return <Calendar className="h-4 w-4" />;
+      case 'in_progress':
+        return <Activity className="h-4 w-4" />;
+      case 'completed':
+        return <CheckCircle className="h-4 w-4" />;
+      case 'cancelled':
+        return <XCircle className="h-4 w-4" />;
+      case 'no_show':
+        return <AlertCircle className="h-4 w-4" />;
+      default:
+        return <Calendar className="h-4 w-4" />;
+    }
+  };
+
+  const getQuickStats = () => {
+    const today = new Date();
+    const todayAppointments = appointments.filter(apt => 
+      isToday(new Date(apt.appointmentDate))
+    );
+    
+    return {
+      total: filteredAppointments.length,
+      today: todayAppointments.length,
+      scheduled: todayAppointments.filter(apt => apt.status === 'scheduled').length,
+      inProgress: todayAppointments.filter(apt => apt.status === 'in_progress').length,
+      completed: todayAppointments.filter(apt => apt.status === 'completed').length,
+      cancelled: todayAppointments.filter(apt => apt.status === 'cancelled').length,
+      noShow: todayAppointments.filter(apt => apt.status === 'no_show').length,
+    };
+  };
+
+  const stats = getQuickStats();
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -153,21 +239,115 @@ export default function AppointmentManagement() {
   }
 
   return (
-    <div className="p-4">
+    <div className="p-4 space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Appointment Management</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Receptionist Desk</h1>
           <p className="text-gray-600 mt-1">Manage patient appointments and schedules</p>
         </div>
         <div className="flex items-center space-x-3">
+          <button 
+            onClick={() => dispatch(fetchAppointments())}
+            className="flex items-center gap-2 px-3 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </button>
           <button 
             onClick={() => setIsCreateModalOpen(true)} 
             className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
           >
             <Plus className="h-4 w-4" />
-            Create Appointment
+            New Appointment
           </button>
+        </div>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="flex items-center">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Calendar className="h-5 w-5 text-blue-600" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-500">Total Today</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.today}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="flex items-center">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Calendar className="h-5 w-5 text-blue-600" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-500">Scheduled</p>
+              <p className="text-2xl font-bold text-blue-600">{stats.scheduled}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="flex items-center">
+            <div className="p-2 bg-yellow-100 rounded-lg">
+              <Activity className="h-5 w-5 text-yellow-600" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-500">In Progress</p>
+              <p className="text-2xl font-bold text-yellow-600">{stats.inProgress}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="flex items-center">
+            <div className="p-2 bg-green-100 rounded-lg">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-500">Completed</p>
+              <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="flex items-center">
+            <div className="p-2 bg-red-100 rounded-lg">
+              <XCircle className="h-5 w-5 text-red-600" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-500">Cancelled</p>
+              <p className="text-2xl font-bold text-red-600">{stats.cancelled}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="flex items-center">
+            <div className="p-2 bg-gray-100 rounded-lg">
+              <AlertCircle className="h-5 w-5 text-gray-600" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-500">No Show</p>
+              <p className="text-2xl font-bold text-gray-600">{stats.noShow}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="flex items-center">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <Users className="h-5 w-5 text-purple-600" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-500">Total</p>
+              <p className="text-2xl font-bold text-purple-600">{stats.total}</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -188,17 +368,33 @@ export default function AppointmentManagement() {
       )}
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <Filter className="h-5 w-5 mr-2 text-emerald-600" />
-            Filters
+            Filters & Search
           </h3>
-          <div className="text-sm text-gray-500">
-            {filteredAppointments.length} appointment(s) found
+          <div className="flex items-center space-x-2">
+            <div className="text-sm text-gray-500">
+              {filteredAppointments.length} appointment(s) found
+            </div>
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-lg ${viewMode === 'list' ? 'bg-emerald-100 text-emerald-600' : 'text-gray-400 hover:text-gray-600'}`}
+              >
+                <Calendar className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-emerald-100 text-emerald-600' : 'text-gray-400 hover:text-gray-600'}`}
+              >
+                <CalendarDays className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <input
@@ -232,16 +428,63 @@ export default function AppointmentManagement() {
               onChange={(e) => setDateFilter(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent appearance-none bg-white"
             >
-              <option value="all">All Dates</option>
               <option value="today">Today</option>
               <option value="tomorrow">Tomorrow</option>
               <option value="yesterday">Yesterday</option>
               <option value="thisWeek">This Week</option>
+              <option value="all">All Dates</option>
             </select>
             <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 pointer-events-none" />
           </div>
+          
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setShowQuickActions(!showQuickActions)}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              <Activity className="h-4 w-4" />
+              Quick Actions
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Quick Actions Panel */}
+      {showQuickActions && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex items-center gap-3 p-4 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors"
+            >
+              <Plus className="h-5 w-5 text-emerald-600" />
+              <span className="font-medium text-emerald-900">New Appointment</span>
+            </button>
+            <button
+              onClick={() => setDateFilter('today')}
+              className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+            >
+              <Calendar className="h-5 w-5 text-blue-600" />
+              <span className="font-medium text-blue-900">Today's Schedule</span>
+            </button>
+            <button
+              onClick={() => setStatusFilter('scheduled')}
+              className="flex items-center gap-3 p-4 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors"
+            >
+              <Clock className="h-5 w-5 text-yellow-600" />
+              <span className="font-medium text-yellow-900">Pending Appointments</span>
+            </button>
+            <button
+              onClick={() => setStatusFilter('in_progress')}
+              className="flex items-center gap-3 p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors"
+            >
+              <Activity className="h-5 w-5 text-orange-600" />
+              <span className="font-medium text-orange-900">In Progress</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Appointments List */}
       <div className="space-y-2">
@@ -275,7 +518,8 @@ export default function AppointmentManagement() {
                           {appointment.patientId.firstName} {appointment.patientId.lastName}
                         </span>
                       </div>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[appointment.status]}`}>
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1 ${statusColors[appointment.status]}`}>
+                        {getStatusIcon(appointment.status)}
                         {appointment.status.replace('_', ' ').toUpperCase()}
                       </span>
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${visitTypeColors[appointment.visitType]}`}>
@@ -309,6 +553,18 @@ export default function AppointmentManagement() {
                       </div>
                     </div>
 
+                    {/* Patient Contact Info */}
+                    <div className="mt-3 flex items-center gap-4 text-sm text-gray-500">
+                      <div className="flex items-center gap-1">
+                        <Phone className="h-3 w-3" />
+                        <span>{appointment.patientId.phone}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Mail className="h-3 w-3" />
+                        <span>{appointment.patientId.email}</span>
+                      </div>
+                    </div>
+
                     {appointment.notes && (
                       <div className="mt-3 p-3 bg-gray-50 rounded-md">
                         <p className="text-sm text-gray-700">
@@ -319,6 +575,25 @@ export default function AppointmentManagement() {
                   </div>
 
                   <div className="flex flex-col space-y-2 flex-shrink-0 ml-3">
+                    {/* Status Change Buttons */}
+                    {appointment.status === 'scheduled' && (
+                      <button
+                        onClick={() => handleStatusChange(appointment._id, 'in_progress')}
+                        className="px-3 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full hover:bg-yellow-200 transition-colors"
+                      >
+                        Start
+                      </button>
+                    )}
+                    {appointment.status === 'in_progress' && (
+                      <button
+                        onClick={() => handleStatusChange(appointment._id, 'completed')}
+                        className="px-3 py-1 text-xs bg-green-100 text-green-800 rounded-full hover:bg-green-200 transition-colors"
+                      >
+                        Complete
+                      </button>
+                    )}
+                    
+                    {/* Action Menu */}
                     <div className="relative">
                       <button className="h-8 w-8 p-0 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded">
                         <MoreVertical className="h-4 w-4" />
@@ -338,16 +613,16 @@ export default function AppointmentManagement() {
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleCreateAppointment}
         patients={patients.map(p => ({
-          _id: p.id,
-          firstName: p.name.split(' ')[0] || '',
-          lastName: p.name.split(' ').slice(1).join(' ') || '',
+          _id: p._id,
+          firstName: p.firstName,
+          lastName: p.lastName,
           email: p.email,
           phone: p.phone || '',
         }))}
         doctors={doctors.map(d => ({
-          _id: d.id,
-          firstName: d.name.split(' ')[0] || '',
-          lastName: d.name.split(' ').slice(1).join(' ') || '',
+          _id: d._id,
+          firstName: d.firstName,
+          lastName: d.lastName,
           specialization: d.specialization || '',
         }))}
       />
@@ -362,16 +637,16 @@ export default function AppointmentManagement() {
           onSuccess={handleEditAppointment}
           appointment={selectedAppointment}
           patients={patients.map(p => ({
-            _id: p.id,
-            firstName: p.name.split(' ')[0] || '',
-            lastName: p.name.split(' ').slice(1).join(' ') || '',
+            _id: p._id,
+            firstName: p.firstName,
+            lastName: p.lastName,
             email: p.email,
             phone: p.phone || '',
           }))}
           doctors={doctors.map(d => ({
-            _id: d.id,
-            firstName: d.name.split(' ')[0] || '',
-            lastName: d.name.split(' ').slice(1).join(' ') || '',
+            _id: d._id,
+            firstName: d.firstName,
+            lastName: d.lastName,
             specialization: d.specialization || '',
           }))}
         />

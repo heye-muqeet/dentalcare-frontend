@@ -1,12 +1,15 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import api from '../../api/axios';
 
 interface Doctor {
-  id: string;
-  name: string;
+  _id: string;
+  firstName: string;
+  lastName: string;
   email: string;
   phone?: string;
   specialization?: string;
   role: string;
+  isActive: boolean;
 }
 
 interface DoctorsState {
@@ -29,37 +32,36 @@ const initialState: DoctorsState = {
   updateError: null,
 };
 
-// Mock async thunks
+// API async thunks
 export const fetchDoctors = createAsyncThunk(
   'doctors/fetchDoctors',
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, getState }) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const state = getState() as any;
+      const user = state.auth.user;
       
-      // Mock doctors data
-      const mockDoctors: Doctor[] = [
-        {
-          id: '1',
-          name: 'Dr. John Smith',
-          email: 'john.smith@example.com',
-          phone: '+1234567890',
-          specialization: 'General Dentistry',
-          role: 'doctor'
-        },
-        {
-          id: '2',
-          name: 'Dr. Jane Doe',
-          email: 'jane.doe@example.com',
-          phone: '+1234567891',
-          specialization: 'Orthodontics',
-          role: 'doctor'
-        }
-      ];
+      if (!user?.branchId) {
+        return rejectWithValue('No branch ID available');
+      }
       
-      return mockDoctors;
+      // Extract branchId - handle both string and object formats
+      const branchId = typeof user.branchId === 'string' 
+        ? user.branchId 
+        : user.branchId?._id || user.branchId?.id;
+      
+      if (!branchId) {
+        return rejectWithValue('Invalid branch ID format');
+      }
+      
+      console.log('Fetching doctors for branch:', branchId);
+      
+      const response = await api.get(`/branches/${branchId}/doctors`);
+      console.log('Doctors API response:', response.data);
+      
+      return response.data.data || response.data; // Handle both response formats
     } catch (error: any) {
-      return rejectWithValue('Failed to fetch doctors');
+      console.error('Error fetching doctors:', error);
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch doctors');
     }
   }
 );
