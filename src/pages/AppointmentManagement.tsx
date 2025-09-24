@@ -5,6 +5,7 @@ import { RootState } from '../lib/store/store';
 import { fetchAppointments, createAppointment, updateAppointment, cancelAppointment, clearAppointmentErrors } from '../lib/store/slices/appointmentsSlice';
 import { fetchPatients } from '../lib/store/slices/patientsSlice';
 import { fetchDoctors } from '../lib/store/slices/doctorsSlice';
+import { refreshReceptionistData } from '../lib/store/slices/receptionistDataSlice';
 import CreateAppointmentModal from '../components/Modals/CreateAppointmentModal';
 import EditAppointmentModal from '../components/Modals/EditAppointmentModal';
 import { 
@@ -34,16 +35,25 @@ import {
 import { format, parseISO, isToday, isTomorrow, isYesterday, startOfDay, endOfDay } from 'date-fns';
 import { toast } from 'sonner';
 
+// Type guards for appointment data
+const isPatientObject = (patientId: string | { _id: string; firstName: string; lastName: string; email: string; phone: string }): patientId is { _id: string; firstName: string; lastName: string; email: string; phone: string } => {
+  return typeof patientId === 'object' && patientId !== null;
+};
+
+const isDoctorObject = (doctorId: string | { _id: string; firstName: string; lastName: string; specialization: string } | undefined): doctorId is { _id: string; firstName: string; lastName: string; specialization: string } => {
+  return typeof doctorId === 'object' && doctorId !== null;
+};
+
 interface Appointment {
   _id: string;
-  patientId: {
+  patientId: string | {
     _id: string;
     firstName: string;
     lastName: string;
     email: string;
     phone: string;
   };
-  doctorId?: {
+  doctorId?: string | {
     _id: string;
     firstName: string;
     lastName: string;
@@ -80,8 +90,19 @@ export default function AppointmentManagement() {
   const dispatch = useDispatch<AppDispatch>();
   const { appointments, isLoading, error } = useSelector((state: RootState) => state.appointments);
   const { patients } = useSelector((state: RootState) => state.patients);
-  const { doctors } = useSelector((state: RootState) => state.doctors);
+  const { doctors, isLoading: doctorsLoading, error: doctorsError } = useSelector((state: RootState) => state.doctors);
   const { user } = useSelector((state: RootState) => state.auth);
+  
+  // Use pre-loaded receptionist data
+  const { 
+    receptionist, 
+    branch, 
+    doctors: receptionistDoctors, 
+    patients: receptionistPatients, 
+    appointments: receptionistAppointments,
+    isInitializing,
+    initializationError 
+  } = useSelector((state: RootState) => state.receptionistData);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -92,17 +113,29 @@ export default function AppointmentManagement() {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [showQuickActions, setShowQuickActions] = useState(false);
 
+  // Use pre-loaded receptionist data instead of fetching on mount
   useEffect(() => {
+    // Only fetch if receptionist data is not available
+    if (!receptionistDoctors.length && !isInitializing && !initializationError) {
+      console.log('🔄 Receptionist data not available, fetching...');
     dispatch(fetchAppointments({}));
     dispatch(fetchPatients());
     dispatch(fetchDoctors());
-  }, [dispatch]);
+    }
+  }, [dispatch, receptionistDoctors.length, isInitializing, initializationError]);
 
-  // Debug doctors data
+  // Debug receptionist data
   useEffect(() => {
-    console.log('🔍 Doctors data updated:', doctors);
-    console.log('🔍 Doctors count:', doctors?.length || 0);
-  }, [doctors]);
+    console.log('🔍 Receptionist data:', {
+      receptionist,
+      branch,
+      doctorsCount: receptionistDoctors?.length || 0,
+      patientsCount: receptionistPatients?.length || 0,
+      appointmentsCount: receptionistAppointments?.length || 0,
+      isInitializing,
+      initializationError
+    });
+  }, [receptionist, branch, receptionistDoctors, receptionistPatients, receptionistAppointments, isInitializing, initializationError]);
 
   const handleCreateAppointment = async (appointmentData: any) => {
     try {
@@ -124,8 +157,8 @@ export default function AppointmentManagement() {
       try {
         await dispatch(updateAppointment({ id: selectedAppointment._id, appointmentData })).unwrap();
         toast.success('Appointment updated successfully');
-        setIsEditModalOpen(false);
-        setSelectedAppointment(null);
+      setIsEditModalOpen(false);
+      setSelectedAppointment(null);
         dispatch(fetchAppointments({}));
       } catch (error: any) {
         toast.error('Failed to update appointment');
@@ -161,11 +194,18 @@ export default function AppointmentManagement() {
     setIsEditModalOpen(true);
   };
 
-  const filteredAppointments = appointments.filter((appointment) => {
+  // Use pre-loaded data or fallback to old data
+  const currentAppointments = receptionistAppointments.length > 0 ? receptionistAppointments : appointments;
+  const currentDoctors = receptionistDoctors.length > 0 ? receptionistDoctors : doctors;
+  const currentPatients = receptionistPatients.length > 0 ? receptionistPatients : patients;
+
+  const filteredAppointments = currentAppointments.filter((appointment) => {
     const matchesSearch = 
-      appointment.patientId.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      appointment.patientId.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      appointment.patientId.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (isPatientObject(appointment.patientId) && (
+        appointment.patientId.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        appointment.patientId.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        appointment.patientId.email.toLowerCase().includes(searchTerm.toLowerCase())
+      )) ||
       appointment.reasonForVisit.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || appointment.status === statusFilter;
@@ -245,113 +285,123 @@ export default function AppointmentManagement() {
   }
 
   return (
-    <div className="p-4 space-y-6">
+    <div className="p-4 space-y-4">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Receptionist Desk</h1>
-          <p className="text-gray-600 mt-1">Manage patient appointments and schedules</p>
+          <h1 className="text-xl font-bold text-gray-900">Receptionist Desk</h1>
+          <p className="text-sm text-gray-600">Manage appointments and schedules</p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2">
           <button 
-            onClick={() => dispatch(fetchAppointments({}))}
-            className="flex items-center gap-2 px-3 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            onClick={() => {
+              if (receptionistDoctors.length > 0) {
+                // Refresh receptionist data
+                dispatch(refreshReceptionistData('all'));
+              } else {
+                // Fallback to old method
+                dispatch(fetchAppointments({}));
+                dispatch(fetchPatients());
+                dispatch(fetchDoctors());
+              }
+            }}
+            className="flex items-center gap-1 px-2 py-1.5 text-sm text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className="h-3 w-3" />
             Refresh
           </button>
           <button 
             onClick={() => setIsCreateModalOpen(true)} 
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-3 w-3" />
             New Appointment
           </button>
         </div>
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
           <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Calendar className="h-5 w-5 text-blue-600" />
+            <div className="p-1.5 bg-blue-100 rounded-lg">
+              <Calendar className="h-4 w-4 text-blue-600" />
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Total Today</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.today}</p>
+            <div className="ml-2">
+              <p className="text-xs font-medium text-gray-500">Total Today</p>
+              <p className="text-lg font-bold text-gray-900">{stats.today}</p>
             </div>
           </div>
         </div>
         
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
           <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Calendar className="h-5 w-5 text-blue-600" />
+            <div className="p-1.5 bg-blue-100 rounded-lg">
+              <Calendar className="h-4 w-4 text-blue-600" />
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Scheduled</p>
-              <p className="text-2xl font-bold text-blue-600">{stats.scheduled}</p>
+            <div className="ml-2">
+              <p className="text-xs font-medium text-gray-500">Scheduled</p>
+              <p className="text-lg font-bold text-blue-600">{stats.scheduled}</p>
             </div>
           </div>
         </div>
         
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
           <div className="flex items-center">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <Activity className="h-5 w-5 text-yellow-600" />
+            <div className="p-1.5 bg-yellow-100 rounded-lg">
+              <Activity className="h-4 w-4 text-yellow-600" />
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">In Progress</p>
-              <p className="text-2xl font-bold text-yellow-600">{stats.inProgress}</p>
+            <div className="ml-2">
+              <p className="text-xs font-medium text-gray-500">In Progress</p>
+              <p className="text-lg font-bold text-yellow-600">{stats.inProgress}</p>
             </div>
           </div>
         </div>
         
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
           <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <CheckCircle className="h-5 w-5 text-green-600" />
+            <div className="p-1.5 bg-green-100 rounded-lg">
+              <CheckCircle className="h-4 w-4 text-green-600" />
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Completed</p>
-              <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
+            <div className="ml-2">
+              <p className="text-xs font-medium text-gray-500">Completed</p>
+              <p className="text-lg font-bold text-green-600">{stats.completed}</p>
             </div>
           </div>
         </div>
         
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
           <div className="flex items-center">
-            <div className="p-2 bg-red-100 rounded-lg">
-              <XCircle className="h-5 w-5 text-red-600" />
+            <div className="p-1.5 bg-red-100 rounded-lg">
+              <XCircle className="h-4 w-4 text-red-600" />
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Cancelled</p>
-              <p className="text-2xl font-bold text-red-600">{stats.cancelled}</p>
+            <div className="ml-2">
+              <p className="text-xs font-medium text-gray-500">Cancelled</p>
+              <p className="text-lg font-bold text-red-600">{stats.cancelled}</p>
             </div>
           </div>
         </div>
         
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
           <div className="flex items-center">
-            <div className="p-2 bg-gray-100 rounded-lg">
-              <AlertCircle className="h-5 w-5 text-gray-600" />
+            <div className="p-1.5 bg-gray-100 rounded-lg">
+              <AlertCircle className="h-4 w-4 text-gray-600" />
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">No Show</p>
-              <p className="text-2xl font-bold text-gray-600">{stats.noShow}</p>
+            <div className="ml-2">
+              <p className="text-xs font-medium text-gray-500">No Show</p>
+              <p className="text-lg font-bold text-gray-600">{stats.noShow}</p>
             </div>
           </div>
         </div>
         
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
           <div className="flex items-center">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Users className="h-5 w-5 text-purple-600" />
+            <div className="p-1.5 bg-purple-100 rounded-lg">
+              <Users className="h-4 w-4 text-purple-600" />
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Total</p>
-              <p className="text-2xl font-bold text-purple-600">{stats.total}</p>
+            <div className="ml-2">
+              <p className="text-xs font-medium text-gray-500">Total</p>
+              <p className="text-lg font-bold text-purple-600">{stats.total}</p>
             </div>
           </div>
         </div>
@@ -381,8 +431,8 @@ export default function AppointmentManagement() {
             Filters & Search
           </h3>
           <div className="flex items-center space-x-2">
-            <div className="text-sm text-gray-500">
-              {filteredAppointments.length} appointment(s) found
+          <div className="text-sm text-gray-500">
+            {filteredAppointments.length} appointment(s) found
             </div>
             <div className="flex items-center space-x-1">
               <button
@@ -521,7 +571,7 @@ export default function AppointmentManagement() {
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-gray-500" />
                         <span className="font-semibold text-gray-900">
-                          {appointment.patientId.firstName} {appointment.patientId.lastName}
+                          {isPatientObject(appointment.patientId) ? `${appointment.patientId.firstName} ${appointment.patientId.lastName}` : 'Unknown Patient'}
                         </span>
                       </div>
                       <span className={`px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1 ${statusColors[appointment.status]}`}>
@@ -549,7 +599,7 @@ export default function AppointmentManagement() {
                         <div className="flex items-center gap-2">
                           <Stethoscope className="h-4 w-4 text-gray-400" />
                           <span className="font-medium">
-                            Dr. {appointment.doctorId.firstName} {appointment.doctorId.lastName}
+                            {isDoctorObject(appointment.doctorId) ? `Dr. ${appointment.doctorId.firstName} ${appointment.doctorId.lastName}` : 'No Doctor Assigned'}
                           </span>
                         </div>
                       )}
@@ -563,11 +613,11 @@ export default function AppointmentManagement() {
                     <div className="mt-3 flex items-center gap-4 text-sm text-gray-500">
                       <div className="flex items-center gap-1">
                         <Phone className="h-3 w-3" />
-                        <span>{appointment.patientId.phone}</span>
+                        <span>{isPatientObject(appointment.patientId) ? appointment.patientId.phone : 'N/A'}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Mail className="h-3 w-3" />
-                        <span>{appointment.patientId.email}</span>
+                        <span>{isPatientObject(appointment.patientId) ? appointment.patientId.email : 'N/A'}</span>
                       </div>
                     </div>
 
@@ -618,14 +668,14 @@ export default function AppointmentManagement() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleCreateAppointment}
-        patients={patients.map(p => ({
+        patients={currentPatients.map(p => ({
           _id: p._id,
           firstName: p.firstName,
           lastName: p.lastName,
           email: p.email,
           phone: p.phone || '',
         }))}
-        doctors={doctors.map(d => ({
+        doctors={currentDoctors.map(d => ({
           _id: d._id,
           firstName: d.firstName,
           lastName: d.lastName,
@@ -641,15 +691,45 @@ export default function AppointmentManagement() {
             setSelectedAppointment(null);
           }}
           onSuccess={handleEditAppointment}
-          appointment={selectedAppointment}
-          patients={patients.map(p => ({
+          appointment={{
+            ...selectedAppointment,
+            patientId: isPatientObject(selectedAppointment.patientId) 
+              ? selectedAppointment.patientId 
+              : (() => {
+                  const patient = currentPatients.find(p => p._id === selectedAppointment.patientId);
+                  return patient ? {
+                    _id: patient._id,
+                    firstName: patient.firstName,
+                    lastName: patient.lastName,
+                    email: patient.email,
+                    phone: patient.phone || 'N/A'
+                  } : {
+                    _id: selectedAppointment.patientId as string,
+                    firstName: 'Unknown',
+                    lastName: 'Patient',
+                    email: 'N/A',
+                    phone: 'N/A'
+                  };
+                })(),
+            doctorId: selectedAppointment.doctorId 
+              ? (isDoctorObject(selectedAppointment.doctorId) 
+                  ? selectedAppointment.doctorId 
+                  : currentDoctors.find(d => d._id === selectedAppointment.doctorId) ? {
+                      _id: selectedAppointment.doctorId as string,
+                      firstName: currentDoctors.find(d => d._id === selectedAppointment.doctorId)?.firstName || 'Unknown',
+                      lastName: currentDoctors.find(d => d._id === selectedAppointment.doctorId)?.lastName || 'Doctor',
+                      specialization: currentDoctors.find(d => d._id === selectedAppointment.doctorId)?.specialization || 'General'
+                    } : undefined)
+              : undefined
+          }}
+          patients={currentPatients.map(p => ({
             _id: p._id,
             firstName: p.firstName,
             lastName: p.lastName,
             email: p.email,
             phone: p.phone || '',
           }))}
-          doctors={doctors.map(d => ({
+          doctors={currentDoctors.map(d => ({
             _id: d._id,
             firstName: d.firstName,
             lastName: d.lastName,

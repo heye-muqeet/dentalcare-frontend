@@ -291,33 +291,34 @@ export default function CreateAppointmentModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-xl">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[95vh] overflow-hidden shadow-xl flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-emerald-600 to-green-600 text-white p-6">
+        <div className="bg-gradient-to-r from-emerald-600 to-green-600 text-white px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-white/20 rounded-lg">
-                <Calendar className="h-5 w-5" />
+            <div className="flex items-center space-x-2">
+              <div className="p-1.5 bg-white/20 rounded-md">
+                <Calendar className="h-4 w-4" />
               </div>
               <div>
-                <h2 className="text-lg font-bold">Create New Appointment</h2>
-                <p className="text-white/80 text-sm">Schedule a patient appointment</p>
+                <h2 className="text-base font-bold">Create New Appointment</h2>
+                <p className="text-white/80 text-xs">Schedule a patient appointment</p>
               </div>
             </div>
             <button
               onClick={handleClose}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              className="p-1.5 hover:bg-white/20 rounded-md transition-colors"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 max-h-[calc(90vh-120px)] overflow-y-auto">
+        <div className="flex-1 overflow-y-auto">
+          <form onSubmit={handleSubmit} className="p-4">
           {/* Patient Selection Tabs */}
-          <div className="mb-6">
-            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-4">
+          <div className="mb-4">
+            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-3">
               <button
                 type="button"
                 onClick={() => setActiveTab('existing')}
@@ -392,7 +393,7 @@ export default function CreateAppointmentModal({
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
                   <input
@@ -481,13 +482,13 @@ export default function CreateAppointmentModal({
           </div>
 
           {/* Appointment Details */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-              <Calendar className="h-5 w-5 mr-2 text-emerald-600" />
+          <div className="space-y-3">
+            <h3 className="text-base font-semibold text-gray-900 flex items-center">
+              <Calendar className="h-4 w-4 mr-2 text-emerald-600" />
               Appointment Details
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {/* Doctor Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -638,15 +639,16 @@ export default function CreateAppointmentModal({
               />
             </div>
           </div>
-        </form>
+          </form>
+        </div>
 
         {/* Footer */}
-        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
-          <div className="flex justify-end space-x-3">
+        <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex-shrink-0">
+          <div className="flex justify-end space-x-2">
             <button
               type="button"
               onClick={handleClose}
-              className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
             >
               Cancel
             </button>
@@ -654,16 +656,16 @@ export default function CreateAppointmentModal({
               type="submit"
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-3 py-2 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
             >
               {isSubmitting ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
                   Creating...
                 </>
               ) : (
                 <>
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-3 w-3" />
                   Create Appointment
                 </>
               )}

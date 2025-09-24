@@ -6,6 +6,7 @@ import CompactSuperAdminDashboard from './CompactSuperAdminDashboard';
 import CompactOrganizationAdminDashboard from './CompactOrganizationAdminDashboard';
 import CompactBranchAdminDashboard from './CompactBranchAdminDashboard';
 import DoctorDashboard from './DoctorDashboard';
+import ReceptionistDashboard from './ReceptionistDashboard';
 import { 
   FiCalendar, 
   FiUsers, 
@@ -40,6 +41,10 @@ export default function Dashboard() {
   
   if (user?.role === 'doctor') {
     return <DoctorDashboard />;
+  }
+  
+  if (user?.role === 'receptionist') {
+    return <ReceptionistDashboard />;
   }
   
   // Dashboard state

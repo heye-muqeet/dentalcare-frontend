@@ -3,6 +3,7 @@ import { authService } from '../../api/services/auth';
 import type { LoginCredentials } from '../../api/services/auth';
 import type { User } from '../../api/services/auth';
 import sessionManager, { type SessionData } from '../../services/sessionManager';
+import { initializeReceptionistData } from './receptionistDataSlice';
 // import { updateProfile } from './profileSlice';
 
 interface AuthState {
@@ -25,7 +26,7 @@ const initialState: AuthState = {
 
 export const login = createAsyncThunk(
   'auth/login',
-  async (credentials: LoginCredentials, { rejectWithValue }) => {
+  async (credentials: LoginCredentials, { rejectWithValue, dispatch }) => {
     try {
       const response = await authService.login(credentials);
       console.log('Login response:', response);
@@ -45,7 +46,15 @@ export const login = createAsyncThunk(
         );
       }
       
-      return response.user || response.data;
+      const user = response.user || response.data;
+      
+      // Initialize receptionist data if user is a receptionist
+      if (user && user.role === 'receptionist') {
+        console.log('🚀 Receptionist logged in, initializing data...');
+        dispatch(initializeReceptionistData());
+      }
+      
+      return user;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.error?.message || error.response?.data?.message || 'Login failed');
     }
@@ -54,11 +63,19 @@ export const login = createAsyncThunk(
 
 export const initializeAuth = createAsyncThunk(
   'auth/initialize',
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, dispatch }) => {
     try {
       const session = sessionManager.getSession();
       if (session && sessionManager.isSessionActive()) {
-        return session.user;
+        const user = session.user;
+        
+        // Initialize receptionist data if user is a receptionist
+        if (user && user.role === 'receptionist') {
+          console.log('🚀 Receptionist session found, initializing data...');
+          dispatch(initializeReceptionistData());
+        }
+        
+        return user;
       }
       return null;
     } catch (error: any) {
