@@ -1,12 +1,15 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
 import api from '../../api/axios';
 import { validateSession } from '../../utils/sessionValidation';
+import { showErrorToast, showWarningToast } from '../../utils/errorHandler';
+import sessionManager from '../../services/sessionManager';
 
 // Interfaces for receptionist data
 interface ReceptionistData {
   _id: string;
-  firstName: string;
-  lastName: string;
+  name: string; // Updated to match backend schema
+  firstName?: string; // For backward compatibility
+  lastName?: string; // For backward compatibility
   email: string;
   phone?: string;
   branchId: string;
@@ -51,8 +54,7 @@ interface DoctorData {
 
 interface PatientData {
   _id: string;
-  firstName: string;
-  lastName: string;
+  name: string;
   email: string;
   phone?: string;
   dateOfBirth?: string;
@@ -132,15 +134,33 @@ export const initializeReceptionistData = createAsyncThunk(
     try {
       console.log('🚀 Initializing receptionist data...');
       
-      // Validate session before making API calls
-      validateSession();
-      
       const state = getState() as any;
       const user = state.auth.user;
       
-      if (!user?.branchId || !user?.organizationId) {
-        return rejectWithValue('User missing branch or organization data');
+      console.log('🔍 User data for receptionist initialization:', {
+        user: user,
+        hasBranchId: !!user?.branchId,
+        hasOrganizationId: !!user?.organizationId,
+        branchIdType: typeof user?.branchId,
+        organizationIdType: typeof user?.organizationId,
+        branchIdValue: user?.branchId,
+        organizationIdValue: user?.organizationId
+      });
+      
+      // Check if user exists first
+      if (!user) {
+        console.error('❌ User is null, cannot initialize receptionist data');
+        return rejectWithValue('User not found in auth state');
       }
+      
+      // Check if user has required role
+      if (user.role !== 'receptionist') {
+        console.error('❌ User is not a receptionist, cannot initialize receptionist data');
+        return rejectWithValue('User is not a receptionist');
+      }
+
+      // Validate session after confirming user exists
+      validateSession();
       
       // Extract IDs - handle both string and object formats
       const branchId = typeof user.branchId === 'string' 
@@ -152,43 +172,99 @@ export const initializeReceptionistData = createAsyncThunk(
         : user.organizationId?._id || user.organizationId?.id;
       
       if (!branchId || !organizationId) {
-        return rejectWithValue('Invalid branch or organization ID format');
+        console.error('❌ User data missing required IDs:', {
+          user: user,
+          branchId: branchId,
+          organizationId: organizationId,
+          branchIdType: typeof user.branchId,
+          organizationIdType: typeof user.organizationId,
+          allUserKeys: Object.keys(user || {}),
+          userStringified: JSON.stringify(user, null, 2)
+        });
+        
+        // For now, let's just return a more informative error
+        // The user might need to log out and log back in to get proper data
+        return rejectWithValue(`User data incomplete. Missing ${!branchId ? 'branchId' : ''} ${!organizationId ? 'organizationId' : ''}. Please log out and log back in.`);
       }
       
       console.log('🔍 Fetching data for branch:', branchId, 'organization:', organizationId);
       
-      // Fetch all data in parallel
-      const [
-        branchResponse,
-        doctorsResponse,
-        patientsResponse,
-        appointmentsResponse
-      ] = await Promise.all([
-        // Fetch branch data
-        api.get(`/branches/${branchId}`),
-        
-        // Fetch doctors for the branch
-        api.get(`/branches/${branchId}/doctors`),
-        
-        // Fetch patients for the branch
-        api.get(`/branches/${branchId}/patients`),
-        
-        // Fetch appointments for the branch
-        api.get('/appointments', {
+      // Fetch all data in parallel with individual error handling
+      let branchResponse, doctorsResponse, patientsResponse, appointmentsResponse;
+      
+      try {
+        console.log('🔍 Fetching branch data...');
+        branchResponse = await api.get(`/branches/${branchId}`);
+        console.log('✅ Branch data fetched successfully');
+      } catch (error: any) {
+        console.error('❌ Failed to fetch branch data:', error);
+        throw new Error(`Failed to fetch branch data: ${error.response?.data?.message || error.message}`);
+      }
+      
+      try {
+        console.log('🔍 Fetching doctors data...');
+        doctorsResponse = await api.get(`/branches/${branchId}/doctors`);
+        console.log('✅ Doctors data fetched successfully');
+      } catch (error: any) {
+        console.error('❌ Failed to fetch doctors data:', error);
+        throw new Error(`Failed to fetch doctors data: ${error.response?.data?.message || error.message}`);
+      }
+      
+      try {
+        console.log('🔍 Fetching patients data...');
+        patientsResponse = await api.get(`/branches/${branchId}/patients`);
+        console.log('✅ Patients data fetched successfully');
+      } catch (error: any) {
+        console.error('❌ Failed to fetch patients data:', error);
+        throw new Error(`Failed to fetch patients data: ${error.response?.data?.message || error.message}`);
+      }
+      
+      try {
+        console.log('🔍 Fetching appointments data...');
+        appointmentsResponse = await api.get('/appointments', {
           params: {
             branchId: branchId,
             organizationId: organizationId,
             limit: 1000, // Get more appointments
             sort: 'appointmentDate:desc'
           }
-        })
-      ]);
+        });
+        console.log('✅ Appointments data fetched successfully');
+      } catch (error: any) {
+        console.error('❌ Failed to fetch appointments data:', error);
+        throw new Error(`Failed to fetch appointments data: ${error.response?.data?.message || error.message}`);
+      }
       
       console.log('✅ All data fetched successfully');
+      
+      const doctorsData = doctorsResponse.data.data || doctorsResponse.data;
+      const patientsData = patientsResponse.data.data || patientsResponse.data;
+      const appointmentsData = appointmentsResponse.data.data || appointmentsResponse.data;
+      
+      console.log('🔍 Receptionist Data - Fetched Data Debug:', {
+        doctorsData: doctorsData,
+        doctorsLength: doctorsData?.length,
+        patientsData: patientsData,
+        patientsLength: patientsData?.length,
+        appointmentsData: appointmentsData,
+        appointmentsLength: appointmentsData?.length,
+        doctorsResponse: doctorsResponse.data,
+        patientsResponse: patientsResponse.data,
+        appointmentsResponse: appointmentsResponse.data
+      });
+      
+      console.log('🔍 Doctors API Response Debug:', {
+        doctorsResponseStatus: doctorsResponse.status,
+        doctorsResponseData: doctorsResponse.data,
+        doctorsResponseDataSuccess: doctorsResponse.data?.success,
+        doctorsResponseDataData: doctorsResponse.data?.data,
+        doctorsResponseDataDataLength: doctorsResponse.data?.data?.length
+      });
       
       return {
         receptionist: {
           _id: user._id,
+          name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
           firstName: user.firstName,
           lastName: user.lastName,
           email: user.email,
@@ -199,21 +275,46 @@ export const initializeReceptionistData = createAsyncThunk(
           isActive: user.isActive
         },
         branch: branchResponse.data.data || branchResponse.data,
-        doctors: doctorsResponse.data.data || doctorsResponse.data,
-        patients: patientsResponse.data.data || patientsResponse.data,
-        appointments: appointmentsResponse.data.data || appointmentsResponse.data,
+        doctors: doctorsData,
+        patients: patientsData,
+        appointments: appointmentsData,
         lastUpdated: Date.now()
       };
       
     } catch (error: any) {
       console.error('❌ Error initializing receptionist data:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        url: error.config?.url,
+        method: error.config?.method
+      });
       
       // Handle session expiry specifically
-      if (error.message === 'No active session' || error.response?.status === 401) {
+      if (error.message === 'No active session' || error.message === 'Session validation failed' || error.response?.status === 401) {
+        console.log('Session expired or invalid - redirecting to login');
+        // Clear session and redirect to login
+        sessionManager.clearSession();
+        window.location.href = '/login';
         return rejectWithValue('Session expired. Please log in again.');
       }
       
-      return rejectWithValue(error.response?.data?.message || 'Failed to initialize receptionist data');
+      // Handle specific API errors
+      if (error.response?.status === 403) {
+        return rejectWithValue('Access denied. Please check your permissions.');
+      }
+      
+      if (error.response?.status === 404) {
+        return rejectWithValue('Resource not found. Please check your branch/organization data.');
+      }
+      
+      if (error.response?.status >= 500) {
+        return rejectWithValue('Server error. Please try again later.');
+      }
+      
+      return rejectWithValue(error.response?.data?.message || error.message || 'Failed to initialize receptionist data');
     }
   }
 );
@@ -229,10 +330,7 @@ export const refreshReceptionistData = createAsyncThunk(
       const user = state.auth.user;
       const currentData = state.receptionistData;
       
-      if (!user?.branchId || !user?.organizationId) {
-        return rejectWithValue('User missing branch or organization data');
-      }
-      
+      // Extract IDs - handle both string and object formats
       const branchId = typeof user.branchId === 'string' 
         ? user.branchId 
         : user.branchId?._id || user.branchId?.id;
@@ -240,6 +338,10 @@ export const refreshReceptionistData = createAsyncThunk(
       const organizationId = typeof user.organizationId === 'string' 
         ? user.organizationId 
         : user.organizationId?._id || user.organizationId?.id;
+      
+      if (!branchId || !organizationId) {
+        return rejectWithValue('User missing branch or organization data');
+      }
       
       const updates: any = { lastUpdated: Date.now() };
       
@@ -328,12 +430,20 @@ const receptionistDataSlice = createSlice({
         state.appointments = action.payload.appointments;
         state.lastUpdated = action.payload.lastUpdated;
         state.error = null;
+        
         console.log('✅ Receptionist data initialized successfully');
+        console.log('🔍 Redux State Update - Doctors Data:', {
+          doctorsPayload: action.payload.doctors,
+          doctorsLength: action.payload.doctors?.length,
+          stateDoctors: state.doctors,
+          stateDoctorsLength: state.doctors?.length
+        });
       })
       .addCase(initializeReceptionistData.rejected, (state, action) => {
         state.isInitializing = false;
         state.initializationError = action.payload as string;
         console.error('❌ Failed to initialize receptionist data:', action.payload);
+        showErrorToast(action.payload as string, 'Failed to initialize dashboard data');
       })
       
       // Refresh data
@@ -353,6 +463,7 @@ const receptionistDataSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload as string;
         console.error('❌ Failed to refresh receptionist data:', action.payload);
+        showWarningToast('Data Refresh Failed', 'Could not refresh dashboard data. Some information may be outdated.');
       });
   },
 });

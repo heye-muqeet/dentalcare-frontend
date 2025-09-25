@@ -217,6 +217,15 @@ class SessionManager {
     } catch (error) {
       console.error('Token refresh failed:', error);
       
+      // Mark this token as failed if it's a 401 error
+      if (error && typeof error === 'object' && 'response' in error && 
+          error.response && typeof error.response === 'object' && 
+          'status' in error.response && error.response.status === 401) {
+        console.log('Marking refresh token as failed due to 401 error');
+        localStorage.setItem('lastRefreshFailure', Date.now().toString());
+        localStorage.setItem('lastFailedToken', this.sessionData?.refreshToken || '');
+      }
+      
       // Retry logic
       if (this.retryCount < this.config.maxRetries) {
         this.retryCount++;
@@ -281,7 +290,31 @@ class SessionManager {
    * Check if refresh token is available and potentially valid
    */
   hasValidRefreshToken(): boolean {
-    return this.sessionData !== null && !!this.sessionData.refreshToken;
+    if (!this.sessionData || !this.sessionData.refreshToken) {
+      console.log('No refresh token available');
+      return false;
+    }
+
+    // Check if we've recently failed to refresh with this token
+    const lastRefreshFailure = localStorage.getItem('lastRefreshFailure');
+    const currentToken = this.sessionData.refreshToken;
+    const lastFailedToken = localStorage.getItem('lastFailedToken');
+    
+    if (lastRefreshFailure && lastFailedToken === currentToken) {
+      const failureTime = parseInt(lastRefreshFailure);
+      const timeSinceFailure = Date.now() - failureTime;
+      
+      // If we failed to refresh this token recently (within 5 minutes), consider it invalid
+      if (timeSinceFailure < 5 * 60 * 1000) {
+        console.log('Refresh token marked as invalid due to recent failure');
+        // Clear the session immediately if we detect a failed token
+        this.clearSession();
+        return false;
+      }
+    }
+
+    console.log('Refresh token appears valid');
+    return true;
   }
 
   /**
@@ -297,18 +330,44 @@ class SessionManager {
    * Clear current session
    */
   async clearSession(): Promise<void> {
-    if (this.sessionData?.refreshToken) {
+    console.log('🔄 Starting session cleanup...');
+    
+    // Check if we have a valid session before attempting API calls
+    const hasValidSession = this.sessionData && this.isSessionActive();
+    
+    if (hasValidSession) {
+      // Only try API calls if we have a valid session
       try {
-        await authService.revokeToken(this.sessionData.refreshToken);
+        await authService.logout();
+        console.log('✅ Logout API call successful');
       } catch (error) {
-        console.warn('Failed to revoke refresh token:', error);
+        console.warn('⚠️ Logout API call failed (continuing with local cleanup):', error);
       }
+
+      // Try to revoke the refresh token
+      if (this.sessionData?.refreshToken) {
+        try {
+          await authService.revokeToken(this.sessionData.refreshToken);
+          console.log('✅ Refresh token revoked successfully');
+        } catch (error) {
+          console.warn('⚠️ Failed to revoke refresh token (continuing with local cleanup):', error);
+        }
+      }
+    } else {
+      console.log('⚠️ No valid session - skipping API calls and clearing local data only');
     }
 
+    // Always clear local session data regardless of API call results
     this.sessionData = null;
     this.clearTimers();
     this.clearStorage();
     this.notifyListeners();
+    
+    // Clear failure markers
+    localStorage.removeItem('lastRefreshFailure');
+    localStorage.removeItem('lastFailedToken');
+    
+    console.log('✅ Session cleanup completed');
   }
 
   /**

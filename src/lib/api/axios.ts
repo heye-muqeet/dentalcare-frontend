@@ -76,22 +76,38 @@ api.interceptors.response.use(
       // Don't try to refresh if this is already a refresh token request
       if (originalRequest.url?.includes('/auth/token/refresh')) {
         // Refresh token is invalid/expired, clear session and logout
-        console.log('Refresh token request failed - clearing session');
+        console.log('Refresh token request failed - clearing session immediately');
         await sessionManager.clearSession();
-        window.dispatchEvent(new CustomEvent('auth:session-expired', { 
-          detail: { reason: 'refresh_token_expired' } 
-        }));
+        // Redirect to login page immediately
+        window.location.href = '/login';
         return Promise.reject(error);
       }
 
       // Check if we have a valid refresh token before attempting refresh
       if (!sessionManager.hasValidRefreshToken()) {
-        console.log('No refresh token available - clearing session');
+        console.log('No valid refresh token available - clearing session');
         await sessionManager.clearSession();
-        window.dispatchEvent(new CustomEvent('auth:session-expired', { 
-          detail: { reason: 'no_refresh_token' } 
-        }));
+        // Redirect to login page immediately
+        window.location.href = '/login';
         return Promise.reject(error);
+      }
+
+      // Check if this token has recently failed
+      const lastRefreshFailure = localStorage.getItem('lastRefreshFailure');
+      const lastFailedToken = localStorage.getItem('lastFailedToken');
+      const currentToken = sessionManager.getSession()?.refreshToken;
+      
+      if (lastRefreshFailure && lastFailedToken && lastFailedToken === currentToken) {
+        const failureTime = parseInt(lastRefreshFailure);
+        const timeSinceFailure = Date.now() - failureTime;
+        
+        // If we failed to refresh this token recently, don't try again
+        if (timeSinceFailure < 5 * 60 * 1000) {
+          console.log('Skipping refresh attempt - token recently failed');
+          await sessionManager.clearSession();
+          window.location.href = '/login';
+          return Promise.reject(error);
+        }
       }
 
       if (isRefreshing) {

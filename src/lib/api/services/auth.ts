@@ -1,13 +1,14 @@
 import api from '../axios';
 import { API_ENDPOINTS } from '../endpoints';
+import sessionManager from '../../services/sessionManager';
 // Define User type locally since users service might not be available
 export interface User {
   _id: string;
   id?: string; // Alternative ID field
   email: string;
-  firstName: string;
-  lastName: string;
-  name?: string; // For backward compatibility
+  name: string; // Updated to match backend schema
+  firstName?: string; // For backward compatibility
+  lastName?: string; // For backward compatibility
   role: string;
   organizationId?: string;
   branchId?: string;
@@ -135,10 +136,18 @@ export const authService = {
 
   logout: async (): Promise<void> => {
     try {
-      await api.post(API_ENDPOINTS.AUTH.LOGOUT);
+      // Only attempt logout API call if we have a valid token
+      const session = sessionManager.getSession();
+      if (session && sessionManager.isSessionActive()) {
+        await api.post(API_ENDPOINTS.AUTH.LOGOUT);
+        console.log('✅ Logout API call successful');
+      } else {
+        console.log('⚠️ No valid session - skipping logout API call');
+      }
     } catch (error) {
       // Logout might fail if token is invalid, but we still want to clear local storage
-      console.warn('Logout API call failed:', error);
+      console.warn('⚠️ Logout API call failed (this is usually fine):', error);
+      // Don't throw error - we still want to clear local session
     }
   },
 

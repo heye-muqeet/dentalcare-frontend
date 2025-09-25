@@ -5,8 +5,9 @@ export interface Appointment {
   _id: string;
   patientId: {
     _id: string;
-    firstName: string;
-    lastName: string;
+    name: string; // Updated to match backend schema
+    firstName?: string; // For backward compatibility
+    lastName?: string; // For backward compatibility
     email: string;
     phone: string;
   };
@@ -39,7 +40,7 @@ export interface CreateAppointmentData {
   reasonForVisit: string;
   notes?: string;
   duration?: number;
-  isEmergency?: boolean;
+  isWalkIn?: boolean;
   metadata?: {
     source?: string;
     priority?: 'low' | 'normal' | 'high' | 'urgent';
@@ -55,7 +56,7 @@ export interface UpdateAppointmentData {
   reasonForVisit?: string;
   notes?: string;
   duration?: number;
-  isEmergency?: boolean;
+  isWalkIn?: boolean;
   metadata?: {
     source?: string;
     priority?: 'low' | 'normal' | 'high' | 'urgent';
@@ -134,8 +135,18 @@ export const appointmentsApi = {
     endTime: string;
     patientId: string;
     excludeAppointmentId?: string;
+    isWalkIn?: boolean;
   }) => {
     const response = await api.post('/appointments/validate-slot', data);
+    return response.data;
+  },
+
+  checkExistingAppointment: async (patientId: string, appointmentDate: string) => {
+    console.log('🔍 Checking for existing appointment:', { patientId, appointmentDate });
+    const response = await api.get('/appointments/check-existing', {
+      params: { patientId, appointmentDate }
+    });
+    console.log('🔍 Existing appointment check response:', response.data);
     return response.data;
   },
 };

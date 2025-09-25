@@ -7,6 +7,7 @@ import { getFilteredRoutes, hasRouteAccess } from '../../lib/utils/rolePermissio
 import type { UserRole } from '../../lib/utils/rolePermissions';
 import type { RootState } from '../../lib/store/store';
 import SessionStatus from '../SessionStatus';
+import { showErrorToast, showSuccessToast, showWarningToast } from '../../lib/utils/errorHandler';
 
 interface MenuItemProps {
   icon: string;
@@ -27,8 +28,22 @@ function SuperAdminSidebar() {
 
   const handleNavigation = async (path: string, isLogout?: boolean) => {
     if (isLogout) {
-      await dispatch(logoutUser());
-      navigate('/login');
+      try {
+        console.log('🚪 Starting logout process...');
+        const result = await dispatch(logoutUser()).unwrap();
+        console.log('✅ Logout successful, navigating to login...');
+        
+        if (result.message?.includes('with warnings')) {
+          showWarningToast('Logged Out Successfully', 'You have been logged out successfully (with some warnings).');
+        } else {
+          showSuccessToast('Logged Out Successfully', 'You have been logged out successfully.');
+        }
+        navigate('/login');
+      } catch (error) {
+        console.error('❌ Logout failed:', error);
+        showErrorToast('Logout Warning', 'There was an issue during logout, but you have been logged out locally.');
+        navigate('/login');
+      }
     } else {
       if (userRole && hasRouteAccess(userRole, path)) {
         navigate(path);
@@ -137,8 +152,22 @@ function OrganizationAdminSidebar() {
 
   const handleNavigation = async (path: string, isLogout?: boolean) => {
     if (isLogout) {
-      await dispatch(logoutUser());
-      navigate('/login');
+      try {
+        console.log('🚪 Starting logout process...');
+        const result = await dispatch(logoutUser()).unwrap();
+        console.log('✅ Logout successful, navigating to login...');
+        
+        if (result.message?.includes('with warnings')) {
+          showWarningToast('Logged Out Successfully', 'You have been logged out successfully (with some warnings).');
+        } else {
+          showSuccessToast('Logged Out Successfully', 'You have been logged out successfully.');
+        }
+        navigate('/login');
+      } catch (error) {
+        console.error('❌ Logout failed:', error);
+        showErrorToast('Logout Warning', 'There was an issue during logout, but you have been logged out locally.');
+        navigate('/login');
+      }
     } else {
       if (userRole && hasRouteAccess(userRole, path)) {
         navigate(path);
@@ -268,8 +297,22 @@ function BranchAdminSidebar() {
 
   const handleNavigation = async (path: string, isLogout?: boolean) => {
     if (isLogout) {
-      await dispatch(logoutUser());
-      navigate('/login');
+      try {
+        console.log('🚪 Starting logout process...');
+        const result = await dispatch(logoutUser()).unwrap();
+        console.log('✅ Logout successful, navigating to login...');
+        
+        if (result.message?.includes('with warnings')) {
+          showWarningToast('Logged Out Successfully', 'You have been logged out successfully (with some warnings).');
+        } else {
+          showSuccessToast('Logged Out Successfully', 'You have been logged out successfully.');
+        }
+        navigate('/login');
+      } catch (error) {
+        console.error('❌ Logout failed:', error);
+        showErrorToast('Logout Warning', 'There was an issue during logout, but you have been logged out locally.');
+        navigate('/login');
+      }
     } else {
       if (userRole && hasRouteAccess(userRole, path)) {
         navigate(path);
@@ -363,8 +406,22 @@ function DoctorSidebar() {
 
   const handleNavigation = async (path: string, isLogout?: boolean) => {
     if (isLogout) {
-      await dispatch(logoutUser());
-      navigate('/login');
+      try {
+        console.log('🚪 Starting logout process...');
+        const result = await dispatch(logoutUser()).unwrap();
+        console.log('✅ Logout successful, navigating to login...');
+        
+        if (result.message?.includes('with warnings')) {
+          showWarningToast('Logged Out Successfully', 'You have been logged out successfully (with some warnings).');
+        } else {
+          showSuccessToast('Logged Out Successfully', 'You have been logged out successfully.');
+        }
+        navigate('/login');
+      } catch (error) {
+        console.error('❌ Logout failed:', error);
+        showErrorToast('Logout Warning', 'There was an issue during logout, but you have been logged out locally.');
+        navigate('/login');
+      }
     } else {
       if (userRole && hasRouteAccess(userRole, path)) {
         navigate(path);
@@ -428,8 +485,22 @@ function ReceptionistSidebar() {
 
   const handleNavigation = async (path: string, isLogout?: boolean) => {
     if (isLogout) {
-      await dispatch(logoutUser());
-      navigate('/login');
+      try {
+        console.log('🚪 Starting logout process...');
+        const result = await dispatch(logoutUser()).unwrap();
+        console.log('✅ Logout successful, navigating to login...');
+        
+        if (result.message?.includes('with warnings')) {
+          showWarningToast('Logged Out Successfully', 'You have been logged out successfully (with some warnings).');
+        } else {
+          showSuccessToast('Logged Out Successfully', 'You have been logged out successfully.');
+        }
+        navigate('/login');
+      } catch (error) {
+        console.error('❌ Logout failed:', error);
+        showErrorToast('Logout Warning', 'There was an issue during logout, but you have been logged out locally.');
+        navigate('/login');
+      }
     } else {
       if (userRole && hasRouteAccess(userRole, path)) {
         navigate(path);
@@ -493,8 +564,22 @@ function PatientSidebar() {
 
   const handleNavigation = async (path: string, isLogout?: boolean) => {
     if (isLogout) {
-      await dispatch(logoutUser());
-      navigate('/login');
+      try {
+        console.log('🚪 Starting logout process...');
+        const result = await dispatch(logoutUser()).unwrap();
+        console.log('✅ Logout successful, navigating to login...');
+        
+        if (result.message?.includes('with warnings')) {
+          showWarningToast('Logged Out Successfully', 'You have been logged out successfully (with some warnings).');
+        } else {
+          showSuccessToast('Logged Out Successfully', 'You have been logged out successfully.');
+        }
+        navigate('/login');
+      } catch (error) {
+        console.error('❌ Logout failed:', error);
+        showErrorToast('Logout Warning', 'There was an issue during logout, but you have been logged out locally.');
+        navigate('/login');
+      }
     } else {
       if (userRole && hasRouteAccess(userRole, path)) {
         navigate(path);

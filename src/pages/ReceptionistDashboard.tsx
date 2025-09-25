@@ -4,41 +4,45 @@ import { useAppSelector, useAppDispatch } from '../lib/hooks';
 import type { RootState } from '../lib/store/store';
 import { refreshReceptionistData } from '../lib/store/slices/receptionistDataSlice';
 import { 
-  Calendar, 
-  Clock, 
-  Users, 
-  UserPlus, 
-  Phone, 
-  Mail, 
-  MapPin, 
-  Activity,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
-  UserCheck,
-  Plus,
-  Eye,
-  RefreshCw,
-  TrendingUp,
-  TrendingDown,
-  Bell,
-  Search,
-  Filter,
-  MoreHorizontal
-} from 'lucide-react';
+  showErrorToast, 
+  showSuccessToast, 
+  showWarningToast,
+  handleApiError 
+} from '../lib/utils/errorHandler';
+import { 
+  FiUsers, 
+  FiActivity, 
+  FiCalendar,
+  FiDollarSign,
+  FiUserCheck,
+  FiClock,
+  FiAlertCircle,
+  FiClipboard,
+  FiSettings,
+  FiHome,
+  FiTrendingUp,
+  FiPlus,
+  FiEye,
+  FiSearch,
+  FiRefreshCw,
+  FiCheckCircle,
+  FiXCircle,
+  FiUserPlus,
+  FiPhone,
+  FiMail,
+  FiMapPin
+} from 'react-icons/fi';
 
-interface TodayStats {
+interface ReceptionistStats {
   totalAppointments: number;
+  todayAppointments: number;
   completedAppointments: number;
   pendingAppointments: number;
-  cancelledAppointments: number;
-  noShowAppointments: number;
-  walkInAppointments: number;
-  scheduledAppointments: number;
   totalPatients: number;
-  newPatientsToday: number;
   totalDoctors: number;
   activeDoctors: number;
+  walkInAppointments: number;
+  scheduledAppointments: number;
 }
 
 interface UpcomingAppointment {
@@ -57,6 +61,7 @@ interface RecentActivity {
   type: 'appointment_created' | 'appointment_updated' | 'patient_registered' | 'appointment_cancelled';
   message: string;
   timestamp: string;
+  severity: 'info' | 'warning' | 'error' | 'critical';
   patientName?: string;
   doctorName?: string;
 }
@@ -78,11 +83,19 @@ export default function ReceptionistDashboard() {
   } = useAppSelector((state: RootState) => state.receptionistData);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'>('all');
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
 
-  // Calculate today's stats
-  const calculateTodayStats = (): TodayStats => {
+  // Calculate receptionist stats
+  const calculateStats = (): ReceptionistStats => {
+    console.log('🔍 Receptionist Dashboard - Data Debug:', {
+      receptionistDoctors: receptionistDoctors,
+      receptionistDoctorsLength: receptionistDoctors?.length,
+      receptionistPatients: receptionistPatients,
+      receptionistPatientsLength: receptionistPatients?.length,
+      receptionistAppointments: receptionistAppointments,
+      receptionistAppointmentsLength: receptionistAppointments?.length
+    });
+
     const today = new Date();
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
@@ -92,28 +105,20 @@ export default function ReceptionistDashboard() {
       return aptDate >= todayStart && aptDate < todayEnd;
     });
 
-    const newPatientsToday = receptionistPatients.filter(patient => {
-      // Since PatientData doesn't have createdAt, we'll skip this filter for now
-      // In a real app, you'd need to add createdAt to PatientData interface
-      return false; // No new patients today since we don't have createdAt
-    });
-
     return {
-      totalAppointments: todayAppointments.length,
+      totalAppointments: receptionistAppointments.length,
+      todayAppointments: todayAppointments.length,
       completedAppointments: todayAppointments.filter(apt => apt.status === 'completed').length,
       pendingAppointments: todayAppointments.filter(apt => apt.status === 'scheduled').length,
-      cancelledAppointments: todayAppointments.filter(apt => apt.status === 'cancelled').length,
-      noShowAppointments: todayAppointments.filter(apt => apt.status === 'no_show').length,
-      walkInAppointments: todayAppointments.filter(apt => apt.visitType === 'walk_in').length,
-      scheduledAppointments: todayAppointments.filter(apt => apt.visitType === 'scheduled').length,
       totalPatients: receptionistPatients.length,
-      newPatientsToday: newPatientsToday.length,
       totalDoctors: receptionistDoctors.length,
       activeDoctors: receptionistDoctors.filter(doc => doc.isActive).length,
+      walkInAppointments: todayAppointments.filter(apt => apt.visitType === 'walk_in').length,
+      scheduledAppointments: todayAppointments.filter(apt => apt.visitType === 'scheduled').length,
     };
   };
 
-  const stats = calculateTodayStats();
+  const stats = calculateStats();
 
   // Get upcoming appointments (next 3 hours)
   const getUpcomingAppointments = (): UpcomingAppointment[] => {
@@ -133,7 +138,7 @@ export default function ReceptionistDashboard() {
       .slice(0, 5)
       .map(apt => ({
         _id: apt._id,
-        patientName: typeof apt.patientId === 'string' ? 'Unknown Patient' : `${(apt.patientId as any).firstName} ${(apt.patientId as any).lastName}`,
+        patientName: typeof apt.patientId === 'string' ? 'Unknown Patient' : (apt.patientId as any).name,
         doctorName: apt.doctorId ? (typeof apt.doctorId === 'string' ? 'Unknown Doctor' : `${(apt.doctorId as any).firstName} ${(apt.doctorId as any).lastName}`) : 'No Doctor Assigned',
         appointmentTime: `${apt.appointmentDate} ${apt.startTime}`,
         visitType: apt.visitType,
@@ -145,56 +150,55 @@ export default function ReceptionistDashboard() {
 
   const upcomingAppointments = getUpcomingAppointments();
 
-  // Get recent activities
-  const getRecentActivities = (): RecentActivity[] => {
+  // Initialize recent activities
+  useEffect(() => {
     const activities: RecentActivity[] = [];
     
     // Add recent appointments
     [...receptionistAppointments]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 10)
+      .slice(0, 5)
       .forEach(apt => {
         activities.push({
           id: apt._id,
           type: 'appointment_created',
           message: `New appointment scheduled for ${typeof apt.patientId === 'string' ? 'Unknown Patient' : `${(apt.patientId as any).firstName} ${(apt.patientId as any).lastName}`}`,
           timestamp: apt.createdAt,
-          patientName: typeof apt.patientId === 'string' ? 'Unknown Patient' : `${(apt.patientId as any).firstName} ${(apt.patientId as any).lastName}`,
+          severity: 'info',
+          patientName: typeof apt.patientId === 'string' ? 'Unknown Patient' : (apt.patientId as any).name,
           doctorName: apt.doctorId ? (typeof apt.doctorId === 'string' ? 'Unknown Doctor' : `${(apt.doctorId as any).firstName} ${(apt.doctorId as any).lastName}`) : 'No Doctor'
         });
       });
 
     // Add recent patients
     [...receptionistPatients]
-      .sort((a, b) => {
-        // Since PatientData doesn't have createdAt, we'll sort by _id instead
-        return b._id.localeCompare(a._id);
-      })
-      .slice(0, 5)
+      .sort((a, b) => b._id.localeCompare(a._id))
+      .slice(0, 3)
       .forEach(patient => {
         activities.push({
           id: patient._id,
           type: 'patient_registered',
-          message: `New patient registered: ${patient.firstName} ${patient.lastName}`,
-          timestamp: new Date().toISOString(), // Use current time since PatientData doesn't have createdAt
-          patientName: `${patient.firstName} ${patient.lastName}`
+          message: `New patient registered: ${patient.name}`,
+          timestamp: new Date().toISOString(),
+          severity: 'info',
+          patientName: patient.name
         });
       });
 
-    return activities
+    setRecentActivity(activities
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .slice(0, 8);
-  };
-
-  const recentActivities = getRecentActivities();
+      .slice(0, 6));
+  }, [receptionistAppointments, receptionistPatients]);
 
   // Handle refresh
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
       await dispatch(refreshReceptionistData('all')).unwrap();
+      showSuccessToast('Data Refreshed', 'Dashboard data has been updated successfully.');
     } catch (error) {
       console.error('Failed to refresh data:', error);
+      handleApiError(error, 'refresh dashboard data');
     } finally {
       setIsRefreshing(false);
     }
@@ -220,23 +224,44 @@ export default function ReceptionistDashboard() {
     }
   };
 
+  // Get severity color
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'error':
+      case 'critical':
+        return 'text-red-500 bg-red-50';
+      case 'warning':
+        return 'text-yellow-500 bg-yellow-50';
+      case 'info':
+      default:
+        return 'text-blue-500 bg-blue-50';
+    }
+  };
+
   // Get activity icon
   const getActivityIcon = (type: string) => {
     switch (type) {
-      case 'appointment_created': return <Calendar className="h-4 w-4 text-blue-600" />;
-      case 'appointment_updated': return <Activity className="h-4 w-4 text-yellow-600" />;
-      case 'patient_registered': return <UserPlus className="h-4 w-4 text-green-600" />;
-      case 'appointment_cancelled': return <XCircle className="h-4 w-4 text-red-600" />;
-      default: return <Activity className="h-4 w-4 text-gray-600" />;
+      case 'appointment_created': return <FiCalendar className="w-3 h-3" />;
+      case 'appointment_updated': return <FiActivity className="w-3 h-3" />;
+      case 'patient_registered': return <FiUserPlus className="w-3 h-3" />;
+      case 'appointment_cancelled': return <FiXCircle className="w-3 h-3" />;
+      default: return <FiActivity className="w-3 h-3" />;
     }
   };
 
   if (isInitializing) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-          <p className="text-lg text-gray-600">Loading receptionist dashboard...</p>
+      <div className="p-4">
+        <div className="animate-pulse">
+          <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+                <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
+                <div className="h-6 bg-gray-200 rounded w-3/4"></div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -244,13 +269,13 @@ export default function ReceptionistDashboard() {
 
   if (initializationError) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
+      <div className="p-4">
+        <div className="text-center py-8">
+          <FiAlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
           <p className="text-lg text-gray-600 mb-4">Failed to load dashboard data</p>
           <button 
             onClick={handleRefresh}
-            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Retry
           </button>
@@ -259,288 +284,211 @@ export default function ReceptionistDashboard() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-blue-50 to-indigo-100">
-      {/* Animated Background Elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-emerald-400/20 to-blue-600/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-indigo-600/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
-      </div>
+  const branchName = branch?.name || 'Branch';
+  const organizationName = 'Organization'; // Simplified for now
 
-      <div className="relative z-10 p-6">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="bg-white/70 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-6 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-500/10 to-blue-600/10 rounded-full -translate-y-16 translate-x-16"></div>
-              
-              <div className="relative z-10">
+  return (
+    <div className="p-4 space-y-4">
+      {/* Compact Header */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-800 via-blue-800 to-indigo-800 bg-clip-text text-transparent mb-2">
-                      {getGreeting()}, {receptionist?.firstName || user?.firstName || 'Receptionist'}! 👋
-                    </h1>
-                    <p className="text-lg text-gray-600 mb-4">
-                      Welcome to your receptionist dashboard. Manage appointments and assist patients efficiently.
-                    </p>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500/10 to-blue-600/10 rounded-full border border-emerald-200/50">
-                        <MapPin className="h-4 w-4 text-emerald-600" />
-                        <span className="text-sm font-medium text-emerald-700">{branch?.name || 'Branch'}</span>
+          <h1 className="text-xl font-bold text-gray-900">{getGreeting()}, {receptionist?.firstName || user?.firstName || 'Receptionist'}!</h1>
+          <p className="text-sm text-gray-600">{branchName} • {organizationName}</p>
                       </div>
-                      <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500/10 to-indigo-600/10 rounded-full border border-blue-200/50">
-                        <Clock className="h-4 w-4 text-blue-600" />
-                        <span className="text-sm font-medium text-blue-700">{new Date().toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={handleRefresh}
-                      disabled={isRefreshing}
-                      className="flex items-center gap-2 px-4 py-2 bg-white/50 border border-white/30 rounded-lg hover:bg-white/70 transition-colors disabled:opacity-50"
-                    >
-                      <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                      Refresh
-                    </button>
-                    <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-blue-600 rounded-full flex items-center justify-center shadow-xl">
-                      <span className="text-2xl text-white">🏥</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+        <div className="text-right">
+          <p className="text-xs text-gray-500">Last updated: {new Date().toLocaleTimeString()}</p>
+          <p className="text-xs text-green-600">● Branch Active</p>
             </div>
           </div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {/* Today's Appointments */}
-            <div className="group bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <Calendar className="text-white text-xl" />
+      {/* Compact Stats Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between mb-1">
+            <FiCalendar className="w-4 h-4 text-blue-600" />
+            <span className="text-xs text-gray-500">Today</span>
                 </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-gray-800">{stats.totalAppointments}</p>
-                  <p className="text-sm text-gray-500">Today</p>
-                </div>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-700 mb-1">Appointments</h3>
-              <p className="text-sm text-gray-500">Scheduled for today</p>
-              <div className="mt-3 flex items-center text-sm text-blue-600">
-                <TrendingUp className="mr-1 h-4 w-4" />
-                <span>{stats.scheduledAppointments} scheduled</span>
-              </div>
+          <p className="text-lg font-bold text-gray-900">{stats.todayAppointments}</p>
             </div>
 
-            {/* Patients */}
-            <div className="group bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <Users className="text-white text-xl" />
+        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between mb-1">
+            <FiUsers className="w-4 h-4 text-green-600" />
+            <span className="text-xs text-gray-500">Patients</span>
                 </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-gray-800">{stats.totalPatients}</p>
-                  <p className="text-sm text-gray-500">Total</p>
-                </div>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-700 mb-1">Patients</h3>
-              <p className="text-sm text-gray-500">Registered patients</p>
-              <div className="mt-3 flex items-center text-sm text-green-600">
-                <UserPlus className="mr-1 h-4 w-4" />
-                <span>{stats.newPatientsToday} new today</span>
-              </div>
+          <p className="text-lg font-bold text-gray-900">{stats.totalPatients}</p>
             </div>
 
-            {/* Doctors */}
-            <div className="group bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <UserCheck className="text-white text-xl" />
+        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between mb-1">
+            <FiUserCheck className="w-4 h-4 text-purple-600" />
+            <span className="text-xs text-gray-500">Doctors</span>
                 </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-gray-800">{stats.totalDoctors}</p>
-                  <p className="text-sm text-gray-500">Total</p>
-                </div>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-700 mb-1">Doctors</h3>
-              <p className="text-sm text-gray-500">Available doctors</p>
-              <div className="mt-3 flex items-center text-sm text-purple-600">
-                <CheckCircle className="mr-1 h-4 w-4" />
-                <span>{stats.activeDoctors} active</span>
-              </div>
+          <p className="text-lg font-bold text-gray-900">{stats.totalDoctors}</p>
             </div>
 
-            {/* Completed Appointments */}
-            <div className="group bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <CheckCircle className="text-white text-xl" />
+        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between mb-1">
+            <FiCheckCircle className="w-4 h-4 text-emerald-600" />
+            <span className="text-xs text-gray-500">Completed</span>
                 </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-gray-800">{stats.completedAppointments}</p>
-                  <p className="text-sm text-gray-500">Today</p>
-                </div>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-700 mb-1">Completed</h3>
-              <p className="text-sm text-gray-500">Finished appointments</p>
-              <div className="mt-3 flex items-center text-sm text-emerald-600">
-                <Activity className="mr-1 h-4 w-4" />
-                <span>{stats.pendingAppointments} pending</span>
-              </div>
+          <p className="text-lg font-bold text-gray-900">{stats.completedAppointments}</p>
             </div>
           </div>
 
           {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Upcoming Appointments */}
-            <div className="lg:col-span-2">
-              <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold text-gray-800 flex items-center">
-                    <Clock className="mr-3 text-blue-600" />
-                    Upcoming Appointments
-                  </h2>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Quick Actions */}
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+            <FiSettings className="w-4 h-4 mr-2 text-gray-600" />
+            Quick Actions
+          </h3>
+          <div className="space-y-2">
                   <button
                     onClick={() => navigate('/appointments')}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <Eye className="h-4 w-4" />
-                    View All
+              className="w-full flex items-center space-x-2 p-2 text-left text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-sm"
+            >
+              <FiCalendar className="w-4 h-4 text-blue-600" />
+              <span>Appointments</span>
+            </button>
+            <button
+              onClick={() => navigate('/patients')}
+              className="w-full flex items-center space-x-2 p-2 text-left text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-sm"
+            >
+              <FiUsers className="w-4 h-4 text-green-600" />
+              <span>Patients</span>
+            </button>
+            <button
+              onClick={() => navigate('/doctors')}
+              className="w-full flex items-center space-x-2 p-2 text-left text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-sm"
+            >
+              <FiUserCheck className="w-4 h-4 text-purple-600" />
+              <span>Doctors</span>
+            </button>
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="w-full flex items-center space-x-2 p-2 text-left text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-sm disabled:opacity-50"
+            >
+              <FiRefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>Refresh Data</span>
                   </button>
-                </div>
-                
-                {upcomingAppointments.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">No upcoming appointments in the next 3 hours</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {upcomingAppointments.map((appointment) => (
-                      <div key={appointment._id} className="bg-white/50 rounded-xl p-4 border border-white/30 hover:shadow-lg transition-all duration-300">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h3 className="font-semibold text-gray-800">{appointment.patientName}</h3>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(appointment.status)}`}>
-                                {appointment.status.replace('_', ' ')}
-                              </span>
-                              {appointment.isEmergency && (
-                                <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
-                                  Emergency
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-sm text-gray-600 mb-1">Dr. {appointment.doctorName}</p>
-                            <p className="text-sm text-gray-500">{appointment.reasonForVisit}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-medium text-gray-800">
-                              {new Date(appointment.appointmentTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {new Date(appointment.appointmentTime).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
 
-            {/* Recent Activities */}
-            <div>
-              <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-6">
-                <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
-                  <Activity className="mr-3 text-green-600" />
-                  Recent Activities
-                </h2>
-                
-                <div className="space-y-4">
-                  {recentActivities.map((activity) => (
-                    <div key={activity.id} className="flex items-start gap-3 p-3 bg-white/50 rounded-lg border border-white/30">
-                      <div className="flex-shrink-0 mt-0.5">
+        {/* Recent Activity */}
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+            <FiActivity className="w-4 h-4 mr-2 text-gray-600" />
+            Recent Activity
+          </h3>
+          <div className="space-y-2">
+            {recentActivity.slice(0, 4).map((activity) => (
+              <div key={activity.id} className="flex items-start space-x-2">
+                <div className={`p-1 rounded-full ${getSeverityColor(activity.severity)}`}>
                         {getActivityIcon(activity.type)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-800 mb-1">{activity.message}</p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(activity.timestamp).toLocaleString()}
+                  <p className="text-xs text-gray-900 leading-tight">{activity.message}</p>
+                  <p className="text-xs text-gray-500 flex items-center mt-1">
+                    <FiClock className="w-3 h-3 mr-1" />
+                    {new Date(activity.timestamp).toLocaleTimeString()}
                         </p>
                       </div>
                     </div>
                   ))}
+          </div>
+        </div>
+
+        {/* Branch Overview */}
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+            <FiHome className="w-4 h-4 mr-2 text-gray-600" />
+            Branch Overview
+          </h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                  <FiCalendar className="w-3 h-3 text-blue-600" />
+                </div>
+                <span className="text-xs text-gray-700">Today's Appointments</span>
+              </div>
+              <span className="text-sm font-bold text-gray-900">{stats.todayAppointments}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                  <FiUsers className="w-3 h-3 text-green-600" />
+                </div>
+                <span className="text-xs text-gray-700">Total Patients</span>
+              </div>
+              <span className="text-sm font-bold text-gray-900">{stats.totalPatients}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
+                  <FiUserCheck className="w-3 h-3 text-purple-600" />
+                </div>
+                <span className="text-xs text-gray-700">Active Doctors</span>
+              </div>
+              <span className="text-sm font-bold text-gray-900">{stats.activeDoctors}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Quick Actions */}
-          <div className="mt-8">
-            <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
-                <Plus className="mr-3 text-emerald-600" />
-                Quick Actions
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Today's Schedule */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+            <FiCalendar className="w-4 h-4 mr-2 text-blue-600" />
+            Today's Schedule
+          </h3>
+          <div className="text-center py-6">
+            <FiClipboard className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+            <p className="text-xs text-gray-500 mb-3">No upcoming appointments</p>
                 <button
                   onClick={() => navigate('/appointments')}
-                  className="group bg-gradient-to-br from-blue-500/10 to-blue-600/10 rounded-xl p-4 border border-blue-200/50 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 text-left"
+              className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-xs"
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                      <Plus className="text-white text-lg" />
+              Manage Schedule
+            </button>
                     </div>
-                    <Calendar className="text-blue-600 group-hover:translate-x-1 transition-transform duration-300" />
                   </div>
-                  <h3 className="font-semibold text-gray-800 mb-1">New Appointment</h3>
-                  <p className="text-sm text-gray-600">Schedule a new appointment</p>
-                </button>
 
-                <button
-                  onClick={() => navigate('/patients')}
-                  className="group bg-gradient-to-br from-green-500/10 to-green-600/10 rounded-xl p-4 border border-green-200/50 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 text-left"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                      <UserPlus className="text-white text-lg" />
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+            <FiTrendingUp className="w-4 h-4 mr-2 text-green-600" />
+            Branch Performance
+          </h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-600">Appointment Efficiency</span>
+              <div className="flex items-center space-x-1">
+                <div className="w-16 h-2 bg-gray-200 rounded-full">
+                  <div className="w-12 h-2 bg-green-500 rounded-full"></div>
+                </div>
+                <span className="text-xs text-green-600 font-medium">85%</span>
                     </div>
-                    <Users className="text-green-600 group-hover:translate-x-1 transition-transform duration-300" />
                   </div>
-                  <h3 className="font-semibold text-gray-800 mb-1">New Patient</h3>
-                  <p className="text-sm text-gray-600">Register a new patient</p>
-                </button>
-
-                <button
-                  onClick={() => navigate('/appointments')}
-                  className="group bg-gradient-to-br from-purple-500/10 to-purple-600/10 rounded-xl p-4 border border-purple-200/50 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 text-left"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                      <Eye className="text-white text-lg" />
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-600">Patient Satisfaction</span>
+              <div className="flex items-center space-x-1">
+                <div className="w-16 h-2 bg-gray-200 rounded-full">
+                  <div className="w-14 h-2 bg-blue-500 rounded-full"></div>
                     </div>
-                    <Activity className="text-purple-600 group-hover:translate-x-1 transition-transform duration-300" />
+                <span className="text-xs text-blue-600 font-medium">92%</span>
                   </div>
-                  <h3 className="font-semibold text-gray-800 mb-1">View Schedule</h3>
-                  <p className="text-sm text-gray-600">Check today's schedule</p>
-                </button>
-
-                <button
-                  onClick={() => navigate('/patients')}
-                  className="group bg-gradient-to-br from-orange-500/10 to-orange-600/10 rounded-xl p-4 border border-orange-200/50 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 text-left"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                      <Search className="text-white text-lg" />
                     </div>
-                    <Users className="text-orange-600 group-hover:translate-x-1 transition-transform duration-300" />
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-600">Staff Utilization</span>
+              <div className="flex items-center space-x-1">
+                <div className="w-16 h-2 bg-gray-200 rounded-full">
+                  <div className="w-10 h-2 bg-yellow-500 rounded-full"></div>
                   </div>
-                  <h3 className="font-semibold text-gray-800 mb-1">Find Patient</h3>
-                  <p className="text-sm text-gray-600">Search patient records</p>
-                </button>
+                <span className="text-xs text-yellow-600 font-medium">68%</span>
               </div>
             </div>
           </div>

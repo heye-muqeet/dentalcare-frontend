@@ -106,7 +106,7 @@ export const patientService = {
       // Convert backend data to frontend format
       const patients = patientsData.map((patient: any) => ({
         ...patient,
-        name: `${patient.firstName || ''} ${patient.lastName || ''}`.trim(),
+        name: patient.name,
         area: patient.area || patient.address || '',
         city: patient.city || ''
       }));
@@ -140,22 +140,9 @@ export const patientService = {
     console.log('📝 Creating patient for branch:', branchId, patientData);
     
     try {
-      // Convert name to firstName and lastName for backend compatibility
-      const [firstName, ...lastNameParts] = patientData.name.split(' ');
-      const lastName = lastNameParts.join(' ') || firstName;
+      console.log('📝 Sending to backend:', patientData);
       
-      const backendData: any = {
-        ...patientData,
-        firstName,
-        lastName
-      };
-      
-      // Remove name field as backend doesn't expect it
-      delete backendData.name;
-      
-      console.log('📝 Sending to backend:', backendData);
-      
-      const response = await api.post(`/branches/${branchId}/patients`, backendData);
+      const response = await api.post(`/branches/${branchId}/patients`, patientData);
       console.log('✅ Patient created successfully:', response.data);
       return response.data;
     } catch (error: any) {

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Force Clear Session - Dental Care Management</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        p {
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        button:hover {
+            background-color: #c82333;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        .warning {
+            color: #ffc107;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 Force Clear Invalid Session</h1>
+        <p>
+            <strong>This will immediately clear all session data and redirect you to login.</strong><br>
+            Use this if you're experiencing token refresh issues or "Failed to initialize dashboard data" errors.
+        </p>
+        <button onclick="forceClearSession()">🚨 Force Clear & Redirect</button>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function forceClearSession() {
+            try {
+                // Clear all session-related data
+                localStorage.removeItem('sessionData');
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('refreshToken');
+                localStorage.removeItem('user');
+                localStorage.removeItem('auth');
+                localStorage.removeItem('lastRefreshFailure');
+                localStorage.removeItem('lastFailedToken');
+                
+                // Clear session storage
+                sessionStorage.clear();
+                
+                // Clear all cookies
+                document.cookie.split(";").forEach(function(c) { 
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                });
+                
+                document.getElementById('result').innerHTML = '<div class="success">✅ Session forcefully cleared! Redirecting to login...</div>';
+                
+                // Redirect to login page immediately
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 1000);
+                
+            } catch (error) {
+                document.getElementById('result').innerHTML = '<div class="error">❌ Error clearing session: ' + error.message + '</div>';
+            }
+        }
+    </script>
+</body>
+</html>

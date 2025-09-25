@@ -3,7 +3,6 @@ import { authService } from '../../api/services/auth';
 import type { LoginCredentials } from '../../api/services/auth';
 import type { User } from '../../api/services/auth';
 import sessionManager, { type SessionData } from '../../services/sessionManager';
-import { initializeReceptionistData } from './receptionistDataSlice';
 // import { updateProfile } from './profileSlice';
 
 interface AuthState {
@@ -48,11 +47,8 @@ export const login = createAsyncThunk(
       
       const user = response.user || response.data;
       
-      // Initialize receptionist data if user is a receptionist
-      if (user && user.role === 'receptionist') {
-        console.log('🚀 Receptionist logged in, initializing data...');
-        dispatch(initializeReceptionistData());
-      }
+      // Note: Receptionist data initialization is handled by SessionInitializer
+      // to ensure proper timing and state synchronization
       
       return user;
     } catch (error: any) {
@@ -69,11 +65,7 @@ export const initializeAuth = createAsyncThunk(
       if (session && sessionManager.isSessionActive()) {
         const user = session.user;
         
-        // Initialize receptionist data if user is a receptionist
-        if (user && user.role === 'receptionist') {
-          console.log('🚀 Receptionist session found, initializing data...');
-          dispatch(initializeReceptionistData());
-        }
+        // Receptionist data initialization is handled in SessionInitializer component
         
         return user;
       }
@@ -100,9 +92,26 @@ export const logoutUser = createAsyncThunk(
   'auth/logout',
   async (_, { rejectWithValue }) => {
     try {
+      console.log('🚪 Starting user logout process...');
+      
+      // Always clear session locally, regardless of API call results
       await sessionManager.clearSession();
+      
+      console.log('✅ User logout completed successfully');
+      return { success: true, message: 'Logged out successfully' };
     } catch (error: any) {
-      return rejectWithValue('Logout failed');
+      console.error('❌ Logout failed:', error);
+      
+      // Even if logout fails, we should still clear the session locally
+      try {
+        await sessionManager.clearSession();
+        console.log('✅ Session cleared locally despite logout error');
+      } catch (clearError) {
+        console.error('❌ Failed to clear session locally:', clearError);
+      }
+      
+      // Don't reject - we want to proceed with logout even if there were errors
+      return { success: true, message: 'Logged out successfully (with warnings)' };
     }
   }
 );
@@ -188,6 +197,8 @@ const authSlice = createSlice({
           state.isAuthenticated = true;
           state.user = action.payload;
           state.sessionData = sessionManager.getSession();
+          
+          // Receptionist data initialization is handled in SessionInitializer component
         } else {
           state.isAuthenticated = false;
           state.user = null;
@@ -220,23 +231,27 @@ const authSlice = createSlice({
       .addCase(logoutUser.pending, (state) => {
         state.isLoading = true;
         state.error = null;
+        console.log('🔄 Logout in progress...');
       })
-      .addCase(logoutUser.fulfilled, (state) => {
-        state.isLoading = false;
-        state.isAuthenticated = false;
-        state.user = null;
-        state.sessionData = null;
-        state.isSessionExpiring = false;
-        state.error = null;
-      })
-      .addCase(logoutUser.rejected, (state) => {
-        state.isLoading = false;
-        state.isAuthenticated = false;
-        state.user = null;
-        state.sessionData = null;
-        state.isSessionExpiring = false;
-        state.error = null;
-      })
+    .addCase(logoutUser.fulfilled, (state, action) => {
+      state.isLoading = false;
+      state.isAuthenticated = false;
+      state.user = null;
+      state.sessionData = null;
+      state.isSessionExpiring = false;
+      state.error = null;
+      console.log('✅ Logout completed successfully:', action.payload);
+    })
+    .addCase(logoutUser.rejected, (state, action) => {
+      state.isLoading = false;
+      // Even if logout fails, we should clear the session locally
+      state.isAuthenticated = false;
+      state.user = null;
+      state.sessionData = null;
+      state.isSessionExpiring = false;
+      state.error = null; // Clear error since we're treating this as success
+      console.log('✅ Logout completed with warnings:', action.payload);
+    })
       // Logout All Devices
       .addCase(logoutAllDevices.pending, (state) => {
         state.isLoading = true;

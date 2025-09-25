@@ -33,10 +33,15 @@ import {
   Activity
 } from 'lucide-react';
 import { format, parseISO, isToday, isTomorrow, isYesterday, startOfDay, endOfDay } from 'date-fns';
-import { toast } from 'sonner';
+import { 
+  showErrorToast, 
+  showSuccessToast, 
+  showWarningToast,
+  handleApiError 
+} from '../lib/utils/errorHandler';
 
 // Type guards for appointment data
-const isPatientObject = (patientId: string | { _id: string; firstName: string; lastName: string; email: string; phone: string }): patientId is { _id: string; firstName: string; lastName: string; email: string; phone: string } => {
+const isPatientObject = (patientId: string | { _id: string; name?: string; firstName?: string; lastName?: string; email: string; phone: string }): patientId is { _id: string; name?: string; firstName?: string; lastName?: string; email: string; phone: string } => {
   return typeof patientId === 'object' && patientId !== null;
 };
 
@@ -142,13 +147,13 @@ export default function AppointmentManagement() {
       console.log('🚀 Starting appointment creation with data:', appointmentData);
       const result = await dispatch(createAppointment(appointmentData)).unwrap();
       console.log('✅ Appointment created successfully:', result);
-      toast.success('Appointment created successfully');
+      showSuccessToast('Appointment Created Successfully', 'The appointment has been scheduled successfully.');
       setIsCreateModalOpen(false);
       // Refresh appointments list
       dispatch(fetchAppointments({}));
     } catch (error: any) {
       console.error('❌ Error creating appointment:', error);
-      toast.error(error || 'Failed to create appointment');
+      handleApiError(error, 'create appointment');
     }
   };
 
@@ -156,12 +161,12 @@ export default function AppointmentManagement() {
     if (selectedAppointment) {
       try {
         await dispatch(updateAppointment({ id: selectedAppointment._id, appointmentData })).unwrap();
-        toast.success('Appointment updated successfully');
+        showSuccessToast('Appointment Updated Successfully', 'The appointment has been modified successfully.');
       setIsEditModalOpen(false);
       setSelectedAppointment(null);
         dispatch(fetchAppointments({}));
       } catch (error: any) {
-        toast.error('Failed to update appointment');
+        handleApiError(error, 'update appointment');
       }
     }
   };
@@ -169,10 +174,10 @@ export default function AppointmentManagement() {
   const handleCancelAppointment = async (appointmentId: string, reason: string) => {
     try {
       await dispatch(cancelAppointment({ id: appointmentId, cancellationReason: reason })).unwrap();
-      toast.success('Appointment cancelled successfully');
+      showSuccessToast('Appointment Cancelled', 'The appointment has been cancelled successfully.');
       dispatch(fetchAppointments({}));
     } catch (error: any) {
-      toast.error('Failed to cancel appointment');
+      handleApiError(error, 'cancel appointment');
     }
   };
 
@@ -182,10 +187,10 @@ export default function AppointmentManagement() {
         id: appointmentId, 
         appointmentData: { status: newStatus } 
       })).unwrap();
-      toast.success(`Appointment status updated to ${newStatus.replace('_', ' ')}`);
+      showSuccessToast('Status Updated', `Appointment status has been changed to ${newStatus.replace('_', ' ')}.`);
       dispatch(fetchAppointments({}));
     } catch (error: any) {
-      toast.error('Failed to update appointment status');
+      handleApiError(error, 'update appointment status');
     }
   };
 
@@ -202,8 +207,7 @@ export default function AppointmentManagement() {
   const filteredAppointments = currentAppointments.filter((appointment) => {
     const matchesSearch = 
       (isPatientObject(appointment.patientId) && (
-        appointment.patientId.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        appointment.patientId.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (appointment.patientId.name || `${appointment.patientId.firstName || ''} ${appointment.patientId.lastName || ''}`).toLowerCase().includes(searchTerm.toLowerCase()) ||
         appointment.patientId.email.toLowerCase().includes(searchTerm.toLowerCase())
       )) ||
       appointment.reasonForVisit.toLowerCase().includes(searchTerm.toLowerCase());
@@ -571,7 +575,7 @@ export default function AppointmentManagement() {
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-gray-500" />
                         <span className="font-semibold text-gray-900">
-                          {isPatientObject(appointment.patientId) ? `${appointment.patientId.firstName} ${appointment.patientId.lastName}` : 'Unknown Patient'}
+                          {isPatientObject(appointment.patientId) ? (appointment.patientId.name || `${appointment.patientId.firstName || ''} ${appointment.patientId.lastName || ''}`).trim() : 'Unknown Patient'}
                         </span>
                       </div>
                       <span className={`px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1 ${statusColors[appointment.status]}`}>
@@ -670,8 +674,7 @@ export default function AppointmentManagement() {
         onSuccess={handleCreateAppointment}
         patients={currentPatients.map(p => ({
           _id: p._id,
-          firstName: p.firstName,
-          lastName: p.lastName,
+          name: (p as any).name || `${(p as any).firstName || ''} ${(p as any).lastName || ''}`.trim(),
           email: p.email,
           phone: p.phone || '',
         }))}
@@ -694,19 +697,22 @@ export default function AppointmentManagement() {
           appointment={{
             ...selectedAppointment,
             patientId: isPatientObject(selectedAppointment.patientId) 
-              ? selectedAppointment.patientId 
+              ? {
+                  _id: selectedAppointment.patientId._id,
+                  name: selectedAppointment.patientId.name || `${selectedAppointment.patientId.firstName || ''} ${selectedAppointment.patientId.lastName || ''}`.trim(),
+                  email: selectedAppointment.patientId.email,
+                  phone: selectedAppointment.patientId.phone
+                }
               : (() => {
                   const patient = currentPatients.find(p => p._id === selectedAppointment.patientId);
                   return patient ? {
                     _id: patient._id,
-                    firstName: patient.firstName,
-                    lastName: patient.lastName,
+                    name: (patient as any).name || `${(patient as any).firstName || ''} ${(patient as any).lastName || ''}`.trim(),
                     email: patient.email,
                     phone: patient.phone || 'N/A'
                   } : {
                     _id: selectedAppointment.patientId as string,
-                    firstName: 'Unknown',
-                    lastName: 'Patient',
+                    name: 'Unknown Patient',
                     email: 'N/A',
                     phone: 'N/A'
                   };
@@ -724,8 +730,7 @@ export default function AppointmentManagement() {
           }}
           patients={currentPatients.map(p => ({
             _id: p._id,
-            firstName: p.firstName,
-            lastName: p.lastName,
+            name: (p as any).name || `${(p as any).firstName || ''} ${(p as any).lastName || ''}`.trim(),
             email: p.email,
             phone: p.phone || '',
           }))}

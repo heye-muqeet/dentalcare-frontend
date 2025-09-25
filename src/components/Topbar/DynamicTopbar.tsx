@@ -4,6 +4,7 @@ import { useAppSelector, useAppDispatch } from '../../lib/hooks';
 import { logoutUser } from '../../lib/store/slices/authSlice';
 import { topbarService, type TopbarStats } from '../../lib/api/services/topbar';
 import type { RootState } from '../../lib/store/store';
+import { showErrorToast, showSuccessToast, showWarningToast } from '../../lib/utils/errorHandler';
 
 // Super Admin Dynamic Topbar
 function SuperAdminDynamicTopbar() {
@@ -51,10 +52,21 @@ function SuperAdminDynamicTopbar() {
 
   const handleLogout = async () => {
     try {
-      await dispatch(logoutUser()).unwrap();
+      console.log('🚪 Starting logout process...');
+      const result = await dispatch(logoutUser()).unwrap();
+      console.log('✅ Logout successful, navigating to login...');
+      
+      if (result.message?.includes('with warnings')) {
+        showWarningToast('Logged Out Successfully', 'You have been logged out successfully (with some warnings).');
+      } else {
+        showSuccessToast('Logged Out Successfully', 'You have been logged out successfully.');
+      }
+      
       navigate('/login');
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error('❌ Logout failed:', error);
+      showWarningToast('Logout Warning', 'There was an issue during logout, but you have been logged out locally.');
+      // Even if logout fails, navigate to login page
       navigate('/login');
     }
   };
@@ -239,10 +251,21 @@ function OrganizationAdminDynamicTopbar() {
 
   const handleLogout = async () => {
     try {
-      await dispatch(logoutUser()).unwrap();
+      console.log('🚪 Starting logout process...');
+      const result = await dispatch(logoutUser()).unwrap();
+      console.log('✅ Logout successful, navigating to login...');
+      
+      if (result.message?.includes('with warnings')) {
+        showWarningToast('Logged Out Successfully', 'You have been logged out successfully (with some warnings).');
+      } else {
+        showSuccessToast('Logged Out Successfully', 'You have been logged out successfully.');
+      }
+      
       navigate('/login');
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error('❌ Logout failed:', error);
+      showWarningToast('Logout Warning', 'There was an issue during logout, but you have been logged out locally.');
+      // Even if logout fails, navigate to login page
       navigate('/login');
     }
   };
@@ -546,10 +569,21 @@ function BranchAdminDynamicTopbar() {
 
   const handleLogout = async () => {
     try {
-      await dispatch(logoutUser()).unwrap();
+      console.log('🚪 Starting logout process...');
+      const result = await dispatch(logoutUser()).unwrap();
+      console.log('✅ Logout successful, navigating to login...');
+      
+      if (result.message?.includes('with warnings')) {
+        showWarningToast('Logged Out Successfully', 'You have been logged out successfully (with some warnings).');
+      } else {
+        showSuccessToast('Logged Out Successfully', 'You have been logged out successfully.');
+      }
+      
       navigate('/login');
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error('❌ Logout failed:', error);
+      showWarningToast('Logout Warning', 'There was an issue during logout, but you have been logged out locally.');
+      // Even if logout fails, navigate to login page
       navigate('/login');
     }
   };
@@ -797,10 +831,21 @@ function DoctorDynamicTopbar() {
 
   const handleLogout = async () => {
     try {
-      await dispatch(logoutUser()).unwrap();
+      console.log('🚪 Starting logout process...');
+      const result = await dispatch(logoutUser()).unwrap();
+      console.log('✅ Logout successful, navigating to login...');
+      
+      if (result.message?.includes('with warnings')) {
+        showWarningToast('Logged Out Successfully', 'You have been logged out successfully (with some warnings).');
+      } else {
+        showSuccessToast('Logged Out Successfully', 'You have been logged out successfully.');
+      }
+      
       navigate('/login');
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error('❌ Logout failed:', error);
+      showWarningToast('Logout Warning', 'There was an issue during logout, but you have been logged out locally.');
+      // Even if logout fails, navigate to login page
       navigate('/login');
     }
   };
@@ -930,10 +975,21 @@ function ReceptionistDynamicTopbar() {
 
   const handleLogout = async () => {
     try {
-      await dispatch(logoutUser()).unwrap();
+      console.log('🚪 Starting logout process...');
+      const result = await dispatch(logoutUser()).unwrap();
+      console.log('✅ Logout successful, navigating to login...');
+      
+      if (result.message?.includes('with warnings')) {
+        showWarningToast('Logged Out Successfully', 'You have been logged out successfully (with some warnings).');
+      } else {
+        showSuccessToast('Logged Out Successfully', 'You have been logged out successfully.');
+      }
+      
       navigate('/login');
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error('❌ Logout failed:', error);
+      showWarningToast('Logout Warning', 'There was an issue during logout, but you have been logged out locally.');
+      // Even if logout fails, navigate to login page
       navigate('/login');
     }
   };
@@ -1063,10 +1119,21 @@ function PatientDynamicTopbar() {
 
   const handleLogout = async () => {
     try {
-      await dispatch(logoutUser()).unwrap();
+      console.log('🚪 Starting logout process...');
+      const result = await dispatch(logoutUser()).unwrap();
+      console.log('✅ Logout successful, navigating to login...');
+      
+      if (result.message?.includes('with warnings')) {
+        showWarningToast('Logged Out Successfully', 'You have been logged out successfully (with some warnings).');
+      } else {
+        showSuccessToast('Logged Out Successfully', 'You have been logged out successfully.');
+      }
+      
       navigate('/login');
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error('❌ Logout failed:', error);
+      showWarningToast('Logout Warning', 'There was an issue during logout, but you have been logged out locally.');
+      // Even if logout fails, navigate to login page
       navigate('/login');
     }
   };

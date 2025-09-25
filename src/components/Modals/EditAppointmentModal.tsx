@@ -14,8 +14,7 @@ import { Checkbox } from '../ui/checkbox';
 
 interface Patient {
   _id: string;
-  firstName: string;
-  lastName: string;
+  name: string;
   email: string;
   phone: string;
 }
@@ -31,8 +30,7 @@ interface Appointment {
   _id: string;
   patientId: {
     _id: string;
-    firstName: string;
-    lastName: string;
+    name: string;
     email: string;
     phone: string;
   };
@@ -251,7 +249,7 @@ export default function EditAppointmentModal({
               <div className="flex items-center gap-4">
                 <div className="flex-1">
                   <div className="font-medium text-lg">
-                    {appointment.patientId.firstName} {appointment.patientId.lastName}
+                    {appointment.patientId.name}
                   </div>
                   <div className="text-sm text-gray-500">
                     {appointment.patientId.email} • {appointment.patientId.phone}

@@ -1,15 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { useAppSelector } from '../../lib/hooks';
+import { useAppSelector, useAppDispatch } from '../../lib/hooks';
 import type { RootState } from '../../lib/store/store';
+import { refreshReceptionistData } from '../../lib/store/slices/receptionistDataSlice';
 import { patientService } from '../../lib/api/services/patients';
-import { toast } from 'sonner';
+import { appointmentsApi } from '../../lib/api/services/appointments';
+import api from '../../lib/api/axios';
+import { 
+  showErrorToast, 
+  showSuccessToast, 
+  showWarningToast, 
+  showInfoToast,
+  handleApiError,
+  handleValidationError,
+  getErrorMessage
+} from '../../lib/utils/errorHandler';
 import { 
   X, 
   Calendar, 
   Plus,
   Search,
   ChevronDown,
-  CheckCircle
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react';
 
 interface CreateAppointmentModalProps {
@@ -21,8 +33,7 @@ interface CreateAppointmentModalProps {
 }
 
 interface PatientFormData {
-  firstName: string;
-  lastName: string;
+  name: string;
   email: string;
   phone: string;
   dateOfBirth: string;
@@ -39,8 +50,6 @@ interface AppointmentFormData {
   visitType: 'walk_in' | 'scheduled';
   reasonForVisit: string;
   notes: string;
-  duration: number;
-  isEmergency: boolean;
 }
 
 interface FormErrors {
@@ -48,8 +57,7 @@ interface FormErrors {
 }
 
 const initialPatientFormData: PatientFormData = {
-  firstName: '',
-  lastName: '',
+  name: '',
   email: '',
   phone: '',
   dateOfBirth: '',
@@ -65,9 +73,7 @@ const initialAppointmentFormData: AppointmentFormData = {
   endTime: '',
   visitType: 'scheduled',
   reasonForVisit: '',
-  notes: '',
-  duration: 30,
-  isEmergency: false
+  notes: ''
 };
 
 export default function CreateAppointmentModal({ 
@@ -78,6 +84,7 @@ export default function CreateAppointmentModal({
   doctors 
 }: CreateAppointmentModalProps) {
   const user = useAppSelector((state: RootState) => state.auth.user);
+  const dispatch = useAppDispatch();
   
   // Debug doctors data
   console.log('🔍 CreateAppointmentModal - doctors received:', doctors);
@@ -94,6 +101,10 @@ export default function CreateAppointmentModal({
   const [searchTerm, setSearchTerm] = useState('');
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+  const [slotLoadingError, setSlotLoadingError] = useState<string | null>(null);
+  const [isBranchOpen, setIsBranchOpen] = useState(true);
+  const [branchHoursMessage, setBranchHoursMessage] = useState<string>('');
+  const [existingAppointments, setExistingAppointments] = useState<{[patientId: string]: any}>({});
   
   // Extract branch ID safely
   const branchId = typeof user?.branchId === 'string' 
@@ -101,44 +112,232 @@ export default function CreateAppointmentModal({
     : (user?.branchId as any)?._id || (user?.branchId as any)?.id || String(user?.branchId);
 
   // Filter patients based on search
-  const filteredPatients = patients.filter(patient => 
-    `${patient.firstName} ${patient.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const filteredPatients = patients.filter(patient => {
+    const patientName = patient.name;
+    return patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     patient.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    patient.phone.includes(searchTerm)
-  );
+           patient.phone.includes(searchTerm);
+  });
 
   // Generate time slots (30-minute intervals from 9 AM to 6 PM)
-  const generateTimeSlots = () => {
+  const generateTimeSlots = (selectedDate?: string) => {
     const slots = [];
+    const now = new Date();
+    const isToday = selectedDate && new Date(selectedDate).toDateString() === now.toDateString();
+    
     for (let hour = 9; hour < 18; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
         const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        const endTime = minute === 30 
-          ? `${(hour + 1).toString().padStart(2, '0')}:00`
-          : `${hour.toString().padStart(2, '0')}:30`;
+        
+        // Calculate end time with default 30-minute duration
+        const startDateTime = new Date();
+        startDateTime.setHours(hour, minute, 0, 0);
+        const endDateTime = new Date(startDateTime.getTime() + 30 * 60 * 1000); // Add 30 minutes
+        const endTime = `${endDateTime.getHours().toString().padStart(2, '0')}:${endDateTime.getMinutes().toString().padStart(2, '0')}`;
+        
+        // If it's today, check if the slot is in the future
+        if (isToday) {
+          const slotDateTime = new Date();
+          slotDateTime.setHours(hour, minute, 0, 0);
+          
+          // Add 30 minutes buffer to current time to allow for booking
+          const bufferTime = new Date(now.getTime() + 30 * 60 * 1000);
+          
+          if (slotDateTime < bufferTime) {
+            console.log(`⏰ Skipping past slot: ${time} (current time: ${now.toTimeString().slice(0, 5)})`);
+            continue; // Skip past slots
+          }
+        }
+        
         slots.push({ start: time, end: endTime });
       }
     }
     return slots;
   };
 
-  // Load available slots when date or doctor changes
+  // Load available slots when date or doctor changes (only for scheduled appointments)
   useEffect(() => {
-    if (appointmentFormData.appointmentDate) {
+    if (appointmentFormData.visitType === 'scheduled' && appointmentFormData.appointmentDate) {
       loadAvailableSlots();
+    } else if (appointmentFormData.visitType === 'walk_in') {
+      // Clear slots for walk-in patients
+      setAvailableSlots([]);
+      setSlotLoadingError(null);
     }
-  }, [appointmentFormData.appointmentDate, appointmentFormData.doctorId]);
+  }, [appointmentFormData.appointmentDate, appointmentFormData.doctorId, appointmentFormData.visitType]);
 
-  const loadAvailableSlots = async () => {
+  // Check if branch is currently open for walk-in appointments
+  const checkBranchHours = () => {
+    const now = new Date();
+    const dayOfWeek = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    const currentTime = now.toTimeString().slice(0, 5);
+    
+    // Default branch hours (9 AM to 6 PM, Monday to Friday)
+    const defaultHours = {
+      monday: { isOpen: true, open: '09:00', close: '18:00' },
+      tuesday: { isOpen: true, open: '09:00', close: '18:00' },
+      wednesday: { isOpen: true, open: '09:00', close: '18:00' },
+      thursday: { isOpen: true, open: '09:00', close: '18:00' },
+      friday: { isOpen: true, open: '09:00', close: '18:00' },
+      saturday: { isOpen: true, open: '09:00', close: '17:00' },
+      sunday: { isOpen: false, open: '09:00', close: '17:00' }
+    };
+    
+    const todayHours = defaultHours[dayOfWeek as keyof typeof defaultHours];
+    
+    if (!todayHours || !todayHours.isOpen) {
+      setIsBranchOpen(false);
+      setBranchHoursMessage('Branch is closed on this day. Walk-in appointments are not available.');
+      return false;
+    }
+    
+    const currentMinutes = timeToMinutes(currentTime);
+    const openMinutes = timeToMinutes(todayHours.open);
+    const closeMinutes = timeToMinutes(todayHours.close);
+    
+    if (currentMinutes < openMinutes || currentMinutes > closeMinutes) {
+      setIsBranchOpen(false);
+      setBranchHoursMessage(`Branch is currently closed. Operating hours: ${todayHours.open} - ${todayHours.close}. Walk-in appointments are not available.`);
+      return false;
+    }
+    
+    setIsBranchOpen(true);
+    setBranchHoursMessage('');
+    return true;
+  };
+
+  // Helper function to convert time to minutes
+  const timeToMinutes = (time: string): number => {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
+  // Auto-set date and time for walk-in patients
+  useEffect(() => {
+    if (appointmentFormData.visitType === 'walk_in') {
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      const currentTime = now.toTimeString().slice(0, 5);
+      
+      // Check if branch is open
+      const branchOpen = checkBranchHours();
+      
+      if (branchOpen) {
+        // Calculate end time (30 minutes from now)
+        const endTime = new Date(now.getTime() + 30 * 60 * 1000);
+        const endTimeString = endTime.toTimeString().slice(0, 5);
+        
+        setAppointmentFormData(prev => ({
+          ...prev,
+          appointmentDate: today,
+          startTime: currentTime,
+          endTime: endTimeString
+        }));
+        
+        console.log('🕐 Auto-set walk-in appointment time:', {
+          date: today,
+          startTime: currentTime,
+          endTime: endTimeString
+        });
+      }
+    } else {
+      // Reset branch status for scheduled appointments
+      setIsBranchOpen(true);
+      setBranchHoursMessage('');
+    }
+  }, [appointmentFormData.visitType]);
+
+  const loadAvailableSlots = async (retryCount = 0) => {
+    if (!appointmentFormData.appointmentDate) {
+      setAvailableSlots([]);
+      setSlotLoadingError(null);
+      return;
+    }
+
     setIsLoadingSlots(true);
+    setAvailableSlots([]);
+    setSlotLoadingError(null);
+    
     try {
-      // For now, we'll use all available slots
-      // In a real implementation, this would check against existing appointments
-      const slots = generateTimeSlots();
-      setAvailableSlots(slots.map(slot => slot.start));
-    } catch (error) {
-      console.error('Error loading available slots:', error);
-      toast.error('Failed to load available time slots');
+      console.log('🔍 Loading available slots for:', {
+        date: appointmentFormData.appointmentDate,
+        doctorId: appointmentFormData.doctorId,
+        retryCount
+      });
+
+      const allSlots = generateTimeSlots(appointmentFormData.appointmentDate);
+      const availableSlotsList: string[] = [];
+
+      // Check each slot for availability
+      let validationErrors = 0;
+      for (const slot of allSlots) {
+        try {
+          const validationData = {
+            doctorId: appointmentFormData.doctorId || undefined,
+            appointmentDate: appointmentFormData.appointmentDate,
+            startTime: slot.start,
+            endTime: slot.end,
+            patientId: appointmentFormData.patientId || 'temp', // Use temp ID for validation
+            excludeAppointmentId: undefined,
+            isWalkIn: appointmentFormData.visitType === 'walk_in'
+          };
+
+          console.log('🔍 Validating slot:', slot.start, '-', slot.end);
+          
+          const validation = await appointmentsApi.validateSlot(validationData);
+          
+          if (validation.success && validation.data.available) {
+            availableSlotsList.push(slot.start);
+            console.log('✅ Slot available:', slot.start);
+          } else {
+            console.log('❌ Slot unavailable:', slot.start, validation.data.reason || 'Not available');
+          }
+        } catch (slotError) {
+          console.error('❌ Error validating slot:', slot.start, slotError);
+          validationErrors++;
+          // If validation fails for a slot, consider it unavailable
+        }
+      }
+
+      // If too many validation errors, fall back to showing all slots
+      if (validationErrors > allSlots.length / 2) {
+        console.warn('⚠️ Too many validation errors, falling back to showing all slots');
+        setSlotLoadingError('Unable to validate slot availability. All slots are shown but may not be available.');
+        setAvailableSlots(allSlots.map(slot => slot.start));
+        return;
+      }
+
+      console.log('🔍 Available slots found:', availableSlotsList.length, 'out of', allSlots.length);
+      setAvailableSlots(availableSlotsList);
+
+      if (availableSlotsList.length === 0) {
+        console.warn('⚠️ No available slots found for the selected date and doctor');
+        setSlotLoadingError('No available time slots found for the selected date and doctor. Please choose a different date or doctor.');
+        showWarningToast('No Available Time Slots', 'Please choose a different date or doctor.');
+      }
+
+    } catch (error: any) {
+      console.error('❌ Error loading available slots:', error);
+      
+      const errorMessage = 'Unable to check slot availability. Please try again.';
+      setSlotLoadingError(errorMessage);
+      
+      // Retry logic for network errors
+      if (retryCount < 2 && (error.code === 'NETWORK_ERROR' || error.message?.includes('Network Error'))) {
+        console.log('🔄 Retrying slot loading...', retryCount + 1);
+        setTimeout(() => {
+          loadAvailableSlots(retryCount + 1);
+        }, 1000 * (retryCount + 1)); // Exponential backoff
+        return;
+      }
+      
+      // Fallback to showing all slots if validation fails
+      console.log('🔄 Falling back to showing all slots due to validation errors');
+      const allSlots = generateTimeSlots(appointmentFormData.appointmentDate);
+      setAvailableSlots(allSlots.map(slot => slot.start));
+      setSlotLoadingError('Slot validation unavailable. All slots are shown but availability is not guaranteed.');
+      
+      showWarningToast('Slot Validation Unavailable', 'All slots are shown but availability is not guaranteed.');
     } finally {
       setIsLoadingSlots(false);
     }
@@ -147,10 +346,10 @@ export default function CreateAppointmentModal({
   const validatePatientForm = (): boolean => {
     const newErrors: FormErrors = {};
 
-    if (!patientFormData.firstName.trim()) newErrors.firstName = 'First name is required';
-    if (!patientFormData.lastName.trim()) newErrors.lastName = 'Last name is required';
-    if (!patientFormData.email.trim()) newErrors.email = 'Email is required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patientFormData.email)) newErrors.email = 'Invalid email format';
+    if (!patientFormData.name.trim()) newErrors.name = 'Patient name is required';
+    if (patientFormData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patientFormData.email)) {
+      newErrors.email = 'Invalid email format';
+    }
     if (!patientFormData.phone.trim()) newErrors.phone = 'Phone is required';
     if (!patientFormData.dateOfBirth) newErrors.dateOfBirth = 'Date of birth is required';
     if (!patientFormData.address.trim()) newErrors.address = 'Address is required';
@@ -160,15 +359,59 @@ export default function CreateAppointmentModal({
   };
 
   const validateAppointmentForm = (): boolean => {
+    console.log('🔍 Validating appointment form with data:', appointmentFormData);
+    console.log('🔍 Active tab:', activeTab);
+    
     const newErrors: FormErrors = {};
 
-    if (!appointmentFormData.patientId) newErrors.patientId = 'Patient selection is required';
-    if (!appointmentFormData.appointmentDate) newErrors.appointmentDate = 'Appointment date is required';
-    if (!appointmentFormData.startTime) newErrors.startTime = 'Appointment time is required';
-    if (!appointmentFormData.reasonForVisit.trim()) newErrors.reasonForVisit = 'Reason for visit is required';
+    // For existing patients, check if patient is selected
+    if (activeTab === 'existing' && !appointmentFormData.patientId) {
+      newErrors.patientId = 'Patient selection is required';
+      console.log('❌ Missing patient ID for existing patient');
+    }
+    
+    // For new patients, validate patient form instead
+    if (activeTab === 'new') {
+      console.log('🔍 Validating new patient form');
+      if (!validatePatientForm()) {
+        console.log('❌ New patient form validation failed');
+        return false;
+      }
+      console.log('✅ New patient form validation passed');
+    }
+    
+    // Skip date and time validation for walk-in patients (auto-set)
+    if (appointmentFormData.visitType === 'scheduled') {
+      if (!appointmentFormData.appointmentDate) {
+        newErrors.appointmentDate = 'Appointment date is required';
+        console.log('❌ Missing appointment date');
+      }
+      if (!appointmentFormData.startTime) {
+        newErrors.startTime = 'Appointment time is required';
+        console.log('❌ Missing start time');
+      }
+    } else if (appointmentFormData.visitType === 'walk_in') {
+      // For walk-in appointments, check if branch is open
+      if (!isBranchOpen) {
+        newErrors.visitType = branchHoursMessage || 'Walk-in appointments are not available at this time';
+        console.log('❌ Branch is closed for walk-in appointments');
+      }
+    }
+    if (!appointmentFormData.reasonForVisit.trim()) {
+      newErrors.reasonForVisit = 'Reason for visit is required';
+      console.log('❌ Missing reason for visit');
+    }
 
+    console.log('🔍 Validation errors:', newErrors);
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    const isValid = Object.keys(newErrors).length === 0;
+    console.log('🔍 Form is valid:', isValid);
+    
+    if (!isValid) {
+      handleValidationError(newErrors);
+    }
+    
+    return isValid;
   };
 
   const handlePatientInputChange = (field: keyof PatientFormData, value: string) => {
@@ -178,6 +421,94 @@ export default function CreateAppointmentModal({
     }
   };
 
+  // Auto-generate email when name changes
+  useEffect(() => {
+    console.log('🔍 Email generation effect triggered:', {
+      name: patientFormData.name,
+      email: patientFormData.email,
+      nameTrimmed: patientFormData.name.trim(),
+      emailTrimmed: patientFormData.email.trim()
+    });
+    
+    if (patientFormData.name.trim() && !patientFormData.email.trim()) {
+      console.log('🔍 Generating email for name:', patientFormData.name);
+      const generateEmail = async () => {
+        try {
+          const generatedEmail = await generateUniqueEmail(patientFormData.name);
+          console.log('🔍 Generated email:', generatedEmail);
+          if (generatedEmail) {
+            setPatientFormData(prev => ({ ...prev, email: generatedEmail }));
+          }
+        } catch (error) {
+          console.error('🔍 Error generating email:', error);
+        }
+      };
+      generateEmail();
+    }
+  }, [patientFormData.name]);
+
+  // Generate unique email based on patient name
+  const generateUniqueEmail = async (name: string): Promise<string> => {
+    console.log('🔍 generateUniqueEmail called with name:', name);
+    
+    if (!name.trim()) {
+      console.log('🔍 Name is empty, returning empty string');
+      return '';
+    }
+    
+    // Clean the name and create base email
+    const cleanName = name.toLowerCase()
+      .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+      .replace(/\s+/g, '.') // Replace spaces with dots
+      .substring(0, 20); // Limit length
+    
+    const baseEmail = `${cleanName}@dentalcare.local`;
+    console.log('🔍 Generated base email:', baseEmail);
+    
+    try {
+      // Check if email exists by trying to find a patient with this email
+      console.log('🔍 Checking email uniqueness for:', baseEmail);
+      const response = await api.get(`/branches/${branchId}/patients/check-email/${encodeURIComponent(baseEmail)}`);
+      console.log('🔍 Email check response:', response.data);
+      
+      if (response.data.exists) {
+        console.log('🔍 Email exists, generating unique variant');
+        // If exists, add a number suffix
+        let counter = 1;
+        let uniqueEmail = `${cleanName}${counter}@dentalcare.local`;
+        
+        while (true) {
+          console.log('🔍 Checking variant:', uniqueEmail);
+          const checkResponse = await api.get(`/branches/${branchId}/patients/check-email/${encodeURIComponent(uniqueEmail)}`);
+          console.log('🔍 Variant check response:', checkResponse.data);
+          
+          if (!checkResponse.data.exists) {
+            console.log('🔍 Found unique email:', uniqueEmail);
+            return uniqueEmail;
+          }
+          counter++;
+          uniqueEmail = `${cleanName}${counter}@dentalcare.local`;
+        }
+      }
+      console.log('🔍 Base email is unique:', baseEmail);
+      return baseEmail;
+    } catch (error) {
+      console.error('🔍 Error checking email uniqueness:', error);
+      console.warn('Using base email as fallback:', baseEmail);
+      showWarningToast('Email Generation Warning', 'Could not verify email uniqueness. Using generated email.');
+      return baseEmail;
+    }
+  };
+
+  // Check for existing active appointments when patient is selected
+  useEffect(() => {
+    if (activeTab === 'existing' && appointmentFormData.patientId && appointmentFormData.visitType === 'scheduled') {
+      // Use today's date as a placeholder since we're checking for ANY active appointment
+      const today = new Date().toISOString().split('T')[0];
+      checkExistingAppointment(appointmentFormData.patientId, today);
+    }
+  }, [appointmentFormData.patientId, activeTab, appointmentFormData.visitType]);
+
   const handleAppointmentInputChange = (field: keyof AppointmentFormData, value: any) => {
     setAppointmentFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
@@ -186,25 +517,92 @@ export default function CreateAppointmentModal({
   };
 
   const handleTimeSlotSelect = (startTime: string) => {
-    const slots = generateTimeSlots();
-    const selectedSlot = slots.find(slot => slot.start === startTime);
-    if (selectedSlot) {
+    // Calculate end time with default 30-minute duration
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const startDateTime = new Date();
+    startDateTime.setHours(hours, minutes, 0, 0);
+    
+    const endDateTime = new Date(startDateTime.getTime() + 30 * 60 * 1000); // Add 30 minutes
+    const endTime = `${endDateTime.getHours().toString().padStart(2, '0')}:${endDateTime.getMinutes().toString().padStart(2, '0')}`;
+    
       setAppointmentFormData(prev => ({
         ...prev,
-        startTime: selectedSlot.start,
-        endTime: selectedSlot.end
-      }));
+      startTime: startTime,
+      endTime: endTime
+    }));
+  };
+
+  // Helper function to check if a slot is in the past
+  const isSlotInPast = (slotTime: string, selectedDate?: string) => {
+    if (!selectedDate) return false;
+    
+    const now = new Date();
+    const isToday = new Date(selectedDate).toDateString() === now.toDateString();
+    
+    if (!isToday) return false;
+    
+    const slotDateTime = new Date();
+    const [hours, minutes] = slotTime.split(':').map(Number);
+    slotDateTime.setHours(hours, minutes, 0, 0);
+    
+    // Add 30 minutes buffer to current time
+    const bufferTime = new Date(now.getTime() + 30 * 60 * 1000);
+    
+    return slotDateTime < bufferTime;
+  };
+
+  const checkExistingAppointment = async (patientId: string, appointmentDate: string) => {
+    if (!patientId || !appointmentDate) return;
+    
+    try {
+      console.log('🔍 Checking existing active appointment for patient:', patientId);
+      const result = await appointmentsApi.checkExistingAppointment(patientId, appointmentDate);
+      
+      if (result.success && result.data.hasAppointment && !result.data.canCreateNew) {
+        setExistingAppointments(prev => ({
+          ...prev,
+          [patientId]: {
+            ...result.data.existingAppointment,
+            reason: result.data.reason
+          }
+        }));
+        console.log('⚠️ Active appointment found, cannot create new one:', result.data.existingAppointment);
+      } else {
+        setExistingAppointments(prev => {
+          const newState = { ...prev };
+          delete newState[patientId];
+          return newState;
+        });
+        console.log('✅ No active appointment found, can create new one');
+      }
+    } catch (error) {
+      console.error('❌ Error checking existing appointment:', error);
     }
   };
 
   const handleCreatePatient = async (): Promise<string | null> => {
-    if (!validatePatientForm()) return null;
+    console.log('🔍 handleCreatePatient called');
+    
+    if (!validatePatientForm()) {
+      console.log('❌ Patient form validation failed');
+      return null;
+    }
 
     try {
       setIsSubmitting(true);
+      console.log('🔍 Creating patient with data:', patientFormData);
+      
+      // Generate email if not provided
+      let email = patientFormData.email.trim();
+      if (!email) {
+        console.log('🔍 Generating email for patient');
+        email = await generateUniqueEmail(patientFormData.name);
+        console.log('🔍 Generated email:', email);
+      }
+
       const patientData = {
-        name: `${patientFormData.firstName} ${patientFormData.lastName}`.trim(),
-        email: patientFormData.email,
+        name: patientFormData.name.trim(),
+        email: email,
         phone: patientFormData.phone,
         dateOfBirth: patientFormData.dateOfBirth,
         gender: patientFormData.gender,
@@ -219,16 +617,65 @@ export default function CreateAppointmentModal({
         isActive: true
       };
 
+      console.log('🔍 Sending patient data to service:', patientData);
       const response = await patientService.createPatient(branchId, patientData);
+      console.log('🔍 Patient creation response:', response);
+      
       if (response.success) {
-        toast.success('Patient created successfully');
+        showSuccessToast('Patient Created Successfully', 'New patient has been added to the system.');
+        console.log('✅ Patient created successfully with ID:', response.data._id);
         return response.data._id;
       } else {
+        console.log('❌ Patient creation failed - no success flag');
         throw new Error('Failed to create patient');
       }
     } catch (error: any) {
-      console.error('Error creating patient:', error);
-      toast.error(error.response?.data?.message || 'Failed to create patient');
+      console.error('❌ Error creating patient:', error);
+      console.error('❌ Error response:', error.response);
+      console.error('❌ Error message:', error.message);
+      
+      let errorMessage = 'Failed to create patient';
+      let errorDetails = '';
+      
+      // Handle different types of errors
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+        
+        if (errorData.details) {
+          errorDetails = errorData.details;
+        } else if (errorData.error) {
+          errorDetails = errorData.error;
+        }
+        
+        // Handle specific error types
+        if (error.response.status === 400) {
+          errorMessage = 'Invalid patient data. Please check all fields and try again.';
+        } else if (error.response.status === 409) {
+          errorMessage = 'Patient with this email already exists. Please use a different email.';
+        } else if (error.response.status === 403) {
+          errorMessage = 'You do not have permission to create patients.';
+        } else if (error.response.status === 500) {
+          errorMessage = 'Server error occurred while creating patient. Please try again later.';
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // Show detailed error message using error handler
+      handleApiError(error, 'create patient');
+      
+      // Log additional context for debugging
+      console.error('❌ Patient creation error context:', {
+        patientName: patientFormData.name,
+        email: patientFormData.email,
+        phone: patientFormData.phone,
+        branchId: branchId
+      });
+      
       return null;
     } finally {
       setIsSubmitting(false);
@@ -236,9 +683,15 @@ export default function CreateAppointmentModal({
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log('🔍 handleSubmit called');
     e.preventDefault();
     
-    if (!validateAppointmentForm()) return;
+    console.log('🔍 Calling validateAppointmentForm...');
+    if (!validateAppointmentForm()) {
+      console.log('❌ Form validation failed, stopping submission');
+      return;
+    }
+    console.log('✅ Form validation passed, proceeding with submission');
 
     try {
       setIsSubmitting(true);
@@ -247,9 +700,48 @@ export default function CreateAppointmentModal({
 
       // If creating new patient, create it first
       if (activeTab === 'new') {
+        console.log('🔍 Creating new patient for appointment');
+        console.log('🔍 Patient form data:', patientFormData);
+        
+        // Create the patient first
         const newPatientId = await handleCreatePatient();
-        if (!newPatientId) return;
+        console.log('🔍 New patient ID received:', newPatientId);
+        
+        if (!newPatientId) {
+          console.log('❌ Failed to create patient, stopping appointment creation');
+          showErrorToast('Failed to create patient. Please try again.');
+          return;
+        }
+        
         patientId = newPatientId;
+        console.log('✅ Using new patient ID for appointment:', patientId);
+      } else {
+        console.log('🔍 Using existing patient ID:', patientId);
+      }
+
+      // Check for existing active appointment for this patient
+      console.log('🔍 Checking for existing active appointment...');
+      try {
+        const existingCheck = await appointmentsApi.checkExistingAppointment(
+          patientId,
+          appointmentFormData.appointmentDate
+        );
+        
+        if (existingCheck.success && !existingCheck.data.canCreateNew) {
+          console.log('❌ Patient has an active appointment, cannot create new one:', existingCheck.data);
+          
+        showErrorToast(
+          'Active Appointment Found',
+          existingCheck.data.reason || 'Patient already has an active appointment. Please complete or cancel the existing appointment before creating a new one.'
+        );
+          return;
+        }
+        
+        console.log('✅ No active appointment found, proceeding with creation');
+      } catch (error) {
+        console.error('❌ Error checking for existing appointment:', error);
+        // Continue with appointment creation if check fails
+        console.log('⚠️ Continuing with appointment creation despite check failure');
       }
 
       const appointmentData = {
@@ -260,18 +752,85 @@ export default function CreateAppointmentModal({
         endTime: appointmentFormData.endTime,
         visitType: appointmentFormData.visitType,
         reasonForVisit: appointmentFormData.reasonForVisit,
-        notes: appointmentFormData.notes,
-        duration: appointmentFormData.duration,
-        isEmergency: appointmentFormData.isEmergency,
-        isWalkIn: appointmentFormData.visitType === 'walk_in'
+        notes: appointmentFormData.notes || '',
+        isWalkIn: appointmentFormData.visitType === 'walk_in',
+        metadata: {
+          source: 'receptionist_dashboard',
+          priority: 'normal' as const
+        }
       };
 
       console.log('📅 Creating appointment with data:', appointmentData);
-      onSuccess(appointmentData);
+      
+      // Create the appointment using the API
+      const response = await appointmentsApi.createAppointment(appointmentData);
+      
+      console.log('📅 Appointment creation response:', response);
+      
+      if (response) {
+        const successMessage = activeTab === 'new' 
+          ? 'Patient and appointment created successfully!' 
+          : 'Appointment created successfully!';
+        showSuccessToast(successMessage, 'Appointment has been scheduled successfully.');
+        onSuccess(response); // Pass the created appointment data to parent
       handleClose();
+        
+        // Refresh the receptionist data to show the new appointment
+        console.log('🔄 Refreshing receptionist data after appointment creation...');
+        dispatch(refreshReceptionistData('all'));
+      } else {
+        throw new Error('Failed to create appointment - no response received');
+      }
     } catch (error: any) {
-      console.error('Error creating appointment:', error);
-      toast.error('Failed to create appointment');
+      console.error('❌ Error creating appointment:', error);
+      console.error('❌ Error response:', error.response);
+      console.error('❌ Error message:', error.message);
+      
+      let errorMessage = 'Failed to create appointment';
+      let errorDetails = '';
+      
+      // Handle different types of errors
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+        
+        if (errorData.details) {
+          errorDetails = errorData.details;
+        } else if (errorData.error) {
+          errorDetails = errorData.error;
+        }
+        
+        // Handle specific error types
+        if (error.response.status === 400) {
+          errorMessage = 'Invalid appointment data. Please check all fields and try again.';
+        } else if (error.response.status === 409) {
+          errorMessage = 'Appointment conflict detected. Please choose a different time slot.';
+        } else if (error.response.status === 403) {
+          errorMessage = 'You do not have permission to create this appointment.';
+        } else if (error.response.status === 404) {
+          errorMessage = 'Patient or doctor not found. Please refresh and try again.';
+        } else if (error.response.status === 500) {
+          errorMessage = 'Server error occurred. Please try again later.';
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // Show detailed error message using error handler
+      handleApiError(error, 'create appointment');
+      
+      // Log additional context for debugging
+      console.error('❌ Error context:', {
+        patientId: appointmentFormData.patientId,
+        doctorId: appointmentFormData.doctorId,
+        appointmentDate: appointmentFormData.appointmentDate,
+        startTime: appointmentFormData.startTime,
+        activeTab: activeTab
+      });
+      
     } finally {
       setIsSubmitting(false);
     }
@@ -362,71 +921,118 @@ export default function CreateAppointmentModal({
                       {searchTerm ? 'No patients found matching your search' : 'No patients available'}
                     </div>
                   ) : (
-                    filteredPatients.map((patient) => (
+                    filteredPatients.map((patient) => {
+                      const hasActiveAppointment = existingAppointments[patient._id];
+                      return (
                       <button
                         key={patient._id}
                         type="button"
                         onClick={() => handleAppointmentInputChange('patientId', patient._id)}
-                        className={`w-full p-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${
-                          appointmentFormData.patientId === patient._id ? 'bg-emerald-50 border-emerald-200' : ''
+                          disabled={hasActiveAppointment}
+                          className={`w-full p-3 text-left border-b border-gray-100 last:border-b-0 ${
+                            hasActiveAppointment 
+                              ? 'bg-red-50 border-red-200 cursor-not-allowed opacity-60' 
+                              : appointmentFormData.patientId === patient._id 
+                                ? 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100' 
+                                : 'hover:bg-gray-50'
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
                             <div className="font-medium text-gray-900">
-                              {patient.firstName} {patient.lastName}
+                                  {patient.name}
+                                </div>
+                                {hasActiveAppointment && (
+                                  <AlertCircle className="h-4 w-4 text-red-500" />
+                                )}
                             </div>
                             <div className="text-sm text-gray-500">
                               {patient.email} • {patient.phone}
                             </div>
+                              {hasActiveAppointment && (
+                                <div className="text-xs text-red-600 mt-1">
+                                  Has active {existingAppointments[patient._id].status} appointment
                           </div>
-                          {appointmentFormData.patientId === patient._id && (
+                              )}
+                            </div>
+                            {appointmentFormData.patientId === patient._id && !hasActiveAppointment && (
                             <CheckCircle className="h-5 w-5 text-emerald-600" />
                           )}
                         </div>
                       </button>
-                    ))
+                      );
+                    })
                   )}
                 </div>
                 {errors.patientId && (
                   <p className="mt-2 text-sm text-red-600">{errors.patientId}</p>
                 )}
+                
+                {/* Active appointment warning */}
+                {appointmentFormData.patientId && appointmentFormData.appointmentDate && existingAppointments[appointmentFormData.patientId] && (
+                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-start">
+                      <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 mr-2 flex-shrink-0" />
+                      <div className="text-sm">
+                        <p className="font-medium text-red-800">Active Appointment Found</p>
+                        <p className="text-red-700 mt-1">
+                          This patient already has an active {existingAppointments[appointmentFormData.patientId].status} appointment scheduled for {existingAppointments[appointmentFormData.patientId].appointmentDate?.split('T')[0]} at {existingAppointments[appointmentFormData.patientId].startTime}.
+                        </p>
+                        <p className="text-red-700 mt-1 font-medium">
+                          You cannot create a new appointment until the existing one is completed or cancelled.
+                        </p>
+                        {existingAppointments[appointmentFormData.patientId].reason && (
+                          <p className="text-red-600 mt-1 text-xs">
+                            {existingAppointments[appointmentFormData.patientId].reason}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Patient Name *</label>
                   <input
                     type="text"
-                    value={patientFormData.firstName}
-                    onChange={(e) => handlePatientInputChange('firstName', e.target.value)}
+                    value={patientFormData.name}
+                    onChange={(e) => handlePatientInputChange('name', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    placeholder="Enter first name"
+                    placeholder="Enter patient name"
                   />
-                  {errors.firstName && <p className="mt-1 text-sm text-red-600">{errors.firstName}</p>}
+                  {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
-                  <input
-                    type="text"
-                    value={patientFormData.lastName}
-                    onChange={(e) => handlePatientInputChange('lastName', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    placeholder="Enter last name"
-                  />
-                  {errors.lastName && <p className="mt-1 text-sm text-red-600">{errors.lastName}</p>}
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                     Email (Optional)
+                     <span className="text-xs text-gray-500 ml-1">- Auto-generated if empty</span>
+                   </label>
+                   <div className="space-y-2">
                   <input
                     type="email"
                     value={patientFormData.email}
                     onChange={(e) => handlePatientInputChange('email', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    placeholder="Enter email address"
-                  />
+                       placeholder="Enter email address or leave empty for auto-generation"
+                     />
+                     <button
+                       type="button"
+                       onClick={async () => {
+                         const generatedEmail = await generateUniqueEmail(patientFormData.name);
+                         if (generatedEmail) {
+                           setPatientFormData(prev => ({ ...prev, email: generatedEmail }));
+                         }
+                       }}
+                       className="w-full px-3 py-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors text-sm font-medium"
+                       disabled={!patientFormData.name.trim()}
+                     >
+                       Generate Email
+                     </button>
+                   </div>
                   {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
                 </div>
                 
@@ -539,6 +1145,9 @@ export default function CreateAppointmentModal({
                 </div>
               </div>
 
+              {/* Appointment Date and Time - Only for scheduled appointments */}
+              {appointmentFormData.visitType === 'scheduled' && (
+                <>
               {/* Appointment Date */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Appointment Date *</label>
@@ -556,62 +1165,158 @@ export default function CreateAppointmentModal({
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Time Slot *</label>
                 {isLoadingSlots ? (
-                  <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
                     Loading available slots...
                   </div>
-                ) : (
-                  <div className="relative">
-                    <select
-                      value={appointmentFormData.startTime}
-                      onChange={(e) => handleTimeSlotSelect(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent appearance-none bg-white"
-                    >
-                      <option value="">Select time slot</option>
-                      {availableSlots.map((slot) => {
-                        const slots = generateTimeSlots();
-                        const slotData = slots.find(s => s.start === slot);
+                ) : slotLoadingError ? (
+                  <div className="space-y-2">
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span>{slotLoadingError}</span>
+                        <button
+                          type="button"
+                          onClick={() => loadAvailableSlots()}
+                          className="ml-2 px-2 py-1 text-xs bg-red-100 hover:bg-red-200 rounded transition-colors"
+                        >
+                          Retry
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                      {generateTimeSlots(appointmentFormData.appointmentDate).map((slot) => {
+                        const isAvailable = availableSlots.includes(slot.start);
+                        const isSelected = appointmentFormData.startTime === slot.start;
+                        const isPastSlot = isSlotInPast(slot.start, appointmentFormData.appointmentDate);
+                        
                         return (
-                          <option key={slot} value={slot}>
-                            {slot} - {slotData?.end}
-                          </option>
+                          <button
+                            key={slot.start}
+                            type="button"
+                            onClick={() => isAvailable && !isPastSlot ? handleTimeSlotSelect(slot.start) : null}
+                            disabled={!isAvailable || isPastSlot}
+                            className={`px-3 py-2 text-sm rounded-md border transition-colors ${
+                              isSelected
+                                ? 'bg-emerald-600 text-white border-emerald-600'
+                                : isPastSlot
+                                  ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
+                                  : isAvailable
+                                    ? 'bg-white text-gray-700 border-gray-300 hover:bg-emerald-50 hover:border-emerald-300'
+                                    : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-60'
+                            }`}
+                          >
+                            <div className="text-center">
+                              <div className="font-medium">{slot.start}</div>
+                              <div className="text-xs opacity-75">{slot.end}</div>
+                              {isPastSlot && (
+                                <div className="text-xs text-gray-400 mt-1">Past</div>
+                              )}
+                            </div>
+                          </button>
                         );
                       })}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 pointer-events-none" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                      {generateTimeSlots(appointmentFormData.appointmentDate).map((slot) => {
+                        const isAvailable = availableSlots.includes(slot.start);
+                        const isSelected = appointmentFormData.startTime === slot.start;
+                        const isPastSlot = isSlotInPast(slot.start, appointmentFormData.appointmentDate);
+                        
+                        return (
+                          <button
+                            key={slot.start}
+                            type="button"
+                            onClick={() => isAvailable && !isPastSlot ? handleTimeSlotSelect(slot.start) : null}
+                            disabled={!isAvailable || isPastSlot}
+                            className={`px-3 py-2 text-sm rounded-md border transition-colors ${
+                              isSelected
+                                ? 'bg-emerald-600 text-white border-emerald-600'
+                                : isPastSlot
+                                  ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
+                                  : isAvailable
+                                    ? 'bg-white text-gray-700 border-gray-300 hover:bg-emerald-50 hover:border-emerald-300'
+                                    : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-60'
+                            }`}
+                          >
+                            <div className="text-center">
+                              <div className="font-medium">{slot.start}</div>
+                              <div className="text-xs opacity-75">{slot.end}</div>
+                              {isPastSlot && (
+                                <div className="text-xs text-gray-400 mt-1">Past</div>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* Legend */}
+                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 bg-emerald-600 rounded"></div>
+                        <span>Selected</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 bg-white border border-gray-300 rounded"></div>
+                        <span>Available</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 bg-gray-50 border border-gray-100 rounded"></div>
+                        <span>Past</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 bg-gray-100 rounded"></div>
+                        <span>Unavailable</span>
+                      </div>
+                    </div>
                   </div>
                 )}
                 {errors.startTime && <p className="mt-1 text-sm text-red-600">{errors.startTime}</p>}
               </div>
+                </>
+              )}
 
-              {/* Duration */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Duration (minutes)</label>
-                <select
-                  value={appointmentFormData.duration}
-                  onChange={(e) => handleAppointmentInputChange('duration', parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                >
-                  <option value={15}>15 minutes</option>
-                  <option value={30}>30 minutes</option>
-                  <option value={45}>45 minutes</option>
-                  <option value={60}>60 minutes</option>
-                  <option value={90}>90 minutes</option>
-                  <option value={120}>120 minutes</option>
-                </select>
-              </div>
+              {/* Walk-in Time Display */}
+              {appointmentFormData.visitType === 'walk_in' && (
+                <div className={`border rounded-lg p-4 ${isBranchOpen ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'}`}>
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      {isBranchOpen ? (
+                        <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="ml-3">
+                      <h3 className={`text-sm font-medium ${isBranchOpen ? 'text-blue-800' : 'text-red-800'}`}>
+                        Walk-in Appointment
+                      </h3>
+                      <div className={`mt-1 text-sm ${isBranchOpen ? 'text-blue-700' : 'text-red-700'}`}>
+                        {isBranchOpen ? (
+                          <>
+                            <p><strong>Date:</strong> {appointmentFormData.appointmentDate}</p>
+                            <p><strong>Time:</strong> {appointmentFormData.startTime} - {appointmentFormData.endTime}</p>
+                            <p className="text-xs mt-1 text-blue-600">Date and time are automatically set to current date and time</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="font-medium text-red-800">Walk-in appointments are not available</p>
+                            <p className="text-xs mt-1">{branchHoursMessage}</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-              {/* Emergency */}
-              <div>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={appointmentFormData.isEmergency}
-                    onChange={(e) => handleAppointmentInputChange('isEmergency', e.target.checked)}
-                    className="mr-2 text-emerald-600 focus:ring-emerald-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Emergency appointment</span>
-                </label>
-              </div>
             </div>
 
             {/* Reason for Visit */}
@@ -638,8 +1343,6 @@ export default function CreateAppointmentModal({
                 placeholder="Additional notes or special instructions..."
               />
             </div>
-          </div>
-          </form>
         </div>
 
         {/* Footer */}
@@ -654,23 +1357,31 @@ export default function CreateAppointmentModal({
             </button>
             <button
               type="submit"
-              onClick={handleSubmit}
-              disabled={isSubmitting}
+              disabled={isSubmitting || (appointmentFormData.visitType === 'walk_in' && !isBranchOpen)}
               className="px-3 py-2 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
             >
               {isSubmitting ? (
                 <>
                   <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
-                  Creating...
+                  {activeTab === 'new' ? 'Creating Patient & Appointment...' : 'Creating Appointment...'}
+                </>
+              ) : appointmentFormData.visitType === 'walk_in' && !isBranchOpen ? (
+                <>
+                  <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  Walk-in Not Available
                 </>
               ) : (
                 <>
                   <Plus className="h-3 w-3" />
-                  Create Appointment
+                  {activeTab === 'new' ? 'Create Patient & Appointment' : 'Create Appointment'}
                 </>
               )}
             </button>
           </div>
+          </div>
+          </form>
         </div>
       </div>
     </div>
