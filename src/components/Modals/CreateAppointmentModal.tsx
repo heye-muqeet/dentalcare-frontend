@@ -99,6 +99,7 @@ export default function CreateAppointmentModal({
   // UI states
   const [activeTab, setActiveTab] = useState<'existing' | 'new'>('existing');
   const [searchTerm, setSearchTerm] = useState('');
+  const [doctorSearchTerm, setDoctorSearchTerm] = useState('');
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
   const [slotLoadingError, setSlotLoadingError] = useState<string | null>(null);
@@ -119,6 +120,15 @@ export default function CreateAppointmentModal({
            patient.phone.includes(searchTerm);
   });
 
+  // Filter doctors based on search
+  const filteredDoctors = doctors.filter(doctor => {
+    const fullName = `${doctor.firstName} ${doctor.lastName}`.toLowerCase();
+    const specialization = doctor.specialization?.toLowerCase() || '';
+    return fullName.includes(doctorSearchTerm.toLowerCase()) ||
+           specialization.includes(doctorSearchTerm.toLowerCase()) ||
+           (doctor.email && doctor.email.toLowerCase().includes(doctorSearchTerm.toLowerCase()));
+  });
+
   // Generate time slots (30-minute intervals from 9 AM to 6 PM)
   const generateTimeSlots = (selectedDate?: string) => {
     const slots = [];
@@ -135,6 +145,14 @@ export default function CreateAppointmentModal({
         const endDateTime = new Date(startDateTime.getTime() + 30 * 60 * 1000); // Add 30 minutes
         const endTime = `${endDateTime.getHours().toString().padStart(2, '0')}:${endDateTime.getMinutes().toString().padStart(2, '0')}`;
         
+        // Convert to 12-hour format for display
+        const formatTime = (time24: string) => {
+          const [hours, minutes] = time24.split(':').map(Number);
+          const period = hours >= 12 ? 'PM' : 'AM';
+          const hours12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+          return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+        };
+        
         // If it's today, check if the slot is in the future
         if (isToday) {
           const slotDateTime = new Date();
@@ -149,7 +167,12 @@ export default function CreateAppointmentModal({
           }
         }
         
-        slots.push({ start: time, end: endTime });
+        slots.push({ 
+          start: time, 
+          end: endTime,
+          displayStart: formatTime(time),
+          displayEnd: formatTime(endTime)
+        });
       }
     }
     return slots;
@@ -239,6 +262,14 @@ export default function CreateAppointmentModal({
           startTime: currentTime,
           endTime: endTimeString
         });
+      } else {
+        // If branch is closed, still set the date but clear times
+        setAppointmentFormData(prev => ({
+          ...prev,
+          appointmentDate: today,
+          startTime: '',
+          endTime: ''
+        }));
       }
     } else {
       // Reset branch status for scheduled appointments
@@ -246,6 +277,15 @@ export default function CreateAppointmentModal({
       setBranchHoursMessage('');
     }
   }, [appointmentFormData.visitType]);
+
+  // Helper function to convert 24-hour time to 12-hour format
+  const formatTimeTo12Hour = (time24: string | undefined) => {
+    if (!time24) return '';
+    const [hours, minutes] = time24.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hours12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+  };
 
   const loadAvailableSlots = async (retryCount = 0) => {
     if (!appointmentFormData.appointmentDate) {
@@ -749,10 +789,11 @@ export default function CreateAppointmentModal({
         doctorId: appointmentFormData.doctorId || undefined,
         appointmentDate: appointmentFormData.appointmentDate,
         startTime: appointmentFormData.startTime,
-        endTime: appointmentFormData.endTime,
+        endTime: appointmentFormData.endTime, // Backend will calculate if not provided
         visitType: appointmentFormData.visitType,
         reasonForVisit: appointmentFormData.reasonForVisit,
         notes: appointmentFormData.notes || '',
+        duration: 30, // Default duration in minutes
         isWalkIn: appointmentFormData.visitType === 'walk_in',
         metadata: {
           source: 'receptionist_dashboard',
@@ -761,19 +802,48 @@ export default function CreateAppointmentModal({
       };
 
       console.log('📅 Creating appointment with data:', appointmentData);
+      console.log('📅 Appointment data validation:', {
+        patientId: !!patientId,
+        patientIdType: typeof patientId,
+        patientIdValue: patientId,
+        doctorId: appointmentFormData.doctorId,
+        doctorIdType: typeof appointmentFormData.doctorId,
+        appointmentDate: appointmentFormData.appointmentDate,
+        startTime: appointmentFormData.startTime,
+        endTime: appointmentFormData.endTime,
+        visitType: appointmentFormData.visitType,
+        reasonForVisit: appointmentFormData.reasonForVisit,
+        isWalkIn: appointmentFormData.visitType === 'walk_in',
+        duration: 30
+      });
+      
+      // Additional validation before sending
+      if (!patientId || patientId.trim() === '') {
+        throw new Error('Patient ID is required');
+      }
+      
+      if (!appointmentFormData.appointmentDate) {
+        throw new Error('Appointment date is required');
+      }
+      
+      if (!appointmentFormData.startTime) {
+        throw new Error('Start time is required');
+      }
+      
+      if (!appointmentFormData.reasonForVisit || appointmentFormData.reasonForVisit.trim() === '') {
+        throw new Error('Reason for visit is required');
+      }
       
       // Create the appointment using the API
-      const response = await appointmentsApi.createAppointment(appointmentData);
+      console.log('📅 About to call appointmentsApi.createAppointment with:', appointmentData);
       
+      const response = await appointmentsApi.createAppointment(appointmentData);
       console.log('📅 Appointment creation response:', response);
       
       if (response) {
-        const successMessage = activeTab === 'new' 
-          ? 'Patient and appointment created successfully!' 
-          : 'Appointment created successfully!';
-        showSuccessToast(successMessage, 'Appointment has been scheduled successfully.');
+        console.log('✅ Appointment created successfully, calling onSuccess callback');
         onSuccess(response); // Pass the created appointment data to parent
-      handleClose();
+        handleClose();
         
         // Refresh the receptionist data to show the new appointment
         console.log('🔄 Refreshing receptionist data after appointment creation...');
@@ -785,6 +855,8 @@ export default function CreateAppointmentModal({
       console.error('❌ Error creating appointment:', error);
       console.error('❌ Error response:', error.response);
       console.error('❌ Error message:', error.message);
+      console.error('❌ Error status:', error.response?.status);
+      console.error('❌ Error data:', error.response?.data);
       
       let errorMessage = 'Failed to create appointment';
       let errorDetails = '';
@@ -792,6 +864,13 @@ export default function CreateAppointmentModal({
       // Handle different types of errors
       if (error.response?.data) {
         const errorData = error.response.data;
+        
+        console.error('❌ Error data details:', {
+          message: errorData.message,
+          details: errorData.details,
+          error: errorData.error,
+          stack: errorData.stack
+        });
         
         if (errorData.message) {
           errorMessage = errorData.message;
@@ -806,6 +885,7 @@ export default function CreateAppointmentModal({
         // Handle specific error types
         if (error.response.status === 400) {
           errorMessage = 'Invalid appointment data. Please check all fields and try again.';
+          console.error('❌ Validation error details:', errorData);
         } else if (error.response.status === 409) {
           errorMessage = 'Appointment conflict detected. Please choose a different time slot.';
         } else if (error.response.status === 403) {
@@ -814,6 +894,7 @@ export default function CreateAppointmentModal({
           errorMessage = 'Patient or doctor not found. Please refresh and try again.';
         } else if (error.response.status === 500) {
           errorMessage = 'Server error occurred. Please try again later.';
+          console.error('❌ Server error details:', errorData);
         }
       } else if (error.message) {
         errorMessage = error.message;
@@ -828,7 +909,11 @@ export default function CreateAppointmentModal({
         doctorId: appointmentFormData.doctorId,
         appointmentDate: appointmentFormData.appointmentDate,
         startTime: appointmentFormData.startTime,
-        activeTab: activeTab
+        endTime: appointmentFormData.endTime,
+        visitType: appointmentFormData.visitType,
+        reasonForVisit: appointmentFormData.reasonForVisit,
+        activeTab: activeTab,
+        branchId: branchId
       });
       
     } finally {
@@ -842,6 +927,7 @@ export default function CreateAppointmentModal({
     setErrors({});
     setActiveTab('existing');
     setSearchTerm('');
+    setDoctorSearchTerm('');
     setAvailableSlots([]);
     onClose();
   };
@@ -874,514 +960,759 @@ export default function CreateAppointmentModal({
 
         {/* Form */}
         <div className="flex-1 overflow-y-auto">
-          <form onSubmit={handleSubmit} className="p-4">
-          {/* Patient Selection Tabs */}
+          <form id="appointment-form" onSubmit={handleSubmit} className="p-4">
+          {/* Patient Selection Section */}
           <div className="mb-4">
-            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-3">
-              <button
-                type="button"
-                onClick={() => setActiveTab('existing')}
-                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === 'existing'
-                    ? 'bg-white text-emerald-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Select Existing Patient
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('new')}
-                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === 'new'
-                    ? 'bg-white text-emerald-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Create New Patient
-              </button>
-            </div>
-
-            {activeTab === 'existing' ? (
-              <div>
-                <div className="relative mb-4">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <input
-                    type="text"
-                    placeholder="Search patients by name, email, or phone..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg">
-                  {filteredPatients.length === 0 ? (
-                    <div className="p-4 text-center text-gray-500">
-                      {searchTerm ? 'No patients found matching your search' : 'No patients available'}
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+              {/* Header */}
+              <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-blue-100 rounded-md">
+                      <svg className="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
                     </div>
-                  ) : (
-                    filteredPatients.map((patient) => {
-                      const hasActiveAppointment = existingAppointments[patient._id];
-                      return (
-                      <button
-                        key={patient._id}
-                        type="button"
-                        onClick={() => handleAppointmentInputChange('patientId', patient._id)}
-                          disabled={hasActiveAppointment}
-                          className={`w-full p-3 text-left border-b border-gray-100 last:border-b-0 ${
-                            hasActiveAppointment 
-                              ? 'bg-red-50 border-red-200 cursor-not-allowed opacity-60' 
-                              : appointmentFormData.patientId === patient._id 
-                                ? 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100' 
-                                : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                            <div className="font-medium text-gray-900">
-                                  {patient.name}
-                                </div>
-                                {hasActiveAppointment && (
-                                  <AlertCircle className="h-4 w-4 text-red-500" />
-                                )}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {patient.email} • {patient.phone}
-                            </div>
-                              {hasActiveAppointment && (
-                                <div className="text-xs text-red-600 mt-1">
-                                  Has active {existingAppointments[patient._id].status} appointment
-                          </div>
-                              )}
-                            </div>
-                            {appointmentFormData.patientId === patient._id && !hasActiveAppointment && (
-                            <CheckCircle className="h-5 w-5 text-emerald-600" />
-                          )}
-                        </div>
-                      </button>
-                      );
-                    })
-                  )}
-                </div>
-                {errors.patientId && (
-                  <p className="mt-2 text-sm text-red-600">{errors.patientId}</p>
-                )}
-                
-                {/* Active appointment warning */}
-                {appointmentFormData.patientId && appointmentFormData.appointmentDate && existingAppointments[appointmentFormData.patientId] && (
-                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <div className="flex items-start">
-                      <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 mr-2 flex-shrink-0" />
-                      <div className="text-sm">
-                        <p className="font-medium text-red-800">Active Appointment Found</p>
-                        <p className="text-red-700 mt-1">
-                          This patient already has an active {existingAppointments[appointmentFormData.patientId].status} appointment scheduled for {existingAppointments[appointmentFormData.patientId].appointmentDate?.split('T')[0]} at {existingAppointments[appointmentFormData.patientId].startTime}.
-                        </p>
-                        <p className="text-red-700 mt-1 font-medium">
-                          You cannot create a new appointment until the existing one is completed or cancelled.
-                        </p>
-                        {existingAppointments[appointmentFormData.patientId].reason && (
-                          <p className="text-red-600 mt-1 text-xs">
-                            {existingAppointments[appointmentFormData.patientId].reason}
-                          </p>
-                        )}
+                    <h3 className="text-sm font-semibold text-gray-900">Patient Selection</h3>
+                  </div>
+                  <div className="flex space-x-1 bg-white p-0.5 rounded-md shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('existing')}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${
+                        activeTab === 'existing'
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <Search className="h-3 w-3" />
+                        Existing
                       </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Patient Name *</label>
-                  <input
-                    type="text"
-                    value={patientFormData.name}
-                    onChange={(e) => handlePatientInputChange('name', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    placeholder="Enter patient name"
-                  />
-                  {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
-                </div>
-                
-                <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                     Email (Optional)
-                     <span className="text-xs text-gray-500 ml-1">- Auto-generated if empty</span>
-                   </label>
-                   <div className="space-y-2">
-                  <input
-                    type="email"
-                    value={patientFormData.email}
-                    onChange={(e) => handlePatientInputChange('email', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                       placeholder="Enter email address or leave empty for auto-generation"
-                     />
-                     <button
-                       type="button"
-                       onClick={async () => {
-                         const generatedEmail = await generateUniqueEmail(patientFormData.name);
-                         if (generatedEmail) {
-                           setPatientFormData(prev => ({ ...prev, email: generatedEmail }));
-                         }
-                       }}
-                       className="w-full px-3 py-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors text-sm font-medium"
-                       disabled={!patientFormData.name.trim()}
-                     >
-                       Generate Email
-                     </button>
-                   </div>
-                  {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
-                  <input
-                    type="tel"
-                    value={patientFormData.phone}
-                    onChange={(e) => handlePatientInputChange('phone', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    placeholder="Enter phone number"
-                  />
-                  {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone}</p>}
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth *</label>
-                  <input
-                    type="date"
-                    value={patientFormData.dateOfBirth}
-                    onChange={(e) => handlePatientInputChange('dateOfBirth', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  />
-                  {errors.dateOfBirth && <p className="mt-1 text-sm text-red-600">{errors.dateOfBirth}</p>}
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender *</label>
-                  <select
-                    value={patientFormData.gender}
-                    onChange={(e) => handlePatientInputChange('gender', e.target.value as 'male' | 'female' | 'other')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  >
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
-                  <input
-                    type="text"
-                    value={patientFormData.address}
-                    onChange={(e) => handlePatientInputChange('address', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    placeholder="Enter address"
-                  />
-                  {errors.address && <p className="mt-1 text-sm text-red-600">{errors.address}</p>}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Appointment Details */}
-          <div className="space-y-3">
-            <h3 className="text-base font-semibold text-gray-900 flex items-center">
-              <Calendar className="h-4 w-4 mr-2 text-emerald-600" />
-              Appointment Details
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Doctor Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Doctor <span className="text-gray-500">(Optional)</span>
-                </label>
-                <div className="relative">
-                  <select
-                    value={appointmentFormData.doctorId}
-                    onChange={(e) => handleAppointmentInputChange('doctorId', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent appearance-none bg-white"
-                  >
-                    <option value="">No doctor assigned</option>
-                    {doctors.map((doctor) => (
-                      <option key={doctor._id} value={doctor._id}>
-                        Dr. {doctor.firstName} {doctor.lastName} - {doctor.specialization}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 pointer-events-none" />
-                </div>
-                <p className="mt-1 text-xs text-gray-500">Can be assigned later before treatment starts</p>
-              </div>
-
-              {/* Visit Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Visit Type *</label>
-                <div className="flex space-x-4">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      value="scheduled"
-                      checked={appointmentFormData.visitType === 'scheduled'}
-                      onChange={(e) => handleAppointmentInputChange('visitType', e.target.value as 'walk_in' | 'scheduled')}
-                      className="mr-2 text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span className="text-sm">Scheduled</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      value="walk_in"
-                      checked={appointmentFormData.visitType === 'walk_in'}
-                      onChange={(e) => handleAppointmentInputChange('visitType', e.target.value as 'walk_in' | 'scheduled')}
-                      className="mr-2 text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span className="text-sm">Walk-in</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Appointment Date and Time - Only for scheduled appointments */}
-              {appointmentFormData.visitType === 'scheduled' && (
-                <>
-              {/* Appointment Date */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Appointment Date *</label>
-                <input
-                  type="date"
-                  value={appointmentFormData.appointmentDate}
-                  onChange={(e) => handleAppointmentInputChange('appointmentDate', e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                />
-                {errors.appointmentDate && <p className="mt-1 text-sm text-red-600">{errors.appointmentDate}</p>}
-              </div>
-
-              {/* Time Slot */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Time Slot *</label>
-                {isLoadingSlots ? (
-                  <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
-                    Loading available slots...
-                  </div>
-                ) : slotLoadingError ? (
-                  <div className="space-y-2">
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                      <div className="flex items-center justify-between">
-                        <span>{slotLoadingError}</span>
-                        <button
-                          type="button"
-                          onClick={() => loadAvailableSlots()}
-                          className="ml-2 px-2 py-1 text-xs bg-red-100 hover:bg-red-200 rounded transition-colors"
-                        >
-                          Retry
-                        </button>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('new')}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${
+                        activeTab === 'new'
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <Plus className="h-3 w-3" />
+                        New
                       </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
-                      {generateTimeSlots(appointmentFormData.appointmentDate).map((slot) => {
-                        const isAvailable = availableSlots.includes(slot.start);
-                        const isSelected = appointmentFormData.startTime === slot.start;
-                        const isPastSlot = isSlotInPast(slot.start, appointmentFormData.appointmentDate);
-                        
-                        return (
-                          <button
-                            key={slot.start}
-                            type="button"
-                            onClick={() => isAvailable && !isPastSlot ? handleTimeSlotSelect(slot.start) : null}
-                            disabled={!isAvailable || isPastSlot}
-                            className={`px-3 py-2 text-sm rounded-md border transition-colors ${
-                              isSelected
-                                ? 'bg-emerald-600 text-white border-emerald-600'
-                                : isPastSlot
-                                  ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
-                                  : isAvailable
-                                    ? 'bg-white text-gray-700 border-gray-300 hover:bg-emerald-50 hover:border-emerald-300'
-                                    : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-60'
-                            }`}
-                          >
-                            <div className="text-center">
-                              <div className="font-medium">{slot.start}</div>
-                              <div className="text-xs opacity-75">{slot.end}</div>
-                              {isPastSlot && (
-                                <div className="text-xs text-gray-400 mt-1">Past</div>
-                              )}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
+                    </button>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
-                      {generateTimeSlots(appointmentFormData.appointmentDate).map((slot) => {
-                        const isAvailable = availableSlots.includes(slot.start);
-                        const isSelected = appointmentFormData.startTime === slot.start;
-                        const isPastSlot = isSlotInPast(slot.start, appointmentFormData.appointmentDate);
-                        
-                        return (
-                          <button
-                            key={slot.start}
-                            type="button"
-                            onClick={() => isAvailable && !isPastSlot ? handleTimeSlotSelect(slot.start) : null}
-                            disabled={!isAvailable || isPastSlot}
-                            className={`px-3 py-2 text-sm rounded-md border transition-colors ${
-                              isSelected
-                                ? 'bg-emerald-600 text-white border-emerald-600'
-                                : isPastSlot
-                                  ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
-                                  : isAvailable
-                                    ? 'bg-white text-gray-700 border-gray-300 hover:bg-emerald-50 hover:border-emerald-300'
-                                    : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-60'
-                            }`}
-                          >
-                            <div className="text-center">
-                              <div className="font-medium">{slot.start}</div>
-                              <div className="text-xs opacity-75">{slot.end}</div>
-                              {isPastSlot && (
-                                <div className="text-xs text-gray-400 mt-1">Past</div>
-                              )}
-                            </div>
-                          </button>
-                        );
-                      })}
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-4">
+
+                {activeTab === 'existing' ? (
+                  <div className="space-y-3">
+                    {/* Search Input */}
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <input
+                        type="text"
+                        placeholder="Search patients..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
                     </div>
                     
-                    {/* Legend */}
-                    <div className="flex items-center gap-4 text-xs text-gray-500">
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 bg-emerald-600 rounded"></div>
-                        <span>Selected</span>
+                    {/* Patient List */}
+                    <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-md">
+                      {filteredPatients.length === 0 ? (
+                        <div className="p-4 text-center text-gray-500">
+                          <div className="flex flex-col items-center space-y-2">
+                            <Search className="h-5 w-5 text-gray-300" />
+                            <p className="text-xs font-medium text-gray-900">
+                              {searchTerm ? 'No patients found' : 'No patients available'}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-2 space-y-1">
+                          {filteredPatients.map((patient) => {
+                            const hasActiveAppointment = existingAppointments[patient._id];
+                            const isSelected = appointmentFormData.patientId === patient._id;
+                            return (
+                              <button
+                                key={patient._id}
+                                type="button"
+                                onClick={() => handleAppointmentInputChange('patientId', patient._id)}
+                                disabled={hasActiveAppointment}
+                                className={`w-full p-2.5 text-left rounded-md border transition-all duration-200 ${
+                                  hasActiveAppointment 
+                                    ? 'bg-red-50 border-red-200 cursor-not-allowed opacity-60' 
+                                    : isSelected
+                                      ? 'bg-blue-50 border-blue-300 shadow-sm ring-1 ring-blue-200' 
+                                      : 'bg-white border-gray-200 hover:bg-blue-50 hover:border-blue-200'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                    hasActiveAppointment 
+                                      ? 'bg-red-100 text-red-600' 
+                                      : isSelected 
+                                        ? 'bg-blue-100 text-blue-600' 
+                                        : 'bg-gray-100 text-gray-600'
+                                  }`}>
+                                    {patient.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                      <h4 className="font-medium text-gray-900 truncate text-sm">{patient.name}</h4>
+                                      {hasActiveAppointment && (
+                                        <AlertCircle className="h-3 w-3 text-red-500 flex-shrink-0" />
+                                      )}
+                                      {isSelected && !hasActiveAppointment && (
+                                        <CheckCircle className="h-3 w-3 text-blue-600 flex-shrink-0" />
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                      <p className="truncate">{patient.email}</p>
+                                      <p>{patient.phone}</p>
+                                    </div>
+                                    {hasActiveAppointment && (
+                                      <div className="mt-1">
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                                          Active appointment
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Error Messages */}
+                    {errors.patientId && (
+                      <div className="p-2 bg-red-50 border border-red-200 rounded-md">
+                        <div className="flex items-center gap-1.5">
+                          <AlertCircle className="h-3 w-3 text-red-600 flex-shrink-0" />
+                          <p className="text-xs text-red-600">{errors.patientId}</p>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 bg-white border border-gray-300 rounded"></div>
-                        <span>Available</span>
+                    )}
+                    
+                    {/* Active appointment warning */}
+                    {appointmentFormData.patientId && appointmentFormData.appointmentDate && existingAppointments[appointmentFormData.patientId] && (
+                      <div className="p-2.5 bg-red-50 border border-red-200 rounded-md">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="h-3 w-3 text-red-600 mt-0.5 flex-shrink-0" />
+                          <div className="text-xs">
+                            <p className="font-medium text-red-800 mb-1">Active Appointment Found</p>
+                            <p className="text-red-700 mb-1">
+                              Patient has an active {existingAppointments[appointmentFormData.patientId].status} appointment.
+                            </p>
+                            <p className="text-red-700 font-medium">
+                              Complete or cancel existing appointment first.
+                            </p>
+                            {existingAppointments[appointmentFormData.patientId].reason && (
+                              <p className="text-red-600 mt-1 text-xs bg-red-100 p-1.5 rounded">
+                                {existingAppointments[appointmentFormData.patientId].reason}
+                              </p>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 bg-gray-50 border border-gray-100 rounded"></div>
-                        <span>Past</span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Patient Name *</label>
+                        <input
+                          type="text"
+                          value={patientFormData.name}
+                          onChange={(e) => handlePatientInputChange('name', e.target.value)}
+                          className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          placeholder="Enter patient full name"
+                        />
+                        {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
                       </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 bg-gray-100 rounded"></div>
-                        <span>Unavailable</span>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Email Address
+                          <span className="text-xs text-gray-500 ml-1 font-normal">(Auto-generated)</span>
+                        </label>
+                        <div className="space-y-1">
+                          <input
+                            type="email"
+                            value={patientFormData.email}
+                            onChange={(e) => handlePatientInputChange('email', e.target.value)}
+                            className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                            placeholder="Enter email address"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const generatedEmail = await generateUniqueEmail(patientFormData.name);
+                              if (generatedEmail) {
+                                setPatientFormData(prev => ({ ...prev, email: generatedEmail }));
+                              }
+                            }}
+                            className="w-full px-2 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors text-xs font-medium"
+                            disabled={!patientFormData.name.trim()}
+                          >
+                            Generate Email
+                          </button>
+                        </div>
+                        {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Phone Number *</label>
+                        <input
+                          type="tel"
+                          value={patientFormData.phone}
+                          onChange={(e) => handlePatientInputChange('phone', e.target.value)}
+                          className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          placeholder="Enter phone number"
+                        />
+                        {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone}</p>}
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Date of Birth *</label>
+                        <input
+                          type="date"
+                          value={patientFormData.dateOfBirth}
+                          onChange={(e) => handlePatientInputChange('dateOfBirth', e.target.value)}
+                          className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        />
+                        {errors.dateOfBirth && <p className="mt-1 text-xs text-red-600">{errors.dateOfBirth}</p>}
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Gender *</label>
+                        <select
+                          value={patientFormData.gender}
+                          onChange={(e) => handlePatientInputChange('gender', e.target.value as 'male' | 'female' | 'other')}
+                          className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        >
+                          <option value="male">Male</option>
+                          <option value="female">Female</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Address *</label>
+                        <input
+                          type="text"
+                          value={patientFormData.address}
+                          onChange={(e) => handlePatientInputChange('address', e.target.value)}
+                          className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          placeholder="Enter full address"
+                        />
+                        {errors.address && <p className="mt-1 text-xs text-red-600">{errors.address}</p>}
                       </div>
                     </div>
                   </div>
                 )}
-                {errors.startTime && <p className="mt-1 text-sm text-red-600">{errors.startTime}</p>}
               </div>
+            </div>
+          </div>
+
+          {/* Doctor Selection Section */}
+          <div className="mb-4">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+              {/* Header */}
+              <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-green-100 rounded-md">
+                      <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-sm font-semibold text-gray-900">Doctor Selection</h3>
+                  </div>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-4">
+                {/* Search Input */}
+                <div className="relative mb-3">
+                  <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <input
+                    type="text"
+                    placeholder="Search doctors..."
+                    value={doctorSearchTerm}
+                    onChange={(e) => setDoctorSearchTerm(e.target.value)}
+                    className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                  />
+                </div>
+                
+                {/* Doctor List */}
+                <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-md">
+                  {doctors.length === 0 ? (
+                    <div className="p-3 text-center text-gray-500">
+                      <div className="flex flex-col items-center space-y-2">
+                        <svg className="h-5 w-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p className="text-xs font-medium text-gray-900">No doctors available</p>
+                      </div>
+                    </div>
+                  ) : filteredDoctors.length === 0 ? (
+                    <div className="p-3 text-center text-gray-500">
+                      <div className="flex flex-col items-center space-y-2">
+                        <Search className="h-5 w-5 text-gray-300" />
+                        <p className="text-xs font-medium text-gray-900">No doctors found</p>
+                        <p className="text-xs text-gray-500">Try adjusting your search terms</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-2 space-y-1">
+                      {/* No Doctor Option */}
+                      <button
+                        type="button"
+                        onClick={() => handleAppointmentInputChange('doctorId', '')}
+                        className={`w-full p-2.5 text-left rounded-md border transition-all duration-200 ${
+                          appointmentFormData.doctorId === ''
+                            ? 'bg-gray-50 border-gray-300 shadow-sm ring-1 ring-gray-200' 
+                            : 'bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                            <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <h4 className="font-medium text-gray-900 text-sm">No doctor assigned</h4>
+                              {appointmentFormData.doctorId === '' && (
+                                <CheckCircle className="h-3 w-3 text-gray-600 flex-shrink-0" />
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500">Can be assigned later</p>
+                          </div>
+                        </div>
+                      </button>
+                      
+                      {/* Doctor Options */}
+                      {filteredDoctors.map((doctor) => {
+                        const isSelected = appointmentFormData.doctorId === doctor._id;
+                        return (
+                          <button
+                            key={doctor._id}
+                            type="button"
+                            onClick={() => handleAppointmentInputChange('doctorId', doctor._id)}
+                            className={`w-full p-2.5 text-left rounded-md border transition-all duration-200 ${
+                              isSelected
+                                ? 'bg-green-50 border-green-300 shadow-sm ring-1 ring-green-200' 
+                                : 'bg-white border-gray-200 hover:bg-green-50 hover:border-green-200'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                isSelected 
+                                  ? 'bg-green-100 text-green-600' 
+                                  : 'bg-gray-100 text-gray-600'
+                              }`}>
+                                {doctor.firstName.charAt(0).toUpperCase()}{doctor.lastName.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                  <h4 className="font-medium text-gray-900 text-sm">
+                                    Dr. {doctor.firstName} {doctor.lastName}
+                                  </h4>
+                                  {isSelected && (
+                                    <CheckCircle className="h-3 w-3 text-green-600 flex-shrink-0" />
+                                  )}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  <p className="font-medium">{doctor.specialization}</p>
+                                  {doctor.email && (
+                                    <p className="text-xs text-gray-400 truncate">{doctor.email}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Appointment Details Section */}
+          <div className="mb-4">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+              {/* Header */}
+              <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-purple-100 rounded-md">
+                    <Calendar className="h-4 w-4 text-purple-600" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-gray-900">Appointment Details</h3>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="space-y-4">
+
+                {/* Visit Type */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">Visit Type *</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className={`relative flex items-center p-2.5 rounded-md border cursor-pointer transition-all duration-200 ${
+                      appointmentFormData.visitType === 'scheduled'
+                        ? 'border-purple-300 bg-purple-50 shadow-sm ring-1 ring-purple-200'
+                        : 'border-gray-200 bg-white hover:border-purple-200 hover:bg-purple-50'
+                    }`}>
+                      <input
+                        type="radio"
+                        value="scheduled"
+                        checked={appointmentFormData.visitType === 'scheduled'}
+                        onChange={(e) => handleAppointmentInputChange('visitType', e.target.value as 'walk_in' | 'scheduled')}
+                        className="sr-only"
+                      />
+                      <div className="flex items-center gap-2">
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                          appointmentFormData.visitType === 'scheduled'
+                            ? 'border-purple-600 bg-purple-600'
+                            : 'border-gray-300'
+                        }`}>
+                          {appointmentFormData.visitType === 'scheduled' && (
+                            <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-900 text-sm">Scheduled</div>
+                          <div className="text-xs text-gray-500">Future date</div>
+                        </div>
+                      </div>
+                    </label>
+                    
+                    <label className={`relative flex items-center p-2.5 rounded-md border cursor-pointer transition-all duration-200 ${
+                      appointmentFormData.visitType === 'walk_in'
+                        ? 'border-purple-300 bg-purple-50 shadow-sm ring-1 ring-purple-200'
+                        : 'border-gray-200 bg-white hover:border-purple-200 hover:bg-purple-50'
+                    }`}>
+                      <input
+                        type="radio"
+                        value="walk_in"
+                        checked={appointmentFormData.visitType === 'walk_in'}
+                        onChange={(e) => handleAppointmentInputChange('visitType', e.target.value as 'walk_in' | 'scheduled')}
+                        className="sr-only"
+                      />
+                      <div className="flex items-center gap-2">
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                          appointmentFormData.visitType === 'walk_in'
+                            ? 'border-purple-600 bg-purple-600'
+                            : 'border-gray-300'
+                        }`}>
+                          {appointmentFormData.visitType === 'walk_in' && (
+                            <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-900 text-sm">Walk-in</div>
+                          <div className="text-xs text-gray-500">Immediate</div>
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Appointment Date and Time - Only for scheduled appointments */}
+                {appointmentFormData.visitType === 'scheduled' && (
+                  <>
+                    {/* Appointment Date */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Appointment Date *</label>
+                      <input
+                        type="date"
+                        value={appointmentFormData.appointmentDate}
+                        onChange={(e) => handleAppointmentInputChange('appointmentDate', e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                      />
+                      {errors.appointmentDate && <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {errors.appointmentDate}
+                      </p>}
+                    </div>
+
+                    {/* Time Slot */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Time Slot *</label>
+                      {isLoadingSlots ? (
+                        <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                          <span className="text-sm">Loading slots...</span>
+                        </div>
+                      ) : slotLoadingError ? (
+                        <div className="space-y-2">
+                          <div className="p-2 bg-red-50 border border-red-200 rounded-md">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <AlertCircle className="h-3 w-3 text-red-600" />
+                                <span className="text-red-700 text-xs font-medium">{slotLoadingError}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => loadAvailableSlots()}
+                                className="px-2 py-0.5 text-xs bg-red-100 hover:bg-red-200 rounded transition-colors font-medium"
+                              >
+                                Retry
+                              </button>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-5 gap-1 max-h-32 overflow-y-auto border border-gray-200 rounded-md p-2 bg-gray-50">
+                            {generateTimeSlots(appointmentFormData.appointmentDate).map((slot) => {
+                              const isAvailable = availableSlots.includes(slot.start);
+                              const isSelected = appointmentFormData.startTime === slot.start;
+                              const isPastSlot = isSlotInPast(slot.start, appointmentFormData.appointmentDate);
+                              
+                              return (
+                                <button
+                                  key={slot.start}
+                                  type="button"
+                                  onClick={() => isAvailable && !isPastSlot ? handleTimeSlotSelect(slot.start) : null}
+                                  disabled={!isAvailable || isPastSlot}
+                                  className={`px-2 py-1 text-xs rounded border transition-all duration-200 ${
+                                    isSelected
+                                      ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                                      : isPastSlot
+                                        ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                                        : isAvailable
+                                          ? 'bg-white text-gray-700 border-gray-300 hover:bg-purple-50 hover:border-purple-300'
+                                          : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-60'
+                                  }`}
+                                >
+                                  <div className="text-center">
+                                    <div className="font-medium text-xs">{slot.displayStart}</div>
+                                    {isPastSlot && (
+                                      <div className="text-xs text-gray-400">Past</div>
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-5 gap-1 max-h-32 overflow-y-auto border border-gray-200 rounded-md p-2 bg-gray-50">
+                            {generateTimeSlots(appointmentFormData.appointmentDate).map((slot) => {
+                              const isAvailable = availableSlots.includes(slot.start);
+                              const isSelected = appointmentFormData.startTime === slot.start;
+                              const isPastSlot = isSlotInPast(slot.start, appointmentFormData.appointmentDate);
+                              
+                              return (
+                                <button
+                                  key={slot.start}
+                                  type="button"
+                                  onClick={() => isAvailable && !isPastSlot ? handleTimeSlotSelect(slot.start) : null}
+                                  disabled={!isAvailable || isPastSlot}
+                                  className={`px-2 py-1 text-xs rounded border transition-all duration-200 ${
+                                    isSelected
+                                      ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                                      : isPastSlot
+                                        ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                                        : isAvailable
+                                          ? 'bg-white text-gray-700 border-gray-300 hover:bg-purple-50 hover:border-purple-300'
+                                          : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-60'
+                                  }`}
+                                >
+                                  <div className="text-center">
+                                    <div className="font-medium text-xs">{slot.displayStart}</div>
+                                    {isPastSlot && (
+                                      <div className="text-xs text-gray-400">Past</div>
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          
+                          {/* Legend */}
+                          <div className="flex items-center gap-4 text-xs text-gray-500 bg-gray-50 p-2 rounded-md">
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-purple-600 rounded"></div>
+                              <span className="text-xs">Selected</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-white border border-gray-300 rounded"></div>
+                              <span className="text-xs">Available</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-gray-100 border border-gray-200 rounded"></div>
+                              <span className="text-xs">Past</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-gray-200 rounded"></div>
+                              <span className="text-xs">Unavailable</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs font-medium text-gray-600">Times shown in 12-hour format</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {errors.startTime && <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {errors.startTime}
+                      </p>}
+                    </div>
                 </>
               )}
 
-              {/* Walk-in Time Display */}
-              {appointmentFormData.visitType === 'walk_in' && (
-                <div className={`border rounded-lg p-4 ${isBranchOpen ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'}`}>
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      {isBranchOpen ? (
-                        <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                        </svg>
-                      ) : (
-                        <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                      )}
-                    </div>
-                    <div className="ml-3">
-                      <h3 className={`text-sm font-medium ${isBranchOpen ? 'text-blue-800' : 'text-red-800'}`}>
-                        Walk-in Appointment
-                      </h3>
-                      <div className={`mt-1 text-sm ${isBranchOpen ? 'text-blue-700' : 'text-red-700'}`}>
+                {/* Walk-in Time Display */}
+                {appointmentFormData.visitType === 'walk_in' && (
+                  <div className={`border rounded-md p-2.5 ${isBranchOpen ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'}`}>
+                    <div className="flex items-start gap-2">
+                      <div className="flex-shrink-0 mt-0.5">
                         {isBranchOpen ? (
-                          <>
-                            <p><strong>Date:</strong> {appointmentFormData.appointmentDate}</p>
-                            <p><strong>Time:</strong> {appointmentFormData.startTime} - {appointmentFormData.endTime}</p>
-                            <p className="text-xs mt-1 text-blue-600">Date and time are automatically set to current date and time</p>
-                          </>
+                          <div className="p-1 bg-blue-100 rounded-full">
+                            <svg className="h-3 w-3 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                            </svg>
+                          </div>
                         ) : (
-                          <>
-                            <p className="font-medium text-red-800">Walk-in appointments are not available</p>
-                            <p className="text-xs mt-1">{branchHoursMessage}</p>
-                          </>
+                          <div className="p-1 bg-red-100 rounded-full">
+                            <svg className="h-3 w-3 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                          </div>
                         )}
+                      </div>
+                      <div className="flex-1">
+                        <h3 className={`text-sm font-semibold ${isBranchOpen ? 'text-blue-800' : 'text-red-800'}`}>
+                          Walk-in Appointment
+                        </h3>
+                        <div className={`mt-1 text-xs ${isBranchOpen ? 'text-blue-700' : 'text-red-700'}`}>
+                          {isBranchOpen ? (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-medium">Date:</span>
+                                <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+                                  {appointmentFormData.appointmentDate}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-medium">Time:</span>
+                                <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+                                  {appointmentFormData.startTime && appointmentFormData.endTime 
+                                    ? `${formatTimeTo12Hour(appointmentFormData.startTime)} - ${formatTimeTo12Hour(appointmentFormData.endTime)}`
+                                    : 'Setting up...'
+                                  }
+                                </span>
+                              </div>
+                              <p className="text-xs text-blue-600 mt-1 bg-blue-100 p-1.5 rounded">
+                                Auto-set to current time
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              <p className="font-medium text-red-800">Walk-in not available</p>
+                              <p className="text-xs bg-red-100 p-1.5 rounded">{branchHoursMessage}</p>
+                              <div className="flex items-center gap-1.5 mt-2">
+                                <span className="font-medium text-red-700">Time:</span>
+                                <span className="px-1.5 py-0.5 bg-red-100 text-red-800 rounded text-xs font-medium">
+                                  Not available
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
+                )}
+
+            </div>
+
+                {/* Reason for Visit */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Reason for Visit *</label>
+                  <textarea
+                    value={appointmentFormData.reasonForVisit}
+                    onChange={(e) => handleAppointmentInputChange('reasonForVisit', e.target.value)}
+                    rows={2}
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm resize-none"
+                    placeholder="Describe the reason for the appointment..."
+                  />
+                  {errors.reasonForVisit && <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {errors.reasonForVisit}
+                  </p>}
                 </div>
-              )}
 
+                {/* Notes */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Additional Notes</label>
+                  <textarea
+                    value={appointmentFormData.notes}
+                    onChange={(e) => handleAppointmentInputChange('notes', e.target.value)}
+                    rows={2}
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm resize-none"
+                    placeholder="Additional notes or special instructions..."
+                  />
+                </div>
+              </div>
             </div>
-
-            {/* Reason for Visit */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Visit *</label>
-              <textarea
-                value={appointmentFormData.reasonForVisit}
-                onChange={(e) => handleAppointmentInputChange('reasonForVisit', e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                placeholder="Describe the reason for the appointment..."
-              />
-              {errors.reasonForVisit && <p className="mt-1 text-sm text-red-600">{errors.reasonForVisit}</p>}
-            </div>
-
-            {/* Notes */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-              <textarea
-                value={appointmentFormData.notes}
-                onChange={(e) => handleAppointmentInputChange('notes', e.target.value)}
-                rows={2}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                placeholder="Additional notes or special instructions..."
-              />
-            </div>
+          </form>
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex-shrink-0">
-          <div className="flex justify-end space-x-2">
+        <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-t border-gray-200 flex-shrink-0">
+          <div className="flex justify-end space-x-3">
             <button
               type="button"
               onClick={handleClose}
-              className="px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 shadow-sm"
             >
               Cancel
             </button>
             <button
               type="submit"
+              form="appointment-form"
               disabled={isSubmitting || (appointmentFormData.visitType === 'walk_in' && !isBranchOpen)}
-              className="px-3 py-2 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+              className="px-6 py-2 text-sm font-medium bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-lg hover:from-emerald-700 hover:to-green-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-md"
             >
               {isSubmitting ? (
                 <>
-                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
-                  {activeTab === 'new' ? 'Creating Patient & Appointment...' : 'Creating Appointment...'}
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>{activeTab === 'new' ? 'Creating Patient & Appointment...' : 'Creating Appointment...'}</span>
                 </>
               ) : appointmentFormData.visitType === 'walk_in' && !isBranchOpen ? (
                 <>
-                  <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                   </svg>
-                  Walk-in Not Available
+                  <span>Walk-in Not Available</span>
                 </>
               ) : (
                 <>
-                  <Plus className="h-3 w-3" />
-                  {activeTab === 'new' ? 'Create Patient & Appointment' : 'Create Appointment'}
+                  <Plus className="h-4 w-4" />
+                  <span>{activeTab === 'new' ? 'Create Patient & Appointment' : 'Create Appointment'}</span>
                 </>
               )}
             </button>
           </div>
-          </div>
-          </form>
         </div>
       </div>
     </div>

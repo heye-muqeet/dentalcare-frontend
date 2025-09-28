@@ -97,8 +97,21 @@ export const appointmentsApi = {
 
   // Create a new appointment
   createAppointment: async (appointmentData: CreateAppointmentData): Promise<Appointment> => {
-    const response = await api.post(API_ENDPOINTS.APPOINTMENTS.BASE, appointmentData);
-    return response.data;
+    console.log('📡 appointmentsApi.createAppointment called with:', appointmentData);
+    console.log('📡 API endpoint:', API_ENDPOINTS.APPOINTMENTS.BASE);
+    
+    try {
+      const response = await api.post(API_ENDPOINTS.APPOINTMENTS.BASE, appointmentData);
+      console.log('📡 API response received:', response);
+      console.log('📡 Response data:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('📡 API error in createAppointment:', error);
+      console.error('📡 Error response:', error.response);
+      console.error('📡 Error status:', error.response?.status);
+      console.error('📡 Error data:', error.response?.data);
+      throw error;
+    }
   },
 
   // Update an existing appointment

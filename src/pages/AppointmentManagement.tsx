@@ -157,6 +157,14 @@ export default function AppointmentManagement() {
     }
   };
 
+  const handleAppointmentCreated = (appointmentData: any) => {
+    console.log('🎉 Appointment created successfully in modal:', appointmentData);
+    showSuccessToast('Appointment Created Successfully', 'The appointment has been scheduled successfully.');
+    setIsCreateModalOpen(false);
+    // Refresh appointments list
+    dispatch(fetchAppointments({}));
+  };
+
   const handleEditAppointment = async (appointmentData: any) => {
     if (selectedAppointment) {
       try {
@@ -671,7 +679,7 @@ export default function AppointmentManagement() {
       <CreateAppointmentModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onSuccess={handleCreateAppointment}
+        onSuccess={handleAppointmentCreated}
         patients={currentPatients.map(p => ({
           _id: p._id,
           name: (p as any).name || `${(p as any).firstName || ''} ${(p as any).lastName || ''}`.trim(),
