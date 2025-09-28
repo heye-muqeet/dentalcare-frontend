@@ -192,10 +192,20 @@ class SessionManager {
     }
 
     try {
+      console.log('🔄 Attempting token refresh with refresh token:', this.sessionData.refreshToken.substring(0, 10) + '...');
+      
       const response = await authService.refreshToken(this.sessionData.refreshToken);
+      
+      console.log('🔄 Token refresh response:', {
+        success: response.success,
+        hasData: !!response.data,
+        dataKeys: response.data ? Object.keys(response.data) : []
+      });
       
       if (response.success && response.data) {
         const { accessToken, refreshToken, expiresIn = 900, tokenType = 'Bearer' } = response.data;
+        
+        console.log('✅ Token refresh successful, updating session data');
         
         // Update session data with both new tokens
         this.sessionData.accessToken = accessToken;
@@ -205,6 +215,10 @@ class SessionManager {
         this.saveToStorage();
         this.notifyListeners();
         
+        // Clear any previous failure markers
+        localStorage.removeItem('lastRefreshFailure');
+        localStorage.removeItem('lastFailedToken');
+        
         return {
           accessToken,
           refreshToken,
@@ -212,28 +226,38 @@ class SessionManager {
           tokenType
         };
       } else {
+        console.error('❌ Invalid refresh response:', response);
         throw new Error('Invalid refresh response');
       }
-    } catch (error) {
-      console.error('Token refresh failed:', error);
+    } catch (error: any) {
+      console.error('❌ Token refresh failed:', {
+        error: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
       
       // Mark this token as failed if it's a 401 error
       if (error && typeof error === 'object' && 'response' in error && 
           error.response && typeof error.response === 'object' && 
           'status' in error.response && error.response.status === 401) {
-        console.log('Marking refresh token as failed due to 401 error');
+        console.log('❌ Marking refresh token as failed due to 401 error');
         localStorage.setItem('lastRefreshFailure', Date.now().toString());
         localStorage.setItem('lastFailedToken', this.sessionData?.refreshToken || '');
       }
       
-      // Retry logic
-      if (this.retryCount < this.config.maxRetries) {
+      // Retry logic - only retry for network errors, not auth errors
+      if (this.retryCount < this.config.maxRetries && 
+          error.response?.status !== 401 && 
+          error.response?.status !== 403) {
         this.retryCount++;
+        console.log(`🔄 Retrying token refresh (attempt ${this.retryCount}/${this.config.maxRetries})`);
         await this.delay(this.config.retryDelay * this.retryCount);
         return this.performTokenRefresh();
       }
       
-      // Max retries reached, clear session
+      // Max retries reached or auth error, clear session
+      console.log('❌ Max retries reached or auth error, clearing session');
       this.clearSession();
       throw error;
     }
@@ -304,12 +328,15 @@ class SessionManager {
       const failureTime = parseInt(lastRefreshFailure);
       const timeSinceFailure = Date.now() - failureTime;
       
-      // If we failed to refresh this token recently (within 5 minutes), consider it invalid
-      if (timeSinceFailure < 5 * 60 * 1000) {
+      // If we failed to refresh this token recently (within 2 minutes), consider it invalid
+      if (timeSinceFailure < 2 * 60 * 1000) {
         console.log('Refresh token marked as invalid due to recent failure');
-        // Clear the session immediately if we detect a failed token
-        this.clearSession();
+        // Don't clear session immediately - let the axios interceptor handle it
         return false;
+      } else {
+        // Clear old failure markers if enough time has passed
+        localStorage.removeItem('lastRefreshFailure');
+        localStorage.removeItem('lastFailedToken');
       }
     }
 

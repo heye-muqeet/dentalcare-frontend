@@ -102,11 +102,15 @@ api.interceptors.response.use(
         const timeSinceFailure = Date.now() - failureTime;
         
         // If we failed to refresh this token recently, don't try again
-        if (timeSinceFailure < 5 * 60 * 1000) {
-          console.log('Skipping refresh attempt - token recently failed');
+        if (timeSinceFailure < 2 * 60 * 1000) {
+          console.log('❌ Skipping refresh attempt - token recently failed');
           await sessionManager.clearSession();
           window.location.href = '/login';
           return Promise.reject(error);
+        } else {
+          // Clear old failure markers if enough time has passed
+          localStorage.removeItem('lastRefreshFailure');
+          localStorage.removeItem('lastFailedToken');
         }
       }
 

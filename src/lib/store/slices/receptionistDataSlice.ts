@@ -160,7 +160,12 @@ export const initializeReceptionistData = createAsyncThunk(
       }
 
       // Validate session after confirming user exists
-      validateSession();
+      try {
+        validateSession();
+      } catch (sessionError) {
+        console.error('❌ Session validation failed during initialization:', sessionError);
+        return rejectWithValue('Session validation failed. Please log in again.');
+      }
       
       // Extract IDs - handle both string and object formats
       const branchId = typeof user.branchId === 'string' 
@@ -198,6 +203,9 @@ export const initializeReceptionistData = createAsyncThunk(
         console.log('✅ Branch data fetched successfully');
       } catch (error: any) {
         console.error('❌ Failed to fetch branch data:', error);
+        if (error.response?.status === 401) {
+          throw new Error('Session expired. Please log in again.');
+        }
         throw new Error(`Failed to fetch branch data: ${error.response?.data?.message || error.message}`);
       }
       
@@ -207,6 +215,9 @@ export const initializeReceptionistData = createAsyncThunk(
         console.log('✅ Doctors data fetched successfully');
       } catch (error: any) {
         console.error('❌ Failed to fetch doctors data:', error);
+        if (error.response?.status === 401) {
+          throw new Error('Session expired. Please log in again.');
+        }
         throw new Error(`Failed to fetch doctors data: ${error.response?.data?.message || error.message}`);
       }
       
@@ -216,6 +227,9 @@ export const initializeReceptionistData = createAsyncThunk(
         console.log('✅ Patients data fetched successfully');
       } catch (error: any) {
         console.error('❌ Failed to fetch patients data:', error);
+        if (error.response?.status === 401) {
+          throw new Error('Session expired. Please log in again.');
+        }
         throw new Error(`Failed to fetch patients data: ${error.response?.data?.message || error.message}`);
       }
       
@@ -232,6 +246,9 @@ export const initializeReceptionistData = createAsyncThunk(
         console.log('✅ Appointments data fetched successfully');
       } catch (error: any) {
         console.error('❌ Failed to fetch appointments data:', error);
+        if (error.response?.status === 401) {
+          throw new Error('Session expired. Please log in again.');
+        }
         throw new Error(`Failed to fetch appointments data: ${error.response?.data?.message || error.message}`);
       }
       
@@ -293,8 +310,11 @@ export const initializeReceptionistData = createAsyncThunk(
       });
       
       // Handle session expiry specifically
-      if (error.message === 'No active session' || error.message === 'Session validation failed' || error.response?.status === 401) {
-        console.log('Session expired or invalid - redirecting to login');
+      if (error.message === 'No active session' || 
+          error.message === 'Session validation failed' || 
+          error.message === 'Session expired. Please log in again.' ||
+          error.response?.status === 401) {
+        console.log('❌ Session expired or invalid - redirecting to login');
         // Clear session and redirect to login
         sessionManager.clearSession();
         window.location.href = '/login';
@@ -324,7 +344,12 @@ export const refreshReceptionistData = createAsyncThunk(
   'receptionistData/refresh',
   async (dataType: 'doctors' | 'patients' | 'appointments' | 'all', { rejectWithValue, getState }) => {
     try {
-      validateSession();
+      try {
+        validateSession();
+      } catch (sessionError) {
+        console.error('❌ Session validation failed during refresh:', sessionError);
+        return rejectWithValue('Session validation failed. Please log in again.');
+      }
       
       const state = getState() as any;
       const user = state.auth.user;

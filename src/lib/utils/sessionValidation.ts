@@ -74,16 +74,24 @@ export const validateSession = (): void => {
     
     // Both tokens are invalid - clear session and redirect
     if (!sessionValid && !refreshTokenValid) {
-      console.log('Both tokens are invalid - clearing session');
+      console.log('❌ Both tokens are invalid - clearing session');
       sessionManager.clearSession();
       window.location.href = '/login';
       throw new Error('No active session');
     }
   } catch (error) {
-    console.error('Error validating session:', error);
-    // Clear session and redirect on any error
-    sessionManager.clearSession();
-    window.location.href = '/login';
-    throw new Error('Session validation failed');
+    console.error('❌ Error validating session:', error);
+    // Only clear session and redirect if it's a session-related error
+    if (error instanceof Error && (
+      error.message.includes('session') || 
+      error.message.includes('token') ||
+      error.message.includes('auth')
+    )) {
+      sessionManager.clearSession();
+      window.location.href = '/login';
+      throw new Error('Session validation failed');
+    }
+    // For other errors, just re-throw
+    throw error;
   }
 };
