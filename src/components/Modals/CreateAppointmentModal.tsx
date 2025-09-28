@@ -22,7 +22,8 @@ import {
   Search,
   ChevronDown,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  User
 } from 'lucide-react';
 
 interface CreateAppointmentModalProps {
@@ -107,6 +108,10 @@ export default function CreateAppointmentModal({
   const [isBranchOpen, setIsBranchOpen] = useState(true);
   const [branchHoursMessage, setBranchHoursMessage] = useState<string>('');
   const [existingAppointments, setExistingAppointments] = useState<{[patientId: string]: any}>({});
+  
+  // Dropdown states
+  const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
+  const [isDoctorDropdownOpen, setIsDoctorDropdownOpen] = useState(false);
   
   // Duplicate detection state
   const [potentialDuplicates, setPotentialDuplicates] = useState<Patient[]>([]);
@@ -512,6 +517,22 @@ export default function CreateAppointmentModal({
       }
     };
   }, [patientFormData.phone]);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.dropdown-container')) {
+        setIsPatientDropdownOpen(false);
+        setIsDoctorDropdownOpen(false);
+      }
+    };
+
+    if (isPatientDropdownOpen || isDoctorDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isPatientDropdownOpen, isDoctorDropdownOpen]);
 
   // Real-time phone number checking for duplicates
   const checkPhoneDuplicates = async (phone: string) => {
@@ -1045,6 +1066,8 @@ export default function CreateAppointmentModal({
     setDuplicateWarning('');
     setShowDuplicateDetails(false);
     setShowAllDuplicates(false);
+    setIsPatientDropdownOpen(false);
+    setIsDoctorDropdownOpen(false);
     if (phoneCheckTimeout) {
       clearTimeout(phoneCheckTimeout);
     }
@@ -1130,86 +1153,136 @@ export default function CreateAppointmentModal({
               {/* Content */}
               <div className="p-4">
 
-                {activeTab === 'existing' ? (
+            {activeTab === 'existing' ? (
                   <div className="space-y-3">
-                    {/* Search Input */}
-                    <div className="relative">
-                      <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                      <input
-                        type="text"
-                        placeholder="Search patients..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                      />
-                    </div>
-                    
-                    {/* Patient List */}
-                    <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-md">
-                      {filteredPatients.length === 0 ? (
-                        <div className="p-4 text-center text-gray-500">
-                          <div className="flex flex-col items-center space-y-2">
-                            <Search className="h-5 w-5 text-gray-300" />
-                            <p className="text-xs font-medium text-gray-900">
-                              {searchTerm ? 'No patients found' : 'No patients available'}
-                            </p>
-                          </div>
+                    {/* Patient Dropdown */}
+                    <div className="relative dropdown-container">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Select Patient *</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsPatientDropdownOpen(!isPatientDropdownOpen);
+                          setIsDoctorDropdownOpen(false); // Close doctor dropdown when opening patient dropdown
+                        }}
+                        className="w-full px-3 py-2 text-left border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-2">
+                          {appointmentFormData.patientId ? (
+                            (() => {
+                              const selectedPatient = patients.find(p => p._id === appointmentFormData.patientId);
+                              return selectedPatient ? (
+                                <>
+                                  <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
+                                    {selectedPatient.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <span className="text-gray-900">{selectedPatient.name}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <User className="h-4 w-4 text-gray-400" />
+                                  <span className="text-gray-500">Select a patient...</span>
+                                </>
+                              );
+                            })()
+                          ) : (
+                            <>
+                              <User className="h-4 w-4 text-gray-400" />
+                              <span className="text-gray-500">Select a patient...</span>
+                            </>
+                          )}
                         </div>
-                      ) : (
-                        <div className="p-2 space-y-1">
-                          {filteredPatients.map((patient) => {
-                            const hasActiveAppointment = existingAppointments[patient._id];
-                            const isSelected = appointmentFormData.patientId === patient._id;
-                            return (
-                              <button
-                                key={patient._id}
-                                type="button"
-                                onClick={() => handleAppointmentInputChange('patientId', patient._id)}
-                                disabled={hasActiveAppointment}
-                                className={`w-full p-2.5 text-left rounded-md border transition-all duration-200 ${
-                                  hasActiveAppointment 
-                                    ? 'bg-red-50 border-red-200 cursor-not-allowed opacity-60' 
-                                    : isSelected
-                                      ? 'bg-blue-50 border-blue-300 shadow-sm ring-1 ring-blue-200' 
-                                      : 'bg-white border-gray-200 hover:bg-blue-50 hover:border-blue-200'
-                                }`}
-                              >
-                                <div className="flex items-center gap-2.5">
-                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                                    hasActiveAppointment 
-                                      ? 'bg-red-100 text-red-600' 
-                                      : isSelected 
-                                        ? 'bg-blue-100 text-blue-600' 
-                                        : 'bg-gray-100 text-gray-600'
-                                  }`}>
-                                    {patient.name.charAt(0).toUpperCase()}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-1.5 mb-0.5">
-                                      <h4 className="font-medium text-gray-900 truncate text-sm">{patient.name}</h4>
-                                      {hasActiveAppointment && (
-                                        <AlertCircle className="h-3 w-3 text-red-500 flex-shrink-0" />
-                                      )}
-                                      {isSelected && !hasActiveAppointment && (
-                                        <CheckCircle className="h-3 w-3 text-blue-600 flex-shrink-0" />
-                                      )}
-                                    </div>
-                                    <div className="text-xs text-gray-500">
-                                      <p className="truncate">{patient.email}</p>
-                                      <p>{patient.phone}</p>
-                                    </div>
-                                    {hasActiveAppointment && (
-                                      <div className="mt-1">
-                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
-                                          Active appointment
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
+                        <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isPatientDropdownOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      
+                      {/* Search Input */}
+                      {isPatientDropdownOpen && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-10">
+                          <div className="p-2 border-b border-gray-200">
+                            <div className="relative">
+                              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                              <input
+                                type="text"
+                                placeholder="Search patients..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                autoFocus
+                              />
+                            </div>
+                          </div>
+                          
+                          {/* Patient List */}
+                          <div className="max-h-48 overflow-y-auto">
+                            {filteredPatients.length === 0 ? (
+                              <div className="p-3 text-center text-gray-500">
+                                <div className="flex flex-col items-center space-y-1">
+                                  <Search className="h-4 w-4 text-gray-300" />
+                                  <p className="text-xs font-medium text-gray-900">
+                                    {searchTerm ? 'No patients found' : 'No patients available'}
+                                  </p>
                                 </div>
-                              </button>
-                            );
-                          })}
+                              </div>
+                            ) : (
+                              <div className="p-1">
+                                {filteredPatients.map((patient) => {
+                                  const hasActiveAppointment = existingAppointments[patient._id];
+                                  const isSelected = appointmentFormData.patientId === patient._id;
+                                  return (
+                                    <button
+                                      key={patient._id}
+                                      type="button"
+                                      onClick={() => {
+                                        handleAppointmentInputChange('patientId', patient._id);
+                                        setIsPatientDropdownOpen(false);
+                                        setSearchTerm('');
+                                      }}
+                                      disabled={hasActiveAppointment}
+                                      className={`w-full p-2 text-left rounded transition-all duration-200 ${
+                                        hasActiveAppointment 
+                                          ? 'bg-red-50 text-red-600 cursor-not-allowed opacity-60' 
+                                          : isSelected
+                                            ? 'bg-blue-50 text-blue-900' 
+                                            : 'text-gray-900 hover:bg-blue-50'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between w-full">
+                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                          <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                                            hasActiveAppointment 
+                                              ? 'bg-red-100 text-red-600' 
+                                              : isSelected 
+                                                ? 'bg-blue-100 text-blue-600' 
+                                                : 'bg-gray-100 text-gray-600'
+                                          }`}>
+                                            {patient.name.charAt(0).toUpperCase()}
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-1">
+                                              <h4 className="font-medium truncate text-xs">{patient.name}</h4>
+                                              {hasActiveAppointment && (
+                                                <AlertCircle className="h-3 w-3 text-red-500 flex-shrink-0" />
+                                              )}
+                                              {isSelected && !hasActiveAppointment && (
+                                                <CheckCircle className="h-3 w-3 text-blue-600 flex-shrink-0" />
+                                              )}
+                                            </div>
+                                            <div className="text-xs text-gray-500 truncate">
+                                              {patient.email} • {patient.phone}
+                                            </div>
+                                          </div>
+                                        </div>
+                                        {hasActiveAppointment && (
+                                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 flex-shrink-0 ml-2">
+                                            Active
+                                          </span>
+                                        )}
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1441,109 +1514,176 @@ export default function CreateAppointmentModal({
 
               {/* Content */}
               <div className="p-4">
-                {/* Search Input */}
-                <div className="relative mb-3">
-                  <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <input
-                    type="text"
-                    placeholder="Search doctors..."
-                    value={doctorSearchTerm}
-                    onChange={(e) => setDoctorSearchTerm(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-                  />
-                </div>
-                
-                {/* Doctor List */}
-                <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-md">
-                  {doctors.length === 0 ? (
-                    <div className="p-3 text-center text-gray-500">
-                      <div className="flex flex-col items-center space-y-2">
-                        <svg className="h-5 w-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <p className="text-xs font-medium text-gray-900">No doctors available</p>
-                      </div>
+                {/* Doctor Dropdown */}
+                <div className="relative dropdown-container">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Select Doctor</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDoctorDropdownOpen(!isDoctorDropdownOpen);
+                      setIsPatientDropdownOpen(false); // Close patient dropdown when opening doctor dropdown
+                    }}
+                    className="w-full px-3 py-2 text-left border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm bg-white flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-2">
+                      {appointmentFormData.doctorId ? (
+                        (() => {
+                          const selectedDoctor = doctors.find(d => d._id === appointmentFormData.doctorId);
+                          return selectedDoctor ? (
+                            <>
+                              <div className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">
+                                {selectedDoctor.firstName.charAt(0).toUpperCase()}{selectedDoctor.lastName.charAt(0).toUpperCase()}
+                              </div>
+                              <span className="text-gray-900">Dr. {selectedDoctor.firstName} {selectedDoctor.lastName}</span>
+                            </>
+                          ) : (
+                            <>
+                              <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="text-gray-500">Select a doctor...</span>
+                            </>
+                          );
+                        })()
+                      ) : appointmentFormData.doctorId === '' ? (
+                        <>
+                          <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          <span className="text-gray-500">No doctor assigned</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className="text-gray-500">Select a doctor...</span>
+                        </>
+                      )}
                     </div>
-                  ) : filteredDoctors.length === 0 ? (
-                    <div className="p-3 text-center text-gray-500">
-                      <div className="flex flex-col items-center space-y-2">
-                        <Search className="h-5 w-5 text-gray-300" />
-                        <p className="text-xs font-medium text-gray-900">No doctors found</p>
-                        <p className="text-xs text-gray-500">Try adjusting your search terms</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-2 space-y-1">
-                      {/* No Doctor Option */}
-                      <button
-                        type="button"
-                        onClick={() => handleAppointmentInputChange('doctorId', '')}
-                        className={`w-full p-2.5 text-left rounded-md border transition-all duration-200 ${
-                          appointmentFormData.doctorId === ''
-                            ? 'bg-gray-50 border-gray-300 shadow-sm ring-1 ring-gray-200' 
-                            : 'bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                            <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                            </svg>
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-1.5 mb-0.5">
-                              <h4 className="font-medium text-gray-900 text-sm">No doctor assigned</h4>
-                              {appointmentFormData.doctorId === '' && (
-                                <CheckCircle className="h-3 w-3 text-gray-600 flex-shrink-0" />
-                              )}
-                            </div>
-                            <p className="text-xs text-gray-500">Can be assigned later</p>
-                          </div>
+                    <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isDoctorDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {/* Search Input */}
+                  {isDoctorDropdownOpen && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-10">
+                      <div className="p-2 border-b border-gray-200">
+                        <div className="relative">
+                          <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                          <input
+                            type="text"
+                            placeholder="Search doctors..."
+                            value={doctorSearchTerm}
+                            onChange={(e) => setDoctorSearchTerm(e.target.value)}
+                            className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                            autoFocus
+                          />
                         </div>
-                      </button>
+                      </div>
                       
-                      {/* Doctor Options */}
-                      {filteredDoctors.map((doctor) => {
-                        const isSelected = appointmentFormData.doctorId === doctor._id;
-                        return (
-                          <button
-                            key={doctor._id}
-                            type="button"
-                            onClick={() => handleAppointmentInputChange('doctorId', doctor._id)}
-                            className={`w-full p-2.5 text-left rounded-md border transition-all duration-200 ${
-                              isSelected
-                                ? 'bg-green-50 border-green-300 shadow-sm ring-1 ring-green-200' 
-                                : 'bg-white border-gray-200 hover:bg-green-50 hover:border-green-200'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2.5">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                                isSelected 
-                                  ? 'bg-green-100 text-green-600' 
-                                  : 'bg-gray-100 text-gray-600'
-                              }`}>
-                                {doctor.firstName.charAt(0).toUpperCase()}{doctor.lastName.charAt(0).toUpperCase()}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 mb-0.5">
-                                  <h4 className="font-medium text-gray-900 text-sm">
-                                    Dr. {doctor.firstName} {doctor.lastName}
-                                  </h4>
-                                  {isSelected && (
-                                    <CheckCircle className="h-3 w-3 text-green-600 flex-shrink-0" />
-                                  )}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  <p className="font-medium">{doctor.specialization}</p>
-                                  {doctor.email && (
-                                    <p className="text-xs text-gray-400 truncate">{doctor.email}</p>
-                                  )}
-                                </div>
-                              </div>
+                      {/* Doctor List */}
+                      <div className="max-h-48 overflow-y-auto">
+                        {doctors.length === 0 ? (
+                          <div className="p-3 text-center text-gray-500">
+                            <div className="flex flex-col items-center space-y-1">
+                              <svg className="h-4 w-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <p className="text-xs font-medium text-gray-900">No doctors available</p>
                             </div>
-                          </button>
-                        );
-                      })}
+                          </div>
+                        ) : filteredDoctors.length === 0 ? (
+                          <div className="p-3 text-center text-gray-500">
+                            <div className="flex flex-col items-center space-y-1">
+                              <Search className="h-4 w-4 text-gray-300" />
+                              <p className="text-xs font-medium text-gray-900">No doctors found</p>
+                              <p className="text-xs text-gray-500">Try adjusting your search terms</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-1">
+                            {/* No Doctor Option */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleAppointmentInputChange('doctorId', '');
+                                setIsDoctorDropdownOpen(false);
+                                setDoctorSearchTerm('');
+                              }}
+                              className={`w-full p-2 text-left rounded transition-all duration-200 ${
+                                appointmentFormData.doctorId === ''
+                                  ? 'bg-gray-50 text-gray-900' 
+                                  : 'text-gray-900 hover:bg-gray-50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                    <svg className="h-3 w-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                    </svg>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1">
+                                      <h4 className="font-medium text-xs">No doctor assigned</h4>
+                                      {appointmentFormData.doctorId === '' && (
+                                        <CheckCircle className="h-3 w-3 text-gray-600 flex-shrink-0" />
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-gray-500">Can be assigned later</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </button>
+                            
+                            {/* Doctor Options */}
+                            {filteredDoctors.map((doctor) => {
+                              const isSelected = appointmentFormData.doctorId === doctor._id;
+                              return (
+                                <button
+                                  key={doctor._id}
+                                  type="button"
+                                  onClick={() => {
+                                    handleAppointmentInputChange('doctorId', doctor._id);
+                                    setIsDoctorDropdownOpen(false);
+                                    setDoctorSearchTerm('');
+                                  }}
+                                  className={`w-full p-2 text-left rounded transition-all duration-200 ${
+                                    isSelected
+                                      ? 'bg-green-50 text-green-900' 
+                                      : 'text-gray-900 hover:bg-green-50'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between w-full">
+                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                      <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                                        isSelected 
+                                          ? 'bg-green-100 text-green-600' 
+                                          : 'bg-gray-100 text-gray-600'
+                                      }`}>
+                                        {doctor.firstName.charAt(0).toUpperCase()}{doctor.lastName.charAt(0).toUpperCase()}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1">
+                                          <h4 className="font-medium text-xs">
+                                            Dr. {doctor.firstName} {doctor.lastName}
+                                          </h4>
+                                          {isSelected && (
+                                            <CheckCircle className="h-3 w-3 text-green-600 flex-shrink-0" />
+                                          )}
+                                        </div>
+                                        <div className="text-xs text-gray-500 truncate">
+                                          {doctor.specialization} {doctor.email && `• ${doctor.email}`}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1565,7 +1705,7 @@ export default function CreateAppointmentModal({
               </div>
 
               {/* Content */}
-              <div className="space-y-4">
+              <div className="p-4 space-y-4">
 
                 {/* Visit Type */}
                 <div>
@@ -1761,9 +1901,6 @@ export default function CreateAppointmentModal({
                               <div className="w-2 h-2 bg-gray-200 rounded"></div>
                               <span className="text-xs">Unavailable</span>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <span className="text-xs font-medium text-gray-600">Times shown in 12-hour format</span>
-                            </div>
                           </div>
                         </div>
                       )}
@@ -1838,8 +1975,6 @@ export default function CreateAppointmentModal({
                   </div>
                 )}
 
-            </div>
-
                 {/* Reason for Visit */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Reason for Visit *</label>
@@ -1869,6 +2004,7 @@ export default function CreateAppointmentModal({
                 </div>
               </div>
             </div>
+          </div>
           </form>
         </div>
 
