@@ -191,5 +191,48 @@ export const patientService = {
       console.error('❌ Error restoring patient:', error);
       throw error;
     }
+  },
+
+  // Check for potential duplicate patients
+  checkDuplicatePatients: async (branchId: string, patientData: {
+    name: string;
+    phone: string;
+    dateOfBirth: string;
+    email?: string;
+  }): Promise<{
+    success: boolean;
+    data: {
+      hasDuplicates: boolean;
+      potentialDuplicates: Patient[];
+      similarityScore: number;
+    };
+  }> => {
+    console.log('🔍 Checking for duplicate patients:', { branchId, patientData });
+    console.log('🔍 API URL:', `/branches/${branchId}/patients/check-duplicates`);
+    
+    try {
+      const response = await api.post(`/branches/${branchId}/patients/check-duplicates`, patientData);
+      console.log('✅ Duplicate check completed (API):', response.data);
+      console.log('🔍 Response status:', response.status);
+      console.log('🔍 Response headers:', response.headers);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error checking for duplicates:', error);
+      console.error('❌ Error response:', error.response);
+      console.error('❌ Error status:', error.response?.status);
+      console.error('❌ Error data:', error.response?.data);
+      console.log('🔄 Falling back to mock data...');
+      
+      // Fallback to mock if API fails
+      try {
+        const { checkDuplicatePatientsMock } = await import('../mocks/duplicateCheckMock');
+        const result = await checkDuplicatePatientsMock(branchId, patientData);
+        console.log('✅ Duplicate check completed (mock fallback):', result);
+        return result;
+      } catch (mockError) {
+        console.error('❌ Mock fallback also failed:', mockError);
+        throw error; // Throw original API error
+      }
+    }
   }
 };

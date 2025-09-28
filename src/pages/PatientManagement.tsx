@@ -24,6 +24,14 @@ import {
 
 export default function PatientManagement() {
   const user = useAppSelector((state: RootState) => state.auth.user);
+  
+  // Use pre-loaded receptionist data for receptionist users
+  const { 
+    patients: receptionistPatients, 
+    isInitializing,
+    initializationError 
+  } = useAppSelector((state: RootState) => state.receptionistData);
+  
   const [patients, setPatients] = useState<Patient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,37 +45,43 @@ export default function PatientManagement() {
     ? user.branchId 
     : (user?.branchId as any)?._id || (user?.branchId as any)?.id || String(user?.branchId);
 
-  // Load patients
+  // Always load data from API for all users
   useEffect(() => {
-    const loadPatients = async () => {
-      if (!branchId) {
-        console.error('No branch ID available');
-        setIsLoading(false);
-        return;
-      }
+    console.log('🔍 PatientManagement - Loading data from API:', {
+      userRole: user?.role,
+      branchId
+    });
+    
+    // Always load from API regardless of user role
+    loadPatientsFromAPI();
+  }, [user?.role, branchId]);
 
-      try {
-        setIsLoading(true);
-        console.log('Loading patients for branch:', branchId);
-        
-        const response = await patientService.getBranchPatients(branchId);
-        if (response.success) {
-          setPatients(response.data);
-          console.log('Patients loaded:', response.data.length);
-        } else {
-          throw new Error('Failed to load patients');
-        }
-      } catch (error: any) {
-        console.error('Error loading patients:', error);
-        toast.error('Failed to load patients');
-        setPatients([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const loadPatientsFromAPI = async () => {
+    if (!branchId) {
+      console.error('No branch ID available');
+      setIsLoading(false);
+      return;
+    }
 
-    loadPatients();
-  }, [branchId]);
+    try {
+      setIsLoading(true);
+      console.log('Loading patients for branch:', branchId);
+      
+      const response = await patientService.getBranchPatients(branchId);
+      if (response.success) {
+        setPatients(response.data);
+        console.log('Patients loaded:', response.data.length);
+      } else {
+        throw new Error('Failed to load patients');
+      }
+    } catch (error: any) {
+      console.error('Error loading patients:', error);
+      toast.error('Failed to load patients');
+      setPatients([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Filter patients based on search term
   const filteredPatients = patients.filter(patient =>

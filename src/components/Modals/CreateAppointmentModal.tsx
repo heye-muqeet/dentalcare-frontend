@@ -14,6 +14,7 @@ import {
   handleValidationError,
   getErrorMessage
 } from '../../lib/utils/errorHandler';
+import type { Patient } from '../../lib/api/services/patients';
 import { 
   X, 
   Calendar, 
@@ -106,6 +107,15 @@ export default function CreateAppointmentModal({
   const [isBranchOpen, setIsBranchOpen] = useState(true);
   const [branchHoursMessage, setBranchHoursMessage] = useState<string>('');
   const [existingAppointments, setExistingAppointments] = useState<{[patientId: string]: any}>({});
+  
+  // Duplicate detection state
+  const [potentialDuplicates, setPotentialDuplicates] = useState<Patient[]>([]);
+  const [similarityScore, setSimilarityScore] = useState(0);
+  const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
+  const [duplicateWarning, setDuplicateWarning] = useState<string>('');
+  const [phoneCheckTimeout, setPhoneCheckTimeout] = useState<number | null>(null);
+  const [showDuplicateDetails, setShowDuplicateDetails] = useState(false);
+  const [showAllDuplicates, setShowAllDuplicates] = useState(false);
   
   // Extract branch ID safely
   const branchId = typeof user?.branchId === 'string' 
@@ -486,6 +496,91 @@ export default function CreateAppointmentModal({
       generateEmail();
     }
   }, [patientFormData.name]);
+
+  // Real-time phone number duplicate checking
+  useEffect(() => {
+    if (patientFormData.phone && patientFormData.phone.length >= 10) {
+      checkPhoneDuplicates(patientFormData.phone);
+    } else {
+      setDuplicateWarning('');
+    }
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (phoneCheckTimeout) {
+        clearTimeout(phoneCheckTimeout);
+      }
+    };
+  }, [patientFormData.phone]);
+
+  // Real-time phone number checking for duplicates
+  const checkPhoneDuplicates = async (phone: string) => {
+    console.log('🔍 checkPhoneDuplicates called:', { phone, phoneLength: phone?.length, branchId });
+    
+    if (!phone || phone.length < 10 || !branchId) {
+      console.log('🔍 Skipping duplicate check - insufficient data:', { phone, phoneLength: phone?.length, branchId });
+      setDuplicateWarning('');
+      return;
+    }
+
+    // Clear previous timeout
+    if (phoneCheckTimeout) {
+      clearTimeout(phoneCheckTimeout);
+    }
+
+    // Set new timeout for debounced checking
+    const timeout = setTimeout(async () => {
+      console.log('🔍 Starting duplicate check after timeout...');
+      setIsCheckingDuplicates(true);
+      setDuplicateWarning('Checking for existing patients...');
+      
+      try {
+        const duplicateCheckData = {
+          name: patientFormData.name || 'Unknown',
+          phone: phone,
+          dateOfBirth: patientFormData.dateOfBirth || '1900-01-01',
+          email: patientFormData.email || ''
+        };
+        
+        console.log('🔍 Sending duplicate check data:', duplicateCheckData);
+        const response = await patientService.checkDuplicatePatients(branchId, duplicateCheckData);
+        console.log('🔍 Duplicate check response received:', response);
+        
+        if (response.success && response.data.hasDuplicates) {
+          const duplicates = response.data.potentialDuplicates;
+          const maxScore = response.data.similarityScore;
+          
+          console.log('🔍 Duplicates found:', { duplicatesCount: duplicates.length, maxScore });
+          
+          // Store for display
+          setPotentialDuplicates(duplicates);
+          setSimilarityScore(maxScore);
+          setShowDuplicateDetails(false); // Don't auto-expand, let user click "View Details"
+          
+          if (maxScore >= 80) {
+            setDuplicateWarning(`⚠️ High similarity (${maxScore}%) - This might be a duplicate patient (you can still create)`);
+          } else if (maxScore >= 60) {
+            setDuplicateWarning(`⚠️ Medium similarity (${maxScore}%) - Please verify this is a different patient`);
+          } else if (maxScore >= 30) {
+            setDuplicateWarning(`ℹ️ Found ${duplicates.length} patient(s) with similar details - Please verify`);
+          }
+        } else {
+          console.log('🔍 No duplicates found');
+          setDuplicateWarning('');
+          setPotentialDuplicates([]);
+          setSimilarityScore(0);
+          setShowDuplicateDetails(false);
+        }
+      } catch (error) {
+        console.error('❌ Error checking phone duplicates:', error);
+        setDuplicateWarning('Unable to check for duplicates');
+      } finally {
+        setIsCheckingDuplicates(false);
+      }
+    }, 1000); // 1 second delay
+
+    setPhoneCheckTimeout(timeout);
+  };
 
   // Generate unique email based on patient name
   const generateUniqueEmail = async (name: string): Promise<string> => {
@@ -921,6 +1016,22 @@ export default function CreateAppointmentModal({
     }
   };
 
+  const handleSelectExistingPatient = (patient: Patient) => {
+    setShowDuplicateDetails(false);
+    setShowAllDuplicates(false);
+    setPotentialDuplicates([]);
+    setSimilarityScore(0);
+    setDuplicateWarning('');
+    showInfoToast(`Selected existing patient: ${patient.name}`);
+    handleClose();
+    // Pass the selected patient data as appointment data
+    onSuccess({ 
+      patient: patient,
+      message: 'Existing patient selected',
+      type: 'existing_patient_selected'
+    });
+  };
+
   const handleClose = () => {
     setPatientFormData(initialPatientFormData);
     setAppointmentFormData(initialAppointmentFormData);
@@ -929,6 +1040,14 @@ export default function CreateAppointmentModal({
     setSearchTerm('');
     setDoctorSearchTerm('');
     setAvailableSlots([]);
+    setPotentialDuplicates([]);
+    setSimilarityScore(0);
+    setDuplicateWarning('');
+    setShowDuplicateDetails(false);
+    setShowAllDuplicates(false);
+    if (phoneCheckTimeout) {
+      clearTimeout(phoneCheckTimeout);
+    }
     onClose();
   };
 
@@ -1175,14 +1294,90 @@ export default function CreateAppointmentModal({
                       
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Phone Number *</label>
-                        <input
-                          type="tel"
-                          value={patientFormData.phone}
-                          onChange={(e) => handlePatientInputChange('phone', e.target.value)}
-                          className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                          placeholder="Enter phone number"
-                        />
+                        <div className="relative">
+                          <input
+                            type="tel"
+                            value={patientFormData.phone}
+                            onChange={(e) => handlePatientInputChange('phone', e.target.value)}
+                            className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                            placeholder="Enter phone number"
+                          />
+                          {isCheckingDuplicates && (
+                            <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                            </div>
+                          )}
+                        </div>
                         {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone}</p>}
+                        {duplicateWarning && (
+                          <div className={`text-xs p-3 rounded-md mt-2 ${
+                            duplicateWarning.includes('High similarity') 
+                              ? 'bg-red-50 text-red-700 border border-red-200' 
+                              : duplicateWarning.includes('Medium similarity')
+                              ? 'bg-orange-50 text-orange-700 border border-orange-200'
+                              : 'bg-blue-50 text-blue-700 border border-blue-200'
+                          }`}>
+                            <div className="flex items-center justify-between">
+                              <span>{duplicateWarning}</span>
+                              {potentialDuplicates.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setShowDuplicateDetails(!showDuplicateDetails)}
+                                  className="ml-2 underline hover:no-underline font-medium"
+                                >
+                                  {showDuplicateDetails ? 'Hide Details' : 'View Details'}
+                                </button>
+                              )}
+                            </div>
+                            
+                            {showDuplicateDetails && potentialDuplicates.length > 0 && (
+                              <div className="mt-3 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <div className="text-sm font-medium text-gray-700">
+                                    Similar patients found ({potentialDuplicates.length}):
+                                  </div>
+                                  {potentialDuplicates.length > 3 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowAllDuplicates(!showAllDuplicates)}
+                                      className="text-xs text-blue-600 hover:text-blue-800 underline"
+                                    >
+                                      {showAllDuplicates ? 'Show Less' : `Show All (${potentialDuplicates.length})`}
+                                    </button>
+                                  )}
+                                </div>
+                                
+                                {(showAllDuplicates ? potentialDuplicates : potentialDuplicates.slice(0, 3)).map((duplicate, index) => (
+                                  <div key={duplicate._id || index} className="bg-white p-2 rounded border text-xs">
+                                    <div className="flex items-center justify-between">
+                                      <div>
+                                        <div className="font-medium text-gray-900">{duplicate.name}</div>
+                                        <div className="text-gray-600">
+                                          📞 {duplicate.phone} | 📧 {duplicate.email || 'No email'} | 🎂 {duplicate.dateOfBirth || 'No DOB'}
+                                        </div>
+                                      </div>
+                                      <div className="flex gap-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSelectExistingPatient(duplicate)}
+                                          className="px-3 py-1 bg-emerald-600 text-white text-xs rounded-md hover:bg-emerald-700 font-medium"
+                                        >
+                                          Select
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                                
+                                {!showAllDuplicates && potentialDuplicates.length > 3 && (
+                                  <div className="text-xs text-gray-500 italic text-center py-1">
+                                    ... and {potentialDuplicates.length - 3} more patients
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                       
                       <div>

@@ -4,6 +4,8 @@ import type { RootState } from '../../lib/store/store';
 import { patientService } from '../../lib/api/services/patients';
 import { toast } from 'sonner';
 import { LoadingButton } from '../Loader';
+import api from '../../lib/api/axios';
+import type { Patient } from '../../lib/api/services/patients';
 import { 
   X, 
   User, 
@@ -71,6 +73,15 @@ export default function CreatePatientModal({ isOpen, onClose, onSuccess }: Creat
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [suggestedEmail, setSuggestedEmail] = useState('');
   
+  // Duplicate detection state
+  const [potentialDuplicates, setPotentialDuplicates] = useState<Patient[]>([]);
+  const [similarityScore, setSimilarityScore] = useState(0);
+  const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
+  const [duplicateWarning, setDuplicateWarning] = useState<string>('');
+  const [phoneCheckTimeout, setPhoneCheckTimeout] = useState<number | null>(null);
+  const [showDuplicateDetails, setShowDuplicateDetails] = useState(false);
+  const [showAllDuplicates, setShowAllDuplicates] = useState(false);
+  
   // Form field states for dynamic lists
   const [newAllergy, setNewAllergy] = useState('');
   const [newMedication, setNewMedication] = useState('');
@@ -108,6 +119,207 @@ export default function CreatePatientModal({ isOpen, onClose, onSuccess }: Creat
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+  };
+
+  // Auto-generate email when name changes
+  useEffect(() => {
+    console.log('🔍 Email generation effect triggered:', {
+      name: formData.name,
+      email: formData.email,
+      nameTrimmed: formData.name.trim(),
+      emailTrimmed: formData.email.trim()
+    });
+    
+    if (formData.name.trim() && !formData.email.trim()) {
+      console.log('🔍 Generating email for name:', formData.name);
+      const generateEmail = async () => {
+        try {
+          const generatedEmail = await generateUniqueEmail(formData.name);
+          console.log('🔍 Generated email:', generatedEmail);
+          if (generatedEmail) {
+            setFormData(prev => ({ ...prev, email: generatedEmail }));
+          }
+        } catch (error) {
+          console.error('🔍 Error generating email:', error);
+        }
+      };
+      generateEmail();
+    }
+  }, [formData.name]);
+
+  // Real-time phone number duplicate checking
+  useEffect(() => {
+    if (formData.phone && formData.phone.length >= 10) {
+      checkPhoneDuplicates(formData.phone);
+    } else {
+      setDuplicateWarning('');
+    }
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (phoneCheckTimeout) {
+        clearTimeout(phoneCheckTimeout);
+      }
+    };
+  }, [formData.phone]);
+
+  // Generate unique email based on patient name
+  const generateUniqueEmail = async (name: string): Promise<string> => {
+    console.log('🔍 generateUniqueEmail called with name:', name);
+    
+    if (!name.trim()) {
+      console.log('🔍 Name is empty, returning empty string');
+      return '';
+    }
+    
+    // Clean the name and create base email
+    const cleanName = name.toLowerCase()
+      .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+      .replace(/\s+/g, '.') // Replace spaces with dots
+      .substring(0, 20); // Limit length
+    
+    const baseEmail = `${cleanName}@dentalcare.local`;
+    console.log('🔍 Generated base email:', baseEmail);
+    
+    try {
+      // Check if email exists by trying to find a patient with this email
+      console.log('🔍 Checking email uniqueness for:', baseEmail);
+      const response = await api.get(`/branches/${branchId}/patients/check-email/${encodeURIComponent(baseEmail)}`);
+      console.log('🔍 Email check response:', response.data);
+      
+      if (response.data.exists) {
+        console.log('🔍 Email exists, generating unique variant');
+        // If exists, add a number suffix
+        let counter = 1;
+        let uniqueEmail = `${cleanName}${counter}@dentalcare.local`;
+        
+        while (true) {
+          console.log('🔍 Checking variant:', uniqueEmail);
+          const checkResponse = await api.get(`/branches/${branchId}/patients/check-email/${encodeURIComponent(uniqueEmail)}`);
+          console.log('🔍 Variant check response:', checkResponse.data);
+          
+          if (!checkResponse.data.exists) {
+            console.log('🔍 Found unique email:', uniqueEmail);
+            return uniqueEmail;
+          }
+          counter++;
+          uniqueEmail = `${cleanName}${counter}@dentalcare.local`;
+        }
+      }
+      console.log('🔍 Base email is unique:', baseEmail);
+      return baseEmail;
+    } catch (error) {
+      console.error('🔍 Error checking email uniqueness:', error);
+      console.warn('Using base email as fallback:', baseEmail);
+      toast.warning('Could not verify email uniqueness. Using generated email.');
+      return baseEmail;
+    }
+  };
+
+  const checkForDuplicates = async (): Promise<boolean> => {
+    if (!branchId) return false;
+    
+    setIsCheckingDuplicates(true);
+    console.log('🔍 Starting duplicate check...');
+    
+    try {
+      const duplicateCheckData = {
+        name: formData.name,
+        phone: formData.phone,
+        dateOfBirth: formData.dateOfBirth,
+        email: formData.email
+      };
+      
+      console.log('🔍 Checking duplicates for:', duplicateCheckData);
+      const response = await patientService.checkDuplicatePatients(branchId, duplicateCheckData);
+      console.log('🔍 Duplicate check response:', response);
+      
+      if (response.success && response.data.hasDuplicates) {
+        console.log('🔍 Duplicates found!', response.data.potentialDuplicates.length, 'potential matches');
+        setPotentialDuplicates(response.data.potentialDuplicates);
+        setSimilarityScore(response.data.similarityScore);
+        setShowDuplicateDetails(true);
+        return true; // Duplicates found
+      }
+      
+      console.log('🔍 No duplicates found, proceeding with creation');
+      return false; // No duplicates
+    } catch (error) {
+      console.error('Error checking for duplicates:', error);
+      toast.error('Failed to check for duplicate patients');
+      return false;
+    } finally {
+      setIsCheckingDuplicates(false);
+    }
+  };
+
+  // Real-time phone number checking
+  const checkPhoneDuplicates = async (phone: string) => {
+    console.log('🔍 checkPhoneDuplicates called:', { phone, phoneLength: phone?.length, branchId });
+    
+    if (!phone || phone.length < 10 || !branchId) {
+      console.log('🔍 Skipping duplicate check - insufficient data:', { phone, phoneLength: phone?.length, branchId });
+      setDuplicateWarning('');
+      return;
+    }
+
+    // Clear previous timeout
+    if (phoneCheckTimeout) {
+      clearTimeout(phoneCheckTimeout);
+    }
+
+    // Set new timeout for debounced checking
+    const timeout = setTimeout(async () => {
+      console.log('🔍 Starting duplicate check after timeout...');
+      setIsCheckingDuplicates(true);
+      setDuplicateWarning('Checking for existing patients...');
+      
+      try {
+        const duplicateCheckData = {
+          name: formData.name || 'Unknown',
+          phone: phone,
+          dateOfBirth: formData.dateOfBirth || '1900-01-01',
+          email: formData.email || ''
+        };
+        
+        console.log('🔍 Sending duplicate check data:', duplicateCheckData);
+        const response = await patientService.checkDuplicatePatients(branchId, duplicateCheckData);
+        console.log('🔍 Duplicate check response received:', response);
+        
+        if (response.success && response.data.hasDuplicates) {
+          const duplicates = response.data.potentialDuplicates;
+          const maxScore = response.data.similarityScore;
+          
+          console.log('🔍 Duplicates found:', { duplicatesCount: duplicates.length, maxScore });
+          
+          // Store for display
+          setPotentialDuplicates(duplicates);
+          setSimilarityScore(maxScore);
+          setShowDuplicateDetails(false); // Don't auto-expand, let user click "View Details"
+          
+          if (maxScore >= 80) {
+            setDuplicateWarning(`⚠️ High similarity (${maxScore}%) - This might be a duplicate patient (you can still create)`);
+          } else if (maxScore >= 60) {
+            setDuplicateWarning(`⚠️ Medium similarity (${maxScore}%) - Please verify this is a different patient`);
+          } else if (maxScore >= 30) {
+            setDuplicateWarning(`ℹ️ Found ${duplicates.length} patient(s) with similar details - Please verify`);
+          }
+        } else {
+          console.log('🔍 No duplicates found');
+          setDuplicateWarning('');
+          setPotentialDuplicates([]);
+          setSimilarityScore(0);
+          setShowDuplicateDetails(false);
+        }
+      } catch (error) {
+        console.error('❌ Error checking phone duplicates:', error);
+        setDuplicateWarning('Unable to check for duplicates');
+      } finally {
+        setIsCheckingDuplicates(false);
+      }
+    }, 1000); // 1 second delay
+
+    setPhoneCheckTimeout(timeout);
   };
 
 
@@ -211,6 +423,13 @@ export default function CreatePatientModal({ isOpen, onClose, onSuccess }: Creat
       return;
     }
 
+    // Proceed with creation (duplicates are just warnings, not blockers)
+    await createPatient();
+  };
+
+  const createPatient = async () => {
+    if (!branchId) return;
+
     setIsSubmitting(true);
     try {
       console.log('Creating patient:', formData);
@@ -293,7 +512,27 @@ export default function CreatePatientModal({ isOpen, onClose, onSuccess }: Creat
     setNewCondition('');
     setNewSurgery('');
     setSuggestedEmail('');
+    setPotentialDuplicates([]);
+    setSimilarityScore(0);
+    setDuplicateWarning('');
+    setShowDuplicateDetails(false);
+    setShowAllDuplicates(false);
+    if (phoneCheckTimeout) {
+      clearTimeout(phoneCheckTimeout);
+    }
     onClose();
+  };
+
+
+  const handleSelectExistingPatient = (patient: Patient) => {
+    setShowDuplicateDetails(false);
+    setShowAllDuplicates(false);
+    setPotentialDuplicates([]);
+    setSimilarityScore(0);
+    setDuplicateWarning('');
+    toast.info(`Selected existing patient: ${patient.name}`);
+    handleClose();
+    onSuccess();
   };
 
   if (!isOpen) return null;
@@ -395,27 +634,45 @@ export default function CreatePatientModal({ isOpen, onClose, onSuccess }: Creat
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 
                 <div className="space-y-1">
-                  <label className="block text-xs font-medium text-gray-700">Email *</label>
-                  <div className="relative">
-                    <Mail className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 ${
-                      errors.email ? 'text-red-400' : 'text-gray-400'
-                    }`} />
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => handleInputChange('email', e.target.value)}
-                      className={`w-full pl-10 pr-3 py-2 text-sm border rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors ${
-                        errors.email ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
-                      }`}
-                      placeholder="patient@example.com"
-                    />
-                    {errors.email && (
-                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                        <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                    )}
+                  <label className="block text-xs font-medium text-gray-700">
+                    Email Address *
+                    <span className="text-xs text-gray-500 ml-1 font-normal">(Auto-generated)</span>
+                  </label>
+                  <div className="space-y-1">
+                    <div className="relative">
+                      <Mail className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 ${
+                        errors.email ? 'text-red-400' : 'text-gray-400'
+                      }`} />
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => handleInputChange('email', e.target.value)}
+                        className={`w-full pl-10 pr-3 py-2 text-sm border rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors ${
+                          errors.email ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                        }`}
+                        placeholder="patient@example.com"
+                      />
+                      {errors.email && (
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                          <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const generatedEmail = await generateUniqueEmail(formData.name);
+                        if (generatedEmail) {
+                          setFormData(prev => ({ ...prev, email: generatedEmail }));
+                        }
+                      }}
+                      className="w-full px-2 py-1 bg-emerald-100 text-emerald-700 rounded-md hover:bg-emerald-200 transition-colors text-xs font-medium"
+                      disabled={!formData.name.trim()}
+                    >
+                      Generate Email
+                    </button>
                   </div>
                   {errors.email && (
                     <div className="space-y-2">
@@ -461,8 +718,83 @@ export default function CreatePatientModal({ isOpen, onClose, onSuccess }: Creat
                       }`}
                       placeholder="+1 (555) 123-4567"
                     />
+                    {isCheckingDuplicates && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-600"></div>
+                      </div>
+                    )}
                   </div>
                   {errors.phone && <p className="text-red-500 text-xs">{errors.phone}</p>}
+                  {duplicateWarning && (
+                    <div className={`text-xs p-3 rounded-md ${
+                      duplicateWarning.includes('High similarity') 
+                        ? 'bg-red-50 text-red-700 border border-red-200' 
+                        : duplicateWarning.includes('Medium similarity')
+                        ? 'bg-orange-50 text-orange-700 border border-orange-200'
+                        : 'bg-blue-50 text-blue-700 border border-blue-200'
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <span>{duplicateWarning}</span>
+                        {potentialDuplicates.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setShowDuplicateDetails(!showDuplicateDetails)}
+                            className="ml-2 underline hover:no-underline font-medium"
+                          >
+                            {showDuplicateDetails ? 'Hide Details' : 'View Details'}
+                          </button>
+                        )}
+                      </div>
+                      
+                      {showDuplicateDetails && potentialDuplicates.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm font-medium text-gray-700">
+                              Similar patients found ({potentialDuplicates.length}):
+                            </div>
+                            {potentialDuplicates.length > 3 && (
+                              <button
+                                type="button"
+                                onClick={() => setShowAllDuplicates(!showAllDuplicates)}
+                                className="text-xs text-blue-600 hover:text-blue-800 underline"
+                              >
+                                {showAllDuplicates ? 'Show Less' : `Show All (${potentialDuplicates.length})`}
+                              </button>
+                            )}
+                          </div>
+                          
+                          {(showAllDuplicates ? potentialDuplicates : potentialDuplicates.slice(0, 3)).map((duplicate, index) => (
+                            <div key={duplicate._id || index} className="bg-white p-2 rounded border text-xs">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="font-medium text-gray-900">{duplicate.name}</div>
+                                  <div className="text-gray-600">
+                                    📞 {duplicate.phone} | 📧 {duplicate.email || 'No email'} | 🎂 {duplicate.dateOfBirth || 'No DOB'}
+                                  </div>
+                                </div>
+                                <div className="flex gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSelectExistingPatient(duplicate)}
+                                    className="px-3 py-1 bg-emerald-600 text-white text-xs rounded-md hover:bg-emerald-700 font-medium"
+                                  >
+                                    Select
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {!showAllDuplicates && potentialDuplicates.length > 3 && (
+                            <div className="text-xs text-gray-500 italic text-center py-1">
+                              ... and {potentialDuplicates.length - 3} more patients
+                            </div>
+                          )}
+                          
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-1">
@@ -736,6 +1068,7 @@ export default function CreatePatientModal({ isOpen, onClose, onSuccess }: Creat
           </div>
         </form>
       </div>
+
     </div>
   );
 }

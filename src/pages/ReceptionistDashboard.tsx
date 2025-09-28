@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '../lib/hooks';
 import type { RootState } from '../lib/store/store';
-import { refreshReceptionistData } from '../lib/store/slices/receptionistDataSlice';
+import { refreshReceptionistData, initializeReceptionistData } from '../lib/store/slices/receptionistDataSlice';
 import { 
   showErrorToast, 
   showSuccessToast, 
@@ -85,6 +85,39 @@ export default function ReceptionistDashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
 
+  // Fallback: If receptionist data is not available, try to initialize it
+  useEffect(() => {
+    console.log('🔍 ReceptionistDashboard - Fallback check:', {
+      userRole: user?.role,
+      isInitializing,
+      initializationError,
+      doctorsLength: receptionistDoctors?.length || 0,
+      patientsLength: receptionistPatients?.length || 0,
+      appointmentsLength: receptionistAppointments?.length || 0
+    });
+    
+    if (user?.role === 'receptionist' && !isInitializing && !initializationError && 
+        (!receptionistDoctors || receptionistDoctors.length === 0)) {
+      console.log('🔄 Receptionist data not available, attempting to initialize...');
+      dispatch(initializeReceptionistData());
+    }
+  }, [user?.role, isInitializing, initializationError, receptionistDoctors, dispatch]);
+
+  // Force data loading if receptionist data is not available after 3 seconds
+  useEffect(() => {
+    if (user?.role === 'receptionist') {
+      const timer = setTimeout(() => {
+        if ((!receptionistDoctors || receptionistDoctors.length === 0) && 
+            !isInitializing && !initializationError) {
+          console.log('🔄 Force loading data after timeout - receptionist data still not available');
+          dispatch(initializeReceptionistData());
+        }
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [user?.role, receptionistDoctors, isInitializing, initializationError, dispatch]);
+
   // Calculate receptionist stats
   const calculateStats = (): ReceptionistStats => {
     console.log('🔍 Receptionist Dashboard - Data Debug:', {
@@ -93,7 +126,10 @@ export default function ReceptionistDashboard() {
       receptionistPatients: receptionistPatients,
       receptionistPatientsLength: receptionistPatients?.length,
       receptionistAppointments: receptionistAppointments,
-      receptionistAppointmentsLength: receptionistAppointments?.length
+      receptionistAppointmentsLength: receptionistAppointments?.length,
+      isInitializing: isInitializing,
+      initializationError: initializationError,
+      user: user
     });
 
     const today = new Date();
@@ -249,18 +285,68 @@ export default function ReceptionistDashboard() {
     }
   };
 
+  // Show basic dashboard with loading state
   if (isInitializing) {
     return (
-      <div className="p-4">
-        <div className="animate-pulse">
-          <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-                <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
-                <div className="h-6 bg-gray-200 rounded w-3/4"></div>
+      <div className="p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900">Receptionist Dashboard</h1>
+          <button 
+            onClick={handleRefresh}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            <FiRefreshCw className="h-4 w-4" />
+            Refresh Data
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Patients</p>
+                <p className="text-2xl font-bold text-gray-900">Loading...</p>
               </div>
-            ))}
+              <FiUsers className="h-8 w-8 text-blue-600" />
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Doctors</p>
+                <p className="text-2xl font-bold text-gray-900">Loading...</p>
+              </div>
+              <FiUserCheck className="h-8 w-8 text-green-600" />
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Today's Appointments</p>
+                <p className="text-2xl font-bold text-gray-900">Loading...</p>
+              </div>
+              <FiCalendar className="h-8 w-8 text-purple-600" />
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Pending</p>
+                <p className="text-2xl font-bold text-gray-900">Loading...</p>
+              </div>
+              <FiClock className="h-8 w-8 text-orange-600" />
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h2>
+          <div className="text-center py-8">
+            <FiActivity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600">Loading recent activity...</p>
           </div>
         </div>
       </div>

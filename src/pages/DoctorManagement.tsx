@@ -25,6 +25,14 @@ import {
 export default function DoctorManagement() {
   const navigate = useNavigate();
   const user = useAppSelector((state: RootState) => state.auth.user);
+  
+  // Use pre-loaded receptionist data for receptionist users
+  const { 
+    doctors: receptionistDoctors, 
+    isInitializing,
+    initializationError 
+  } = useAppSelector((state: RootState) => state.receptionistData);
+  
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,37 +50,43 @@ export default function DoctorManagement() {
     ? user.branchId 
     : (user?.branchId as any)?._id || (user?.branchId as any)?.id || String(user?.branchId);
 
-  // Load doctors
+  // Always load data from API for all users
   useEffect(() => {
-    const loadDoctors = async () => {
-      if (!branchId) {
-        console.error('No branch ID available');
-        setIsLoading(false);
-        return;
-      }
+    console.log('🔍 DoctorManagement - Loading data from API:', {
+      userRole: user?.role,
+      branchId
+    });
+    
+    // Always load from API regardless of user role
+    loadDoctorsFromAPI();
+  }, [user?.role, branchId]);
 
-      try {
-        setIsLoading(true);
-        console.log('Loading doctors for branch:', branchId);
-        
-        const response = await doctorService.getBranchDoctors(branchId);
-        if (response.success) {
-          setDoctors(response.data);
-          console.log('Doctors loaded:', response.data.length);
-        } else {
-          throw new Error('Failed to load doctors');
-        }
-      } catch (error: any) {
-        console.error('Error loading doctors:', error);
-        toast.error('Failed to load doctors');
-        setDoctors([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const loadDoctorsFromAPI = async () => {
+    if (!branchId) {
+      console.error('No branch ID available');
+      setIsLoading(false);
+      return;
+    }
 
-    loadDoctors();
-  }, [branchId]);
+    try {
+      setIsLoading(true);
+      console.log('Loading doctors for branch:', branchId);
+      
+      const response = await doctorService.getBranchDoctors(branchId);
+      if (response.success) {
+        setDoctors(response.data);
+        console.log('Doctors loaded:', response.data.length);
+      } else {
+        throw new Error('Failed to load doctors');
+      }
+    } catch (error: any) {
+      console.error('Error loading doctors:', error);
+      toast.error('Failed to load doctors');
+      setDoctors([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Filter doctors based on search term
   const filteredDoctors = doctors.filter(doctor =>
