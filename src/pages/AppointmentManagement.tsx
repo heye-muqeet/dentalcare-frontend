@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch } from '../lib/store/store';
 import { RootState } from '../lib/store/store';
@@ -32,7 +32,7 @@ import {
   Users,
   Activity
 } from 'lucide-react';
-import { format, parseISO, isToday, isTomorrow, isYesterday, startOfDay, endOfDay } from 'date-fns';
+import { format, parseISO, isToday, isTomorrow, isYesterday, startOfDay, endOfDay, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, addDays } from 'date-fns';
 import { 
   showErrorToast, 
   showSuccessToast, 
@@ -116,7 +116,14 @@ export default function AppointmentManagement() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('today'); // Default to today for receptionist
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
-  const [showQuickActions, setShowQuickActions] = useState(false);
+  const [showStatsFilters, setShowStatsFilters] = useState(true);
+  const [timePeriod, setTimePeriod] = useState('today');
+  
+  // Calendar state
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+  const [dayOffset, setDayOffset] = useState(0);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
 
   // Use pre-loaded receptionist data instead of fetching on mount
   useEffect(() => {
@@ -128,6 +135,95 @@ export default function AppointmentManagement() {
     dispatch(fetchDoctors());
     }
   }, [dispatch, receptionistDoctors.length, isInitializing, initializationError]);
+
+  // Window resize listener for dynamic day count
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Center today's date on initial load and when window size changes
+  useEffect(() => {
+    const today = new Date();
+    const monthStart = startOfMonth(today);
+    const monthEnd = endOfMonth(today);
+    const nextMonthStart = startOfMonth(addMonths(today, 1));
+    
+    const currentMonthDays = eachDayOfInterval({ 
+      start: startOfDay(monthStart), 
+      end: endOfDay(monthEnd) 
+    });
+    
+    const nextMonthDays = eachDayOfInterval({ 
+      start: startOfDay(nextMonthStart), 
+      end: startOfDay(addDays(nextMonthStart, 14))
+    });
+    
+    const allDays = [...currentMonthDays, ...nextMonthDays];
+    
+    const todayIndex = allDays.findIndex(day => isSameDay(day, today));
+    if (todayIndex !== -1) {
+      // Calculate dynamic day count inline to avoid dependency issues
+      const buttonWidth = 32; // w-8 = 32px (reduced from w-10)
+      const gapWidth = 2; // gap-0.5 = 2px (reduced from gap-1)
+      const navButtonWidth = 20; // w-5 = 20px (reduced from w-6)
+      const containerPadding = 12; // p-1.5 = 6px * 2 (reduced from p-2)
+      const extraMargin = 24; // Safety margin (increased from 20)
+      
+      const availableWidth = windowWidth - (navButtonWidth * 2) - containerPadding - extraMargin;
+      const daysPerRow = Math.floor(availableWidth / (buttonWidth + gapWidth));
+      const dynamicDayCount = Math.max(7, Math.min(daysPerRow, 25));
+      
+      const centerOffset = Math.max(0, todayIndex - Math.floor(dynamicDayCount / 2));
+      setDayOffset(centerOffset);
+      // Today centered successfully
+    }
+  }, [windowWidth]); // Re-center when window size changes
+
+  // Also center today on initial component mount
+  useEffect(() => {
+    const today = new Date();
+    setCurrentMonth(today); // Set current month to today's month
+    setSelectedDate(today); // Set today as selected by default
+    
+    const monthStart = startOfMonth(today);
+    const monthEnd = endOfMonth(today);
+    const nextMonthStart = startOfMonth(addMonths(today, 1));
+    
+    const currentMonthDays = eachDayOfInterval({ 
+      start: startOfDay(monthStart), 
+      end: endOfDay(monthEnd) 
+    });
+    
+    const nextMonthDays = eachDayOfInterval({ 
+      start: startOfDay(nextMonthStart), 
+      end: startOfDay(addDays(nextMonthStart, 14))
+    });
+    
+    const allDays = [...currentMonthDays, ...nextMonthDays];
+    
+    const todayIndex = allDays.findIndex(day => isSameDay(day, today));
+    if (todayIndex !== -1) {
+      // Calculate dynamic day count inline to avoid dependency issues
+      const buttonWidth = 32; // w-8 = 32px (reduced from w-10)
+      const gapWidth = 2; // gap-0.5 = 2px (reduced from gap-1)
+      const navButtonWidth = 20; // w-5 = 20px (reduced from w-6)
+      const containerPadding = 12; // p-1.5 = 6px * 2 (reduced from p-2)
+      const extraMargin = 24; // Safety margin (increased from 20)
+      
+      const availableWidth = windowWidth - (navButtonWidth * 2) - containerPadding - extraMargin;
+      const daysPerRow = Math.floor(availableWidth / (buttonWidth + gapWidth));
+      const dynamicDayCount = Math.max(7, Math.min(daysPerRow, 25));
+      
+      const centerOffset = Math.max(0, todayIndex - Math.floor(dynamicDayCount / 2));
+      setDayOffset(centerOffset);
+      // Initial centering complete
+    }
+  }, [windowWidth]); // Include windowWidth dependency
 
   // Debug receptionist data
   useEffect(() => {
@@ -223,21 +319,34 @@ export default function AppointmentManagement() {
     const matchesStatus = statusFilter === 'all' || appointment.status === statusFilter;
     
     const appointmentDate = new Date(appointment.appointmentDate);
-    let matchesDate = true;
-    if (dateFilter === 'today') {
-      matchesDate = isToday(appointmentDate);
-    } else if (dateFilter === 'tomorrow') {
-      matchesDate = isTomorrow(appointmentDate);
-    } else if (dateFilter === 'yesterday') {
-      matchesDate = isYesterday(appointmentDate);
-    } else if (dateFilter === 'thisWeek') {
+    
+    // Time period filtering (replaces date filtering)
+    let matchesTimePeriod = true;
       const today = new Date();
-      const weekStart = new Date(today.setDate(today.getDate() - today.getDay()));
-      const weekEnd = new Date(today.setDate(today.getDate() - today.getDay() + 6));
-      matchesDate = appointmentDate >= weekStart && appointmentDate <= weekEnd;
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+    
+    if (timePeriod === 'today') {
+      matchesTimePeriod = isToday(appointmentDate);
+    } else if (timePeriod === 'this_month') {
+      const monthStart = new Date(currentYear, currentMonth, 1);
+      const monthEnd = new Date(currentYear, currentMonth + 1, 0);
+      matchesTimePeriod = appointmentDate >= monthStart && appointmentDate <= monthEnd;
+    } else if (timePeriod === 'next_month') {
+      const nextMonthStart = new Date(currentYear, currentMonth + 1, 1);
+      const nextMonthEnd = new Date(currentYear, currentMonth + 2, 0);
+      matchesTimePeriod = appointmentDate >= nextMonthStart && appointmentDate <= nextMonthEnd;
+    } else if (timePeriod === 'previous_month') {
+      const prevMonthStart = new Date(currentYear, currentMonth - 1, 1);
+      const prevMonthEnd = new Date(currentYear, currentMonth, 0);
+      matchesTimePeriod = appointmentDate >= prevMonthStart && appointmentDate <= prevMonthEnd;
+    } else if (timePeriod === 'this_year') {
+      const yearStart = new Date(currentYear, 0, 1);
+      const yearEnd = new Date(currentYear, 11, 31);
+      matchesTimePeriod = appointmentDate >= yearStart && appointmentDate <= yearEnd;
     }
 
-    return matchesSearch && matchesStatus && matchesDate;
+    return matchesSearch && matchesStatus && matchesTimePeriod;
   });
 
   const getDateLabel = (date: string) => {
@@ -269,26 +378,251 @@ export default function AppointmentManagement() {
     }
   };
 
+  // Calendar helper functions
+  const getCalendarDays = () => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    const startDate = startOfDay(monthStart);
+    const endDate = endOfDay(monthEnd);
+    
+    return eachDayOfInterval({ start: startDate, end: endDate });
+  };
+
+  const getHorizontalCalendarDays = () => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    const nextMonthStart = startOfMonth(addMonths(currentMonth, 1));
+    const nextMonthEnd = endOfMonth(addMonths(currentMonth, 1));
+    
+    // Get all days in the current month
+    const currentMonthDays = eachDayOfInterval({ 
+      start: startOfDay(monthStart), 
+      end: endOfDay(monthEnd) 
+    });
+    
+    // Get some days from the next month to ensure we can always center properly
+    const nextMonthDays = eachDayOfInterval({ 
+      start: startOfDay(nextMonthStart), 
+      end: startOfDay(addDays(nextMonthStart, 14)) // Get first 15 days of next month
+    });
+    
+    // Combine current month and next month days
+    const allDays = [...currentMonthDays, ...nextMonthDays];
+    
+    // Get dynamic number of days based on window width
+    const maxDays = getDynamicDayCount();
+    
+    // Show calculated number of days at a time, with offset for navigation
+    const startIndex = Math.max(0, dayOffset);
+    const endIndex = Math.min(startIndex + maxDays, allDays.length);
+    
+    return allDays.slice(startIndex, endIndex);
+  };
+
+  const handleDateSelect = (date: Date) => {
+    setSelectedDate(date);
+    setDateFilter('custom');
+    
+    // Center the selected date in the visible row
+    // Use the same logic as getHorizontalCalendarDays to get the extended day range
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    const nextMonthStart = startOfMonth(addMonths(currentMonth, 1));
+    
+    const currentMonthDays = eachDayOfInterval({ 
+      start: startOfDay(monthStart), 
+      end: endOfDay(monthEnd) 
+    });
+    
+    const nextMonthDays = eachDayOfInterval({ 
+      start: startOfDay(nextMonthStart), 
+      end: startOfDay(addDays(nextMonthStart, 14))
+    });
+    
+    const allDays = [...currentMonthDays, ...nextMonthDays];
+    
+    const selectedIndex = allDays.findIndex(day => isSameDay(day, date));
+    if (selectedIndex !== -1) {
+      const dynamicDayCount = getDynamicDayCount();
+      const centerOffset = Math.max(0, selectedIndex - Math.floor(dynamicDayCount / 2));
+      setDayOffset(centerOffset);
+    }
+  };
+
+  const handlePrevMonth = () => {
+    setCurrentMonth(subMonths(currentMonth, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth(addMonths(currentMonth, 1));
+    setDayOffset(0); // Reset day offset when changing months
+  };
+
+  const getDynamicDayCount = useCallback(() => {
+    // More accurate measurements for responsive design
+    const buttonWidth = 32; // w-8 = 32px (reduced from w-10)
+    const gapWidth = 2; // gap-0.5 = 2px
+    const navButtonWidth = 20; // w-5 = 20px (reduced from w-6)
+    const containerPadding = 12; // p-1.5 = 6px on each side (reduced from p-2)
+    const extraMargin = 24; // Additional margin for safety (reduced from 32)
+    
+    // Calculate available width for day buttons
+    const availableWidth = windowWidth - (navButtonWidth * 2) - containerPadding - extraMargin;
+    
+    // Calculate how many day buttons can fit
+    const daysPerRow = Math.floor(availableWidth / (buttonWidth + gapWidth));
+    
+    // Ensure we show between 7 and 25 days (increased max since buttons are smaller)
+    const dynamicCount = Math.max(7, Math.min(daysPerRow, 25));
+    
+    // Dynamic calculation complete
+    
+    return dynamicCount;
+  }, [windowWidth]);
+
+  const getCurrentDateRange = () => {
+    const visibleDays = getHorizontalCalendarDays();
+    if (visibleDays.length === 0) return '';
+    
+    const firstDay = visibleDays[0];
+    const lastDay = visibleDays[visibleDays.length - 1];
+    
+    const firstMonth = format(firstDay, 'MMM');
+    const lastMonth = format(lastDay, 'MMM');
+    const firstDate = format(firstDay, 'dd');
+    const lastDate = format(lastDay, 'dd');
+    
+    // If same month, show "Jan 15 - 25"
+    if (firstMonth === lastMonth) {
+      return `${firstMonth} ${firstDate} - ${lastDate}`;
+    }
+    
+    // If different months, show "Jan 25 - Feb 05"
+    return `${firstMonth} ${firstDate} - ${lastMonth} ${lastDate}`;
+  };
+
+  const handlePrevDays = () => {
+    const dynamicDayCount = getDynamicDayCount();
+    
+    if (dayOffset - dynamicDayCount < 0) {
+      // Go to previous month
+      const prevMonth = subMonths(currentMonth, 1);
+      setCurrentMonth(prevMonth);
+      
+      // Calculate the extended day range for the previous month
+      const prevMonthStart = startOfMonth(prevMonth);
+      const prevMonthEnd = endOfMonth(prevMonth);
+      const prevNextMonthStart = startOfMonth(addMonths(prevMonth, 1));
+      
+      const prevMonthDays = eachDayOfInterval({ 
+        start: startOfDay(prevMonthStart), 
+        end: endOfDay(prevMonthEnd) 
+      });
+      
+      const prevNextMonthDays = eachDayOfInterval({ 
+        start: startOfDay(prevNextMonthStart), 
+        end: startOfDay(addDays(prevNextMonthStart, 14))
+      });
+      
+      const prevAllDays = [...prevMonthDays, ...prevNextMonthDays];
+      setDayOffset(Math.max(0, prevAllDays.length - dynamicDayCount));
+    } else {
+      setDayOffset(Math.max(0, dayOffset - dynamicDayCount));
+    }
+  };
+
+  const handleNextDays = () => {
+    const dynamicDayCount = getDynamicDayCount();
+    
+    // Calculate the extended day range for current month
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    const nextMonthStart = startOfMonth(addMonths(currentMonth, 1));
+    
+    const currentMonthDays = eachDayOfInterval({ 
+      start: startOfDay(monthStart), 
+      end: endOfDay(monthEnd) 
+    });
+    
+    const nextMonthDays = eachDayOfInterval({ 
+      start: startOfDay(nextMonthStart), 
+      end: startOfDay(addDays(nextMonthStart, 14))
+    });
+    
+    const allDays = [...currentMonthDays, ...nextMonthDays];
+    
+    if (dayOffset + dynamicDayCount >= allDays.length) {
+      // Go to next month
+      setCurrentMonth(addMonths(currentMonth, 1));
+      setDayOffset(0);
+    } else {
+      setDayOffset(Math.min(dayOffset + dynamicDayCount, allDays.length - dynamicDayCount));
+    }
+  };
+
   const getQuickStats = () => {
+    // Use receptionist appointments for receptionist users, otherwise use appointments slice
+    const appointmentsData = user?.role === 'receptionist' ? receptionistAppointments : appointments;
+    
+    // Filter appointments based on time period
+    const periodAppointments = appointmentsData.filter(apt => {
+      const appointmentDate = new Date(apt.appointmentDate);
     const today = new Date();
-    const todayAppointments = appointments.filter(apt => 
-      isToday(new Date(apt.appointmentDate))
-    );
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth();
+      
+      if (timePeriod === 'today') {
+        return isToday(appointmentDate);
+      } else if (timePeriod === 'this_month') {
+        const monthStart = new Date(currentYear, currentMonth, 1);
+        const monthEnd = new Date(currentYear, currentMonth + 1, 0);
+        return appointmentDate >= monthStart && appointmentDate <= monthEnd;
+      } else if (timePeriod === 'next_month') {
+        const nextMonthStart = new Date(currentYear, currentMonth + 1, 1);
+        const nextMonthEnd = new Date(currentYear, currentMonth + 2, 0);
+        return appointmentDate >= nextMonthStart && appointmentDate <= nextMonthEnd;
+      } else if (timePeriod === 'previous_month') {
+        const prevMonthStart = new Date(currentYear, currentMonth - 1, 1);
+        const prevMonthEnd = new Date(currentYear, currentMonth, 0);
+        return appointmentDate >= prevMonthStart && appointmentDate <= prevMonthEnd;
+      } else if (timePeriod === 'this_year') {
+        const yearStart = new Date(currentYear, 0, 1);
+        const yearEnd = new Date(currentYear, 11, 31);
+        return appointmentDate >= yearStart && appointmentDate <= yearEnd;
+      }
+      return true;
+    });
     
     return {
-      total: filteredAppointments.length,
-      today: todayAppointments.length,
-      scheduled: todayAppointments.filter(apt => apt.status === 'scheduled').length,
-      inProgress: todayAppointments.filter(apt => apt.status === 'in_progress').length,
-      completed: todayAppointments.filter(apt => apt.status === 'completed').length,
-      cancelled: todayAppointments.filter(apt => apt.status === 'cancelled').length,
-      noShow: todayAppointments.filter(apt => apt.status === 'no_show').length,
+      total: periodAppointments.length,
+      scheduled: periodAppointments.filter(apt => apt.status === 'scheduled').length,
+      inProgress: periodAppointments.filter(apt => apt.status === 'in_progress').length,
+      completed: periodAppointments.filter(apt => apt.status === 'completed').length,
+      cancelled: periodAppointments.filter(apt => apt.status === 'cancelled').length,
+      noShow: periodAppointments.filter(apt => apt.status === 'no_show').length,
+      walkIn: periodAppointments.filter(apt => (apt as any).status === 'walk_in').length,
     };
   };
 
   const stats = getQuickStats();
 
-  if (isLoading) {
+  // For receptionist users, use receptionist data loading state
+  // For other users, use appointments slice loading state
+  const shouldShowLoader = user?.role === 'receptionist' 
+    ? isInitializing 
+    : isLoading;
+
+  // Debug logging
+  console.log('🔍 Loading state check:', {
+    userRole: user?.role,
+    isInitializing,
+    isLoading,
+    shouldShowLoader,
+    hasReceptionistAppointments: receptionistAppointments?.length || 0,
+    hasAppointments: appointments?.length || 0
+  });
+
+  if (shouldShowLoader) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -297,127 +631,173 @@ export default function AppointmentManagement() {
   }
 
   return (
-    <div className="p-4 space-y-4">
-      {/* Header */}
+    <div className="min-h-screen bg-gray-50">
+      {/* Compact Header Section */}
+      <div className="bg-white border-b border-gray-200 px-4 py-3">
       <div className="flex items-center justify-between">
+          {/* Left Side - Page Title */}
+          <div className="flex items-center space-x-3">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Receptionist Desk</h1>
-          <p className="text-sm text-gray-600">Manage appointments and schedules</p>
+              <h1 className="text-lg font-semibold text-gray-900">Appointments</h1>
+              <p className="text-xs text-gray-500">Manage patient appointments</p>
         </div>
+          </div>
+
+          {/* Right Side - Search, Filter, and Add Button */}
         <div className="flex items-center space-x-2">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 h-3.5 w-3.5" />
+              <input
+                type="text"
+                placeholder="Search appointments..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-64 pl-8 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition-all duration-200"
+              />
+            </div>
+
+            {/* Filter Button */}
           <button 
-            onClick={() => {
-              if (receptionistDoctors.length > 0) {
-                // Refresh receptionist data
-                dispatch(refreshReceptionistData('all'));
-              } else {
-                // Fallback to old method
-                dispatch(fetchAppointments({}));
-                dispatch(fetchPatients());
-                dispatch(fetchDoctors());
-              }
-            }}
-            className="flex items-center gap-1 px-2 py-1.5 text-sm text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-          >
-            <RefreshCw className="h-3 w-3" />
-            Refresh
+              onClick={() => setShowStatsFilters(!showStatsFilters)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-md transition-all duration-200 ${
+                showStatsFilters 
+                  ? 'text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100 hover:border-blue-300' 
+                  : 'text-gray-700 bg-gray-50 border-gray-200 hover:bg-gray-100 hover:border-gray-300'
+              }`}
+            >
+              <Filter className="h-3.5 w-3.5" />
+              {showStatsFilters ? 'Hide Filters' : 'Show Filters'}
           </button>
+
+            {/* Add Button */}
           <button 
             onClick={() => setIsCreateModalOpen(true)} 
-            className="flex items-center gap-1 px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-all duration-200 shadow-sm"
           >
-            <Plus className="h-3 w-3" />
-            New Appointment
+              <Plus className="h-3.5 w-3.5" />
+              Add Appointment
           </button>
+            </div>
+          </div>
         </div>
-      </div>
+        
+      {/* Main Content */}
+      <div className="p-4 space-y-4">
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-          <div className="flex items-center">
-            <div className="p-1.5 bg-blue-100 rounded-lg">
-              <Calendar className="h-4 w-4 text-blue-600" />
-            </div>
-            <div className="ml-2">
-              <p className="text-xs font-medium text-gray-500">Total Today</p>
-              <p className="text-lg font-bold text-gray-900">{stats.today}</p>
-            </div>
-          </div>
+      {/* Interactive Quick Stats */}
+      {showStatsFilters && (
+        <div className="flex items-center justify-between">
+          <div className="flex flex-wrap gap-1.5">
+        <button 
+          onClick={() => {
+            setStatusFilter('scheduled');
+          }}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+            statusFilter === 'scheduled' 
+              ? 'bg-blue-100 text-blue-800 border border-blue-200' 
+              : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+          }`}
+        >
+          Scheduled ({stats.scheduled})
+        </button>
+        
+        <button 
+          onClick={() => {
+            setStatusFilter('in_progress');
+          }}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+            statusFilter === 'in_progress' 
+              ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' 
+              : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+          }`}
+        >
+          In Progress ({stats.inProgress})
+        </button>
+        
+        <button 
+          onClick={() => {
+            setStatusFilter('completed');
+          }}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+            statusFilter === 'completed' 
+              ? 'bg-green-100 text-green-800 border border-green-200' 
+              : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+          }`}
+        >
+          Completed ({stats.completed})
+        </button>
+        
+        <button 
+          onClick={() => {
+            setStatusFilter('cancelled');
+          }}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+            statusFilter === 'cancelled' 
+              ? 'bg-red-100 text-red-800 border border-red-200' 
+              : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+          }`}
+        >
+          Cancelled ({stats.cancelled})
+        </button>
+        
+        <button 
+          onClick={() => {
+            setStatusFilter('no_show');
+          }}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+            statusFilter === 'no_show' 
+              ? 'bg-gray-100 text-gray-800 border border-gray-200' 
+              : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+          }`}
+        >
+          No Show ({stats.noShow})
+        </button>
+        
+        <button 
+          onClick={() => {
+            setStatusFilter('walk_in');
+          }}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+            statusFilter === 'walk_in' 
+              ? 'bg-orange-100 text-orange-800 border border-orange-200' 
+              : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+          }`}
+        >
+          Walk In ({stats.walkIn || 0})
+        </button>
+        
+        <button 
+          onClick={() => {
+            setStatusFilter('all');
+          }}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+            statusFilter === 'all' 
+              ? 'bg-purple-100 text-purple-800 border border-purple-200' 
+              : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+          }`}
+        >
+          Total ({stats.total})
+        </button>
         </div>
         
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-          <div className="flex items-center">
-            <div className="p-1.5 bg-blue-100 rounded-lg">
-              <Calendar className="h-4 w-4 text-blue-600" />
+          {/* Time Period Dropdown */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-600">Time Period:</span>
+            <select
+              value={timePeriod}
+              onChange={(e) => setTimePeriod(e.target.value)}
+              className="px-2 py-1 text-xs border border-gray-200 rounded-md bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="today">Today</option>
+              <option value="this_month">This Month</option>
+              <option value="previous_month">Previous Month</option>
+              <option value="next_month">Next Month</option>
+              <option value="this_year">This Year</option>
+            </select>
             </div>
-            <div className="ml-2">
-              <p className="text-xs font-medium text-gray-500">Scheduled</p>
-              <p className="text-lg font-bold text-blue-600">{stats.scheduled}</p>
             </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-          <div className="flex items-center">
-            <div className="p-1.5 bg-yellow-100 rounded-lg">
-              <Activity className="h-4 w-4 text-yellow-600" />
-            </div>
-            <div className="ml-2">
-              <p className="text-xs font-medium text-gray-500">In Progress</p>
-              <p className="text-lg font-bold text-yellow-600">{stats.inProgress}</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-          <div className="flex items-center">
-            <div className="p-1.5 bg-green-100 rounded-lg">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            </div>
-            <div className="ml-2">
-              <p className="text-xs font-medium text-gray-500">Completed</p>
-              <p className="text-lg font-bold text-green-600">{stats.completed}</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-          <div className="flex items-center">
-            <div className="p-1.5 bg-red-100 rounded-lg">
-              <XCircle className="h-4 w-4 text-red-600" />
-            </div>
-            <div className="ml-2">
-              <p className="text-xs font-medium text-gray-500">Cancelled</p>
-              <p className="text-lg font-bold text-red-600">{stats.cancelled}</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-          <div className="flex items-center">
-            <div className="p-1.5 bg-gray-100 rounded-lg">
-              <AlertCircle className="h-4 w-4 text-gray-600" />
-            </div>
-            <div className="ml-2">
-              <p className="text-xs font-medium text-gray-500">No Show</p>
-              <p className="text-lg font-bold text-gray-600">{stats.noShow}</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-          <div className="flex items-center">
-            <div className="p-1.5 bg-purple-100 rounded-lg">
-              <Users className="h-4 w-4 text-purple-600" />
-            </div>
-            <div className="ml-2">
-              <p className="text-xs font-medium text-gray-500">Total</p>
-              <p className="text-lg font-bold text-purple-600">{stats.total}</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Error Alert */}
       {error && (
@@ -435,194 +815,134 @@ export default function AppointmentManagement() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-            <Filter className="h-5 w-5 mr-2 text-emerald-600" />
-            Filters & Search
-          </h3>
-          <div className="flex items-center space-x-2">
-          <div className="text-sm text-gray-500">
-            {filteredAppointments.length} appointment(s) found
+        {/* Calendar Component */}
+        <div className="w-full overflow-hidden bg-gradient-to-r from-blue-50 to-purple-50 rounded-md p-1.5 border border-gray-100">
+          {/* Date Range Indicator */}
+          <div className="flex justify-center mb-1">
+            <span className="text-xs text-gray-600 bg-white px-1.5 py-0.5 rounded-full shadow-sm">
+              {getCurrentDateRange()}
+            </span>
             </div>
-            <div className="flex items-center space-x-1">
+          
+          <div className="flex items-center gap-0.5">
+            {/* Previous Button */}
               <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded-lg ${viewMode === 'list' ? 'bg-emerald-100 text-emerald-600' : 'text-gray-400 hover:text-gray-600'}`}
+              onClick={handlePrevDays}
+              className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300 transition-colors flex-shrink-0"
               >
-                <Calendar className="h-4 w-4" />
+              <ChevronDown className="h-2.5 w-2.5 text-gray-600 rotate-90" />
               </button>
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-emerald-100 text-emerald-600' : 'text-gray-400 hover:text-gray-600'}`}
-              >
-                <CalendarDays className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <input
-              type="text"
-              placeholder="Search appointments..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-            />
-          </div>
-          
-          <div className="relative">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent appearance-none bg-white"
-            >
-              <option value="all">All Status</option>
-              <option value="scheduled">Scheduled</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="no_show">No Show</option>
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 pointer-events-none" />
-          </div>
-          
-          <div className="relative">
-            <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent appearance-none bg-white"
-            >
-              <option value="today">Today</option>
-              <option value="tomorrow">Tomorrow</option>
-              <option value="yesterday">Yesterday</option>
-              <option value="thisWeek">This Week</option>
-              <option value="all">All Dates</option>
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 pointer-events-none" />
-          </div>
-          
-          <div className="flex items-center space-x-2">
+            
+            {/* Days Row */}
+            <div className="flex items-center gap-0.5 flex-1 justify-center">
+              {getHorizontalCalendarDays().map((date, index) => {
+                const isSelected = selectedDate && isSameDay(date, selectedDate);
+                const isCurrentMonth = isSameMonth(date, currentMonth);
+                const isTodayDate = isToday(date);
+                const dayName = format(date, 'EEE'); // Mon, Tue, etc.
+                
+                return (
             <button
-              onClick={() => setShowQuickActions(!showQuickActions)}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              <Activity className="h-4 w-4" />
-              Quick Actions
+                    key={index}
+                    onClick={() => handleDateSelect(date)}
+                    className={`
+                      flex flex-col items-center justify-center w-8 h-8 text-xs font-medium rounded-md transition-colors flex-shrink-0
+                      ${isCurrentMonth ? 'text-gray-900' : 'text-gray-400'}
+                      ${isSelected 
+                        ? 'bg-blue-600 text-white' 
+                        : isTodayDate 
+                          ? 'bg-blue-100 text-blue-600 hover:bg-blue-200' 
+                          : 'hover:bg-purple-100 hover:text-purple-600'
+                      }
+                    `}
+                  >
+                    <span className="text-xs opacity-75 leading-none">{dayName}</span>
+                    <span className="text-xs font-semibold leading-none">{format(date, 'd')}</span>
             </button>
-          </div>
-        </div>
+                );
+              })}
       </div>
 
-      {/* Quick Actions Panel */}
-      {showQuickActions && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Next Button */}
             <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="flex items-center gap-3 p-4 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors"
+              onClick={handleNextDays}
+              className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300 transition-colors flex-shrink-0"
             >
-              <Plus className="h-5 w-5 text-emerald-600" />
-              <span className="font-medium text-emerald-900">New Appointment</span>
-            </button>
-            <button
-              onClick={() => setDateFilter('today')}
-              className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-            >
-              <Calendar className="h-5 w-5 text-blue-600" />
-              <span className="font-medium text-blue-900">Today's Schedule</span>
-            </button>
-            <button
-              onClick={() => setStatusFilter('scheduled')}
-              className="flex items-center gap-3 p-4 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors"
-            >
-              <Clock className="h-5 w-5 text-yellow-600" />
-              <span className="font-medium text-yellow-900">Pending Appointments</span>
-            </button>
-            <button
-              onClick={() => setStatusFilter('in_progress')}
-              className="flex items-center gap-3 p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors"
-            >
-              <Activity className="h-5 w-5 text-orange-600" />
-              <span className="font-medium text-orange-900">In Progress</span>
+              <ChevronDown className="h-2.5 w-2.5 text-gray-600 -rotate-90" />
             </button>
           </div>
         </div>
-      )}
 
-      {/* Appointments List */}
-      <div className="space-y-2">
+
+      {/* Compact Appointments List */}
+      <div className="space-y-1.5">
         {filteredAppointments.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
-            <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No appointments found</h3>
-            <p className="text-gray-500 mb-4">
+          <div className="bg-white rounded-md shadow-sm border border-gray-200 p-4 text-center">
+            <Calendar className="h-8 w-8 text-gray-400 mx-auto mb-3" />
+            <h3 className="text-sm font-medium text-gray-900 mb-2">No appointments found</h3>
+            <p className="text-xs text-gray-500 mb-3">
               {searchTerm || statusFilter !== 'all' || dateFilter !== 'all'
                 ? 'Try adjusting your filters to see more appointments.'
                 : 'Get started by creating your first appointment.'}
             </p>
             <button 
               onClick={() => setIsCreateModalOpen(true)}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2"
+              className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors flex items-center gap-1.5 mx-auto"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-3 w-3" />
               Create Appointment
             </button>
           </div>
         ) : (
           filteredAppointments.map((appointment) => (
-            <div key={appointment._id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-              <div className="p-4">
+            <div key={appointment._id} className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+              <div className="p-3">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-gray-500" />
-                        <span className="font-semibold text-gray-900">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <User className="h-3 w-3 text-gray-500" />
+                        <span className="text-sm font-semibold text-gray-900">
                           {isPatientObject(appointment.patientId) ? (appointment.patientId.name || `${appointment.patientId.firstName || ''} ${appointment.patientId.lastName || ''}`).trim() : 'Unknown Patient'}
                         </span>
                       </div>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1 ${statusColors[appointment.status]}`}>
+                      <span className={`px-1.5 py-0.5 text-xs font-medium rounded-full flex items-center gap-1 ${statusColors[appointment.status]}`}>
                         {getStatusIcon(appointment.status)}
                         {appointment.status.replace('_', ' ').toUpperCase()}
                       </span>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${visitTypeColors[appointment.visitType]}`}>
+                      <span className={`px-1.5 py-0.5 text-xs font-medium rounded-full ${visitTypeColors[appointment.visitType]}`}>
                         {appointment.visitType.replace('_', ' ').toUpperCase()}
                       </span>
                       {appointment.isEmergency && (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">EMERGENCY</span>
+                        <span className="px-1.5 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800">EMERGENCY</span>
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-gray-400" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs text-gray-600">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="h-3 w-3 text-gray-400" />
                         <span className="font-medium">{getDateLabel(appointment.appointmentDate)}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-gray-400" />
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="h-3 w-3 text-gray-400" />
                         <span className="font-medium">{getTimeLabel(appointment.startTime, appointment.endTime)}</span>
                       </div>
                       {appointment.doctorId && (
-                        <div className="flex items-center gap-2">
-                          <Stethoscope className="h-4 w-4 text-gray-400" />
+                        <div className="flex items-center gap-1.5">
+                          <Stethoscope className="h-3 w-3 text-gray-400" />
                           <span className="font-medium">
                             {isDoctorObject(appointment.doctorId) ? `Dr. ${appointment.doctorId.firstName} ${appointment.doctorId.lastName}` : 'No Doctor Assigned'}
                           </span>
                         </div>
                       )}
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <span className="font-medium text-gray-500">Reason:</span>
                         <span className="font-medium">{appointment.reasonForVisit}</span>
                       </div>
                     </div>
 
                     {/* Patient Contact Info */}
-                    <div className="mt-3 flex items-center gap-4 text-sm text-gray-500">
+                    <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
                       <div className="flex items-center gap-1">
                         <Phone className="h-3 w-3" />
                         <span>{isPatientObject(appointment.patientId) ? appointment.patientId.phone : 'N/A'}</span>
@@ -634,20 +954,20 @@ export default function AppointmentManagement() {
                     </div>
 
                     {appointment.notes && (
-                      <div className="mt-3 p-3 bg-gray-50 rounded-md">
-                        <p className="text-sm text-gray-700">
+                      <div className="mt-2 p-2 bg-gray-50 rounded-md">
+                        <p className="text-xs text-gray-700">
                           <span className="font-medium">Notes:</span> {appointment.notes}
                         </p>
                       </div>
                     )}
                   </div>
 
-                  <div className="flex flex-col space-y-2 flex-shrink-0 ml-3">
+                  <div className="flex flex-col space-y-1.5 flex-shrink-0 ml-2">
                     {/* Status Change Buttons */}
                     {appointment.status === 'scheduled' && (
                       <button
                         onClick={() => handleStatusChange(appointment._id, 'in_progress')}
-                        className="px-3 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full hover:bg-yellow-200 transition-colors"
+                        className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200 transition-colors"
                       >
                         Start
                       </button>
@@ -655,7 +975,7 @@ export default function AppointmentManagement() {
                     {appointment.status === 'in_progress' && (
                       <button
                         onClick={() => handleStatusChange(appointment._id, 'completed')}
-                        className="px-3 py-1 text-xs bg-green-100 text-green-800 rounded-full hover:bg-green-200 transition-colors"
+                        className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-md hover:bg-green-200 transition-colors"
                       >
                         Complete
                       </button>
@@ -663,8 +983,8 @@ export default function AppointmentManagement() {
                     
                     {/* Action Menu */}
                     <div className="relative">
-                      <button className="h-8 w-8 p-0 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded">
-                        <MoreVertical className="h-4 w-4" />
+                      <button className="h-6 w-6 p-0 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded">
+                        <MoreVertical className="h-3 w-3" />
                       </button>
                     </div>
                   </div>
@@ -750,6 +1070,7 @@ export default function AppointmentManagement() {
           }))}
         />
       )}
+      </div>
     </div>
   );
 }

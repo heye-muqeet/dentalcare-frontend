@@ -164,9 +164,11 @@ class SessionManager {
 
     // Prevent multiple simultaneous refresh attempts
     if (this.isRefreshing && this.refreshPromise) {
+      console.log('🔄 Token refresh already in progress, waiting for result...');
       return this.refreshPromise;
     }
 
+    console.log('🔄 Starting new token refresh...');
     this.isRefreshing = true;
     this.refreshPromise = this.performTokenRefresh();
 
@@ -175,10 +177,12 @@ class SessionManager {
       this.isRefreshing = false;
       this.refreshPromise = null;
       this.retryCount = 0;
+      console.log('✅ Token refresh completed successfully');
       return result;
     } catch (error) {
       this.isRefreshing = false;
       this.refreshPromise = null;
+      console.log('❌ Token refresh failed:', error);
       throw error;
     }
   }
@@ -206,11 +210,24 @@ class SessionManager {
         const { accessToken, refreshToken, expiresIn = 900, tokenType = 'Bearer' } = response.data;
         
         console.log('✅ Token refresh successful, updating session data');
+        console.log('🔄 New tokens received:', {
+          accessTokenLength: accessToken?.length,
+          refreshTokenLength: refreshToken?.length,
+          refreshTokenPreview: refreshToken?.substring(0, 10) + '...',
+          expiresIn: expiresIn
+        });
         
         // Update session data with both new tokens
         this.sessionData.accessToken = accessToken;
         this.sessionData.refreshToken = refreshToken;
         this.sessionData.expiresAt = Date.now() + (expiresIn * 1000);
+        
+        console.log('🔄 Session data after update:', {
+          hasAccessToken: !!this.sessionData.accessToken,
+          hasRefreshToken: !!this.sessionData.refreshToken,
+          newExpiresAt: new Date(this.sessionData.expiresAt).toISOString(),
+          newTimeUntilExpiry: this.sessionData.expiresAt - Date.now()
+        });
         
         this.saveToStorage();
         this.notifyListeners();

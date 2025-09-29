@@ -16,6 +16,9 @@ let failedQueue: Array<{
   reject: (error: any) => void;
 }> = [];
 
+// Track the current refresh token being used
+let currentRefreshToken: string | null = null;
+
 const processQueue = (error: any, token: string | null = null) => {
   failedQueue.forEach(({ resolve, reject }) => {
     if (error) {
@@ -38,16 +41,37 @@ api.interceptors.request.use(
 
     // Check if session is expiring soon and refresh proactively
     if (sessionManager.isSessionExpiringSoon() && sessionManager.hasValidRefreshToken()) {
-      console.log('Session expiring soon - proactively refreshing token');
-      try {
-        const tokenPair = await sessionManager.refreshAccessToken();
-        if (config.headers) {
-          config.headers.Authorization = `Bearer ${tokenPair.accessToken}`;
+      const refreshToken = sessionManager.getRefreshToken();
+      
+      // Check if we're already refreshing with this token
+      if (isRefreshing && currentRefreshToken === refreshToken) {
+        console.log('🔄 Token refresh already in progress with same token, skipping proactive refresh');
+      } else {
+        console.log('🔄 Session expiring soon - proactively refreshing token');
+        console.log('🔄 Current session state:', {
+          hasAccessToken: !!sessionManager.getAccessToken(),
+          hasRefreshToken: !!sessionManager.getRefreshToken(),
+          isSessionActive: sessionManager.isSessionActive(),
+          isExpiringSoon: sessionManager.isSessionExpiringSoon(),
+          hasValidRefreshToken: sessionManager.hasValidRefreshToken(),
+          isRefreshing: isRefreshing,
+          currentRefreshToken: currentRefreshToken?.substring(0, 10) + '...'
+        });
+        
+        try {
+          currentRefreshToken = refreshToken;
+          const tokenPair = await sessionManager.refreshAccessToken();
+          console.log('✅ Proactive token refresh successful');
+          currentRefreshToken = null;
+          if (config.headers) {
+            config.headers.Authorization = `Bearer ${tokenPair.accessToken}`;
+          }
+          return config;
+        } catch (error) {
+          console.warn('❌ Proactive token refresh failed:', error);
+          currentRefreshToken = null;
+          // Continue with current token, let response interceptor handle it
         }
-        return config;
-      } catch (error) {
-        console.warn('Proactive token refresh failed:', error);
-        // Continue with current token, let response interceptor handle it
       }
     }
 
@@ -133,13 +157,26 @@ api.interceptors.response.use(
 
       originalRequest._retry = true;
       isRefreshing = true;
+      currentRefreshToken = sessionManager.getRefreshToken();
 
       try {
-        console.log('Attempting to refresh access token...');
+        console.log('🔄 Attempting to refresh access token...');
+        console.log('🔄 Current session before refresh:', {
+          hasAccessToken: !!sessionManager.getAccessToken(),
+          hasRefreshToken: !!sessionManager.getRefreshToken(),
+          refreshTokenPreview: sessionManager.getRefreshToken()?.substring(0, 10) + '...'
+        });
+        
         // Try to refresh the token
         const tokenPair = await sessionManager.refreshAccessToken();
         
-        console.log('Token refresh successful');
+        console.log('✅ Token refresh successful in response interceptor');
+        console.log('🔄 New token pair:', {
+          accessTokenLength: tokenPair.accessToken?.length,
+          refreshTokenLength: tokenPair.refreshToken?.length,
+          refreshTokenPreview: tokenPair.refreshToken?.substring(0, 10) + '...'
+        });
+        
         // Process queued requests with new token
         processQueue(null, tokenPair.accessToken);
         
@@ -167,6 +204,7 @@ api.interceptors.response.use(
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
+        currentRefreshToken = null;
       }
     }
 
