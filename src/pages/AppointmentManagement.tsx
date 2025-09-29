@@ -116,7 +116,6 @@ export default function AppointmentManagement() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('today'); // Default to today for receptionist
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
-  const [showStatsFilters, setShowStatsFilters] = useState(true);
   const [timePeriod, setTimePeriod] = useState('today');
   
   // Calendar state
@@ -657,18 +656,6 @@ export default function AppointmentManagement() {
               />
             </div>
 
-            {/* Filter Button */}
-          <button 
-              onClick={() => setShowStatsFilters(!showStatsFilters)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-md transition-all duration-200 ${
-                showStatsFilters 
-                  ? 'text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100 hover:border-blue-300' 
-                  : 'text-gray-700 bg-gray-50 border-gray-200 hover:bg-gray-100 hover:border-gray-300'
-              }`}
-            >
-              <Filter className="h-3.5 w-3.5" />
-              {showStatsFilters ? 'Hide Filters' : 'Show Filters'}
-          </button>
 
             {/* Add Button */}
           <button 
@@ -686,8 +673,7 @@ export default function AppointmentManagement() {
       <div className="p-4 space-y-4">
 
       {/* Interactive Quick Stats */}
-      {showStatsFilters && (
-        <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between">
           <div className="flex flex-wrap gap-1.5">
         <button 
           onClick={() => {
@@ -795,9 +781,8 @@ export default function AppointmentManagement() {
               <option value="next_month">Next Month</option>
               <option value="this_year">This Year</option>
             </select>
-            </div>
-            </div>
-      )}
+          </div>
+        </div>
 
       {/* Error Alert */}
       {error && (
