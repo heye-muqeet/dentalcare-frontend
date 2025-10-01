@@ -23,7 +23,8 @@ import {
   ChevronDown,
   CheckCircle,
   AlertCircle,
-  User
+  User,
+  RefreshCw
 } from 'lucide-react';
 
 interface CreateAppointmentModalProps {
@@ -1850,6 +1851,21 @@ export default function CreateAppointmentModal({
                   </div>
                 ) : (
                   <div className="space-y-2">
+                    {/* Refresh Button */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-600">
+                        {availableSlots.length} available slots
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => loadAvailableSlots()}
+                        className="px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded transition-colors font-medium flex items-center gap-1"
+                        title="Refresh available slots (useful after appointments are cancelled)"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        Refresh
+                      </button>
+                    </div>
                           <div className="grid grid-cols-5 gap-1 max-h-32 overflow-y-auto border border-gray-200 rounded-md p-2 bg-gray-50">
                       {generateTimeSlots(appointmentFormData.appointmentDate).map((slot) => {
                         const isAvailable = availableSlots.includes(slot.start);

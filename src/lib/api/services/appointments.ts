@@ -149,6 +149,7 @@ export const appointmentsApi = {
     patientId: string;
     excludeAppointmentId?: string;
     isWalkIn?: boolean;
+    isReschedule?: boolean;
   }) => {
     const response = await api.post('/appointments/validate-slot', data);
     return response.data;

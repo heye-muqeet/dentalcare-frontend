@@ -33,6 +33,8 @@ export interface Doctor {
   };
   services?: string[];
   isActive: boolean;
+  isCurrentlyActiveInBranch?: boolean;
+  branchActiveStartTime?: string;
   rating?: number;
   totalReviews?: number;
   createdAt: string;
@@ -189,6 +191,62 @@ export const doctorService = {
       return response.data;
     } catch (error: any) {
       console.error('❌ Error restoring doctor:', error);
+      throw error;
+    }
+  },
+
+  // Set doctor as active in branch
+  setDoctorActiveInBranch: async (doctorId: string, branchId: string): Promise<DoctorResponse> => {
+    console.log('🟢 Setting doctor as active in branch:', { doctorId, branchId });
+    
+    try {
+      const response = await api.post(`/doctors/${doctorId}/set-active-in-branch/${branchId}`);
+      console.log('✅ Doctor set as active in branch successfully:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error setting doctor as active in branch:', error);
+      throw error;
+    }
+  },
+
+  // Set doctor as inactive in branch
+  setDoctorInactiveInBranch: async (doctorId: string, branchId: string): Promise<DoctorResponse> => {
+    console.log('🔴 Setting doctor as inactive in branch:', { doctorId, branchId });
+    
+    try {
+      const response = await api.post(`/doctors/${doctorId}/set-inactive-in-branch/${branchId}`);
+      console.log('✅ Doctor set as inactive in branch successfully:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error setting doctor as inactive in branch:', error);
+      throw error;
+    }
+  },
+
+  // Get active doctors in branch
+  getActiveDoctorsInBranch: async (branchId: string): Promise<DoctorsResponse> => {
+    console.log('🔍 Getting active doctors in branch:', branchId);
+    
+    try {
+      const response = await api.get(`/doctors/branch/${branchId}/active`);
+      console.log('✅ Active doctors retrieved successfully:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error getting active doctors in branch:', error);
+      throw error;
+    }
+  },
+
+  // Deactivate all doctors in branch
+  deactivateAllDoctorsInBranch: async (branchId: string): Promise<{ success: boolean; message: string; data: { deactivatedCount: number } }> => {
+    console.log('🔴 Deactivating all doctors in branch:', branchId);
+    
+    try {
+      const response = await api.post(`/doctors/branch/${branchId}/deactivate-all`);
+      console.log('✅ All doctors deactivated successfully:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error deactivating all doctors in branch:', error);
       throw error;
     }
   }
