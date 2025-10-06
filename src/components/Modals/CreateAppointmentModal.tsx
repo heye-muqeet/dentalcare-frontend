@@ -110,9 +110,79 @@ export default function CreateAppointmentModal({
   const [branchHoursMessage, setBranchHoursMessage] = useState<string>('');
   const [existingAppointments, setExistingAppointments] = useState<{[patientId: string]: any}>({});
   
+  // Debug existing appointments state changes
+  useEffect(() => {
+    console.log('🔍 Existing appointments state changed:', existingAppointments);
+  }, [existingAppointments]);
+
+  // Appointment management functions
+  const handleAppointmentAction = async (appointmentId: string, action: 'cancel', reason?: string) => {
+    try {
+      setIsManagingAppointment(true);
+      console.log(`🔧 Handling appointment ${action} for ID:`, appointmentId);
+      
+      const updateData = { 
+        status: 'cancelled' as const, 
+        notes: reason ? `Cancelled: ${reason}` : 'Cancelled by receptionist' 
+      };
+      
+      const updatedAppointment = await appointmentsApi.updateAppointment(appointmentId, updateData);
+      console.log(`✅ Appointment ${action} successful:`, updatedAppointment);
+      
+      // Show success message
+      showSuccessToast(
+        'Appointment Cancelled',
+        'The appointment has been cancelled successfully. You can now create a new appointment for this patient.'
+      );
+      
+      // Clear the existing appointment from state since it's no longer active
+      setExistingAppointments(prev => {
+        const newState = { ...prev };
+        delete newState[appointmentFormData.patientId];
+        return newState;
+      });
+      
+      // Refresh receptionist data to reflect the changes
+      dispatch(refreshReceptionistData('all'));
+      
+      // Close cancel dialog
+      setShowCancelDialog(false);
+      setCancellationReason('');
+      
+    } catch (error) {
+      console.error(`❌ Error ${action}ing appointment:`, error);
+      handleApiError(error, `${action} appointment`);
+    } finally {
+      setIsManagingAppointment(false);
+    }
+  };
+
+  // Check if appointment time has passed
+  const isAppointmentTimePassed = (appointment: any) => {
+    if (!appointment.appointmentDate || !appointment.startTime) return false;
+    
+    const now = new Date();
+    const appointmentDate = new Date(appointment.appointmentDate);
+    const [hours, minutes] = appointment.startTime.split(':').map(Number);
+    
+    // Set the appointment time
+    appointmentDate.setHours(hours, minutes, 0, 0);
+    
+    // Check if appointment time has passed (with 15 minutes grace period)
+    const gracePeriod = 15 * 60 * 1000; // 15 minutes in milliseconds
+    const appointmentTimeWithGrace = new Date(appointmentDate.getTime() + gracePeriod);
+    
+    return now > appointmentTimeWithGrace;
+  };
+  
   // Dropdown states
   const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
   const [isDoctorDropdownOpen, setIsDoctorDropdownOpen] = useState(false);
+  
+  // Appointment management states
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState('');
+  const [isManagingAppointment, setIsManagingAppointment] = useState(false);
   
   // Duplicate detection state
   const [potentialDuplicates, setPotentialDuplicates] = useState<Patient[]>([]);
@@ -426,6 +496,12 @@ export default function CreateAppointmentModal({
       console.log('❌ Missing patient ID for existing patient');
     }
     
+    // Check if selected patient has an active appointment
+    if (activeTab === 'existing' && appointmentFormData.patientId && existingAppointments[appointmentFormData.patientId]) {
+      newErrors.patientId = 'Patient has an active appointment. Please complete or cancel the existing appointment first.';
+      console.log('❌ Patient has active appointment, cannot create new one');
+    }
+    
     // For new patients, validate patient form instead
     if (activeTab === 'new') {
       console.log('🔍 Validating new patient form');
@@ -659,12 +735,17 @@ export default function CreateAppointmentModal({
 
   // Check for existing active appointments when patient is selected
   useEffect(() => {
-    if (activeTab === 'existing' && appointmentFormData.patientId && appointmentFormData.visitType === 'scheduled') {
+    if (activeTab === 'existing' && appointmentFormData.patientId) {
+      console.log('🔍 Patient selected, triggering appointment check:', {
+        patientId: appointmentFormData.patientId,
+        activeTab,
+        currentExistingAppointments: existingAppointments
+      });
       // Use today's date as a placeholder since we're checking for ANY active appointment
       const today = new Date().toISOString().split('T')[0];
       checkExistingAppointment(appointmentFormData.patientId, today);
     }
-  }, [appointmentFormData.patientId, activeTab, appointmentFormData.visitType]);
+  }, [appointmentFormData.patientId, activeTab]);
 
   const handleAppointmentInputChange = (field: keyof AppointmentFormData, value: any) => {
     setAppointmentFormData(prev => ({ ...prev, [field]: value }));
@@ -715,15 +796,39 @@ export default function CreateAppointmentModal({
       console.log('🔍 Checking existing active appointment for patient:', patientId);
       const result = await appointmentsApi.checkExistingAppointment(patientId, appointmentDate);
       
-      if (result.success && result.data.hasAppointment && !result.data.canCreateNew) {
-        setExistingAppointments(prev => ({
-          ...prev,
-          [patientId]: {
-            ...result.data.existingAppointment,
-            reason: result.data.reason
-          }
-        }));
-        console.log('⚠️ Active appointment found, cannot create new one:', result.data.existingAppointment);
+      console.log('🔍 Full API response:', result);
+      console.log('🔍 Response structure check:', {
+        hasAppointment: result.hasAppointment,
+        canCreateNew: result.canCreateNew,
+        existingAppointment: !!result.existingAppointment
+      });
+      
+      // Check if there's an active appointment and we can't create a new one
+      if (result.hasAppointment && !result.canCreateNew && result.existingAppointment) {
+        const existingAppointment = result.existingAppointment;
+        console.log('⚠️ Active appointment found, cannot create new one:', existingAppointment);
+        
+        setExistingAppointments(prev => {
+          const newState = {
+            ...prev,
+            [patientId]: {
+              ...existingAppointment,
+              reason: result.reason,
+              // Format the appointment date for display
+              formattedDate: new Date(existingAppointment.appointmentDate).toLocaleDateString(),
+              formattedTime: existingAppointment.startTime ? 
+                formatTimeTo12Hour(existingAppointment.startTime) : 'Unknown time'
+            }
+          };
+          console.log('🔍 Setting existing appointments state:', newState);
+          return newState;
+        });
+        
+        // Show immediate warning to user
+        showWarningToast(
+          'Active Appointment Found',
+          `Patient already has an active ${existingAppointment.status} appointment. Please complete or cancel the existing appointment first.`
+        );
       } else {
         setExistingAppointments(prev => {
           const newState = { ...prev };
@@ -734,6 +839,12 @@ export default function CreateAppointmentModal({
       }
     } catch (error) {
       console.error('❌ Error checking existing appointment:', error);
+      // Don't block the user if the check fails, but log the error
+      setExistingAppointments(prev => {
+        const newState = { ...prev };
+        delete newState[patientId];
+        return newState;
+      });
     }
   };
 
@@ -884,12 +995,12 @@ export default function CreateAppointmentModal({
           appointmentFormData.appointmentDate
         );
         
-        if (existingCheck.success && !existingCheck.data.canCreateNew) {
-          console.log('❌ Patient has an active appointment, cannot create new one:', existingCheck.data);
+        if (existingCheck.hasAppointment && !existingCheck.canCreateNew) {
+          console.log('❌ Patient has an active appointment, cannot create new one:', existingCheck);
           
         showErrorToast(
           'Active Appointment Found',
-          existingCheck.data.reason || 'Patient already has an active appointment. Please complete or cancel the existing appointment before creating a new one.'
+          existingCheck.reason || 'Patient already has an active appointment. Please complete or cancel the existing appointment before creating a new one.'
         );
           return;
         }
@@ -1067,6 +1178,10 @@ export default function CreateAppointmentModal({
     setDuplicateWarning('');
     setShowDuplicateDetails(false);
     setShowAllDuplicates(false);
+    setExistingAppointments({}); // Clear existing appointments check
+    setShowCancelDialog(false); // Clear cancellation dialog
+    setCancellationReason(''); // Clear cancellation reason
+    setIsManagingAppointment(false); // Clear management state
     setIsPatientDropdownOpen(false);
     setIsDoctorDropdownOpen(false);
     if (phoneCheckTimeout) {
@@ -1121,7 +1236,10 @@ export default function CreateAppointmentModal({
                   <div className="flex space-x-1 bg-white p-0.5 rounded-md shadow-sm">
               <button
                 type="button"
-                onClick={() => setActiveTab('existing')}
+                onClick={() => {
+                  setActiveTab('existing');
+                  setExistingAppointments({}); // Clear existing appointments when switching tabs
+                }}
                       className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${
                   activeTab === 'existing'
                           ? 'bg-green-600 text-white shadow-sm'
@@ -1135,7 +1253,10 @@ export default function CreateAppointmentModal({
               </button>
               <button
                 type="button"
-                onClick={() => setActiveTab('new')}
+                onClick={() => {
+                  setActiveTab('new');
+                  setExistingAppointments({}); // Clear existing appointments when switching tabs
+                }}
                       className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${
                   activeTab === 'new'
                           ? 'bg-green-600 text-white shadow-sm'
@@ -1233,9 +1354,11 @@ export default function CreateAppointmentModal({
                             key={patient._id}
                             type="button"
                                       onClick={() => {
-                                        handleAppointmentInputChange('patientId', patient._id);
-                                        setIsPatientDropdownOpen(false);
-                                        setSearchTerm('');
+                                        if (!hasActiveAppointment) {
+                                          handleAppointmentInputChange('patientId', patient._id);
+                                          setIsPatientDropdownOpen(false);
+                                          setSearchTerm('');
+                                        }
                                       }}
                             disabled={hasActiveAppointment}
                                       className={`w-full p-2 text-left rounded transition-all duration-200 ${
@@ -1273,9 +1396,14 @@ export default function CreateAppointmentModal({
                                       </div>
                                   </div>
                                         {hasActiveAppointment && (
-                                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 flex-shrink-0 ml-2">
-                                            Active
-                                          </span>
+                                          <div className="flex flex-col items-end flex-shrink-0 ml-2">
+                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                                              Active
+                                            </span>
+                                            <span className="text-xs text-red-600 mt-0.5">
+                                              {existingAppointments[patient._id]?.formattedDate} at {existingAppointments[patient._id]?.formattedTime}
+                                            </span>
+                                          </div>
                               )}
                             </div>
                           </button>
@@ -1298,24 +1426,212 @@ export default function CreateAppointmentModal({
                       </div>
                 )}
                 
-                {/* Active appointment warning */}
-                {appointmentFormData.patientId && appointmentFormData.appointmentDate && existingAppointments[appointmentFormData.patientId] && (
-                      <div className="p-2.5 bg-red-50 border border-red-200 rounded-md">
-                        <div className="flex items-start gap-2">
-                          <AlertCircle className="h-3 w-3 text-red-600 mt-0.5 flex-shrink-0" />
-                          <div className="text-xs">
-                            <p className="font-medium text-red-800 mb-1">Active Appointment Found</p>
-                            <p className="text-red-700 mb-1">
-                              Patient has an active {existingAppointments[appointmentFormData.patientId].status} appointment.
+                {/* Professional Appointment Conflict Alert */}
+                {appointmentFormData.patientId && existingAppointments[appointmentFormData.patientId] && (
+                  <div className="relative overflow-hidden rounded-xl border shadow-sm">
+                    {/* Header with gradient background */}
+                    <div className={`px-4 py-3 ${
+                      isAppointmentTimePassed(existingAppointments[appointmentFormData.patientId])
+                        ? 'bg-gradient-to-r from-amber-500 to-orange-500'
+                        : 'bg-gradient-to-r from-red-500 to-rose-500'
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="flex-shrink-0">
+                            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                              {isAppointmentTimePassed(existingAppointments[appointmentFormData.patientId]) ? (
+                                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              ) : (
+                                <AlertCircle className="w-4 h-4 text-white" />
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-semibold text-white">
+                              {isAppointmentTimePassed(existingAppointments[appointmentFormData.patientId])
+                                ? 'Appointment Time Missed'
+                                : 'Active Appointment Conflict'
+                              }
+                            </h3>
+                            <p className="text-xs text-white/80">
+                              {isAppointmentTimePassed(existingAppointments[appointmentFormData.patientId])
+                                ? 'The scheduled appointment time has passed'
+                                : 'Patient already has an active appointment'
+                              }
                             </p>
-                            <p className="text-red-700 font-medium">
-                              Complete or cancel existing appointment first.
-                        </p>
-                        {existingAppointments[appointmentFormData.patientId].reason && (
-                              <p className="text-red-600 mt-1 text-xs bg-red-100 p-1.5 rounded">
-                            {existingAppointments[appointmentFormData.patientId].reason}
-                          </p>
-                        )}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                            isAppointmentTimePassed(existingAppointments[appointmentFormData.patientId])
+                              ? 'bg-white/20 text-white'
+                              : existingAppointments[appointmentFormData.patientId].status === 'scheduled' 
+                                ? 'bg-white/20 text-white' 
+                                : 'bg-white/20 text-white'
+                          }`}>
+                            {isAppointmentTimePassed(existingAppointments[appointmentFormData.patientId])
+                              ? 'Missed'
+                              : existingAppointments[appointmentFormData.patientId].status === 'scheduled' 
+                                ? 'Scheduled' 
+                                : 'In Progress'
+                            }
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Content Area */}
+                    <div className="bg-white p-4">
+                      {/* Appointment Details Card */}
+                      <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-3">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-6 h-6 bg-blue-100 rounded-md flex items-center justify-center">
+                                <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Date</p>
+                                <p className="text-sm font-semibold text-gray-900">{existingAppointments[appointmentFormData.patientId].formattedDate}</p>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center space-x-2">
+                              <div className="w-6 h-6 bg-green-100 rounded-md flex items-center justify-center">
+                                <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Time</p>
+                                <p className="text-sm font-semibold text-gray-900">{existingAppointments[appointmentFormData.patientId].formattedTime}</p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            {existingAppointments[appointmentFormData.patientId].doctorId && (
+                              <div className="flex items-center space-x-2">
+                                <div className="w-6 h-6 bg-purple-100 rounded-md flex items-center justify-center">
+                                  <svg className="w-3 h-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                  </svg>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Doctor</p>
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    Dr. {existingAppointments[appointmentFormData.patientId].doctorId.firstName} {existingAppointments[appointmentFormData.patientId].doctorId.lastName}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {existingAppointments[appointmentFormData.patientId].reasonForVisit && (
+                              <div className="flex items-start space-x-2">
+                                <div className="w-6 h-6 bg-indigo-100 rounded-md flex items-center justify-center mt-0.5">
+                                  <svg className="w-3 h-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Reason</p>
+                                  <p className="text-sm font-semibold text-gray-900">{existingAppointments[appointmentFormData.patientId].reasonForVisit}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center justify-end">
+                        <div className="flex items-center space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowCancelDialog(true)}
+                            disabled={isManagingAppointment}
+                            className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {isManagingAppointment ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                Cancelling...
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                Cancel Appointment
+                              </>
+                            )}
+                          </button>
+                          
+                          {/* Only show Accept Existing if appointment time hasn't passed */}
+                          {!isAppointmentTimePassed(existingAppointments[appointmentFormData.patientId]) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                showSuccessToast(
+                                  'Using Existing Appointment',
+                                  'You have chosen to use the existing appointment. The modal will now close.'
+                                );
+                                handleClose();
+                              }}
+                              className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-emerald-600 border border-transparent rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors"
+                            >
+                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              Accept Existing
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Status Message */}
+                      <div className={`mt-4 p-3 rounded-lg border-l-4 ${
+                        isAppointmentTimePassed(existingAppointments[appointmentFormData.patientId])
+                          ? 'bg-amber-50 border-amber-400'
+                          : 'bg-red-50 border-red-400'
+                      }`}>
+                        <div className="flex">
+                          <div className="flex-shrink-0">
+                            {isAppointmentTimePassed(existingAppointments[appointmentFormData.patientId]) ? (
+                              <svg className="h-5 w-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            ) : (
+                              <AlertCircle className="h-5 w-5 text-red-400" />
+                            )}
+                          </div>
+                          <div className="ml-3">
+                            <p className={`text-sm font-medium ${
+                              isAppointmentTimePassed(existingAppointments[appointmentFormData.patientId])
+                                ? 'text-amber-800'
+                                : 'text-red-800'
+                            }`}>
+                              {isAppointmentTimePassed(existingAppointments[appointmentFormData.patientId])
+                                ? 'Appointment Time Missed'
+                                : 'Appointment Conflict Detected'
+                              }
+                            </p>
+                            <p className={`mt-1 text-sm ${
+                              isAppointmentTimePassed(existingAppointments[appointmentFormData.patientId])
+                                ? 'text-amber-700'
+                                : 'text-red-700'
+                            }`}>
+                              {isAppointmentTimePassed(existingAppointments[appointmentFormData.patientId])
+                                ? 'This appointment time has passed. You can cancel it and create a new appointment.'
+                                : 'Cannot create new appointment. Please cancel the existing appointment or accept it to use the current one.'
+                              }
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2037,7 +2353,11 @@ export default function CreateAppointmentModal({
             <button
               type="submit"
               form="appointment-form"
-              disabled={isSubmitting || (appointmentFormData.visitType === 'walk_in' && !isBranchOpen)}
+              disabled={
+                isSubmitting || 
+                (appointmentFormData.visitType === 'walk_in' && !isBranchOpen) ||
+                (activeTab === 'existing' && appointmentFormData.patientId && existingAppointments[appointmentFormData.patientId])
+              }
               className="px-6 py-2 text-sm font-medium bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-lg hover:from-emerald-700 hover:to-green-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-md"
             >
               {isSubmitting ? (
@@ -2052,6 +2372,11 @@ export default function CreateAppointmentModal({
                   </svg>
                   <span>Walk-in Not Available</span>
                 </>
+              ) : activeTab === 'existing' && appointmentFormData.patientId && existingAppointments[appointmentFormData.patientId] ? (
+                <>
+                  <AlertCircle className="h-4 w-4" />
+                  <span>Active Appointment Found</span>
+                </>
               ) : (
                 <>
                   <Plus className="h-4 w-4" />
@@ -2062,6 +2387,104 @@ export default function CreateAppointmentModal({
           </div>
         </div>
       </div>
+
+      {/* Cancellation Dialog */}
+      {showCancelDialog && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-60">
+          <div className="bg-white rounded-xl max-w-md w-full shadow-xl">
+            <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-3 rounded-t-xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="p-1.5 bg-white/20 rounded-md">
+                    <AlertCircle className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold">Cancel Appointment</h3>
+                    <p className="text-white/80 text-xs">Provide a reason for cancellation</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowCancelDialog(false);
+                    setCancellationReason('');
+                  }}
+                  className="p-1.5 hover:bg-white/20 rounded-md transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cancellation Reason *
+                  </label>
+                  <textarea
+                    value={cancellationReason}
+                    onChange={(e) => setCancellationReason(e.target.value)}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm resize-none"
+                    placeholder="Enter the reason for cancelling this appointment..."
+                  />
+                </div>
+
+                <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-red-800">
+                      <p className="font-medium mb-1">This action cannot be undone</p>
+                      <p className="text-xs">The appointment will be marked as cancelled and you will be able to create a new appointment for this patient immediately.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-3 border-t border-gray-200 rounded-b-xl flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCancelDialog(false);
+                  setCancellationReason('');
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (cancellationReason.trim()) {
+                    handleAppointmentAction(
+                      existingAppointments[appointmentFormData.patientId]._id, 
+                      'cancel', 
+                      cancellationReason.trim()
+                    );
+                  } else {
+                    showErrorToast('Cancellation Reason Required', 'Please provide a reason for cancelling the appointment.');
+                  }
+                }}
+                disabled={!cancellationReason.trim() || isManagingAppointment}
+                className="px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isManagingAppointment ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Cancelling...</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="h-4 w-4" />
+                    <span>Cancel Appointment</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
